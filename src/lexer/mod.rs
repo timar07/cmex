@@ -49,13 +49,130 @@ impl Lexer<'_> {
 
     fn parse_single_char(&mut self) -> Option<Token> {
         Some(match self.src.peek()? {
+            '.' => {
+                if self.src.match_ch('.') && self.src.match_ch('.') {
+                    Token::Ellipsis
+                } else {
+                    Token::Dot
+                }
+            },
+            '>' => {
+                if self.src.match_ch('>') {
+                    if self.src.match_ch('=') {
+                        Token::RightAssign
+                    } else {
+                        Token::Right
+                    }
+                } else if self.src.match_ch('=') {
+                    Token::Ge
+                } else {
+                    Token::Gt
+                }
+            },
+            '<' => {
+                if self.src.match_ch('<') {
+                    if self.src.match_ch('=') {
+                        Token::LeftAssign
+                    } else {
+                        Token::Left
+                    }
+                } else if self.src.match_ch('=') {
+                    Token::Le
+                } else {
+                    Token::Lt
+                }
+            },
             '+' => {
                 if self.src.match_ch('=') {
                     Token::AddAssign
+                } else if self.src.match_ch('+') {
+                    Token::Increment
                 } else {
                     Token::Plus
                 }
-            }
+            },
+            '-' => {
+                if self.src.match_ch('=') {
+                    Token::SubAssign
+                } else if self.src.match_ch('-') {
+                    Token::Decrement
+                } else if self.src.match_ch('>') {
+                    Token::ArrowRight
+                } else {
+                    Token::Minus
+                }
+            },
+            '*' => {
+                if self.src.match_ch('=') {
+                    Token::MulAssign
+                } else {
+                    Token::Asterisk
+                }
+            },
+            '/' => {
+                if self.src.match_ch('=') {
+                    Token::DivAssign
+                } else {
+                    Token::Slash
+                }
+            },
+            '%' => {
+                if self.src.match_ch('=') {
+                    Token::ModAssign
+                } else {
+                    Token::Mod
+                }
+            },
+            '&' => {
+                if self.src.match_ch('&') {
+                    Token::AndAssign
+                } else if self.src.match_ch('&') {
+                    Token::And
+                } else {
+                    Token::Ampersand
+                }
+            },
+            '^' => {
+                if self.src.match_ch('=') {
+                    Token::XorAssign
+                } else {
+                    Token::Circ
+                }
+            },
+            '|' => {
+                if self.src.match_ch('=') {
+                    Token::OrAssign
+                } else if self.src.match_ch('|') {
+                    Token::Or
+                } else {
+                    Token::Bar
+                }
+            },
+            '=' => {
+                if self.src.match_ch('=') {
+                    Token::Eq
+                } else {
+                    Token::Assign
+                }
+            },
+            '!' => {
+                if self.src.match_ch('=') {
+                    Token::Neq
+                } else {
+                    Token::Not
+                }
+            },
+            ';' => Token::Semicolon,
+            '{' => Token::LeftCurly,
+            '}' => Token::RightCurly,
+            ',' => Token::Comma,
+            ':' => Token::Colon,
+            '(' => Token::LeftParen,
+            ')' => Token::RightParen,
+            '[' => Token::LeftBrace,
+            ']' => Token::RightBrace,
+            '~' => Token::Tilde,
+            '?' => Token::Quest,
             _ => return None
         }).and_then(|t| {
             self.src.next();
