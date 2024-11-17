@@ -4,7 +4,6 @@ use std::str::Chars;
 pub struct Cursor<'src> {
     src: Chars<'src>,
     current: Option<char>,
-    pos: usize
 }
 
 impl<'a> Cursor<'a> {
@@ -12,20 +11,18 @@ impl<'a> Cursor<'a> {
         Self {
             src: src.chars(),
             current: None,
-            pos: 0
         }
     }
 
     pub fn next(&mut self) -> Option<char> {
         let c = self.current;
         self.current = self.src.next();
-        self.pos += 1;
-        c.or_else(|| self.current)
+        c.or(self.current)
     }
 
     pub fn match_ch(&mut self, ch: char) -> bool {
         if self.peek() == Some(ch) {
-            self.src.next();
+            self.next();
             true
         } else {
             false

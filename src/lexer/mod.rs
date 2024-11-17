@@ -48,7 +48,7 @@ impl Lexer<'_> {
     }
 
     fn parse_single_char(&mut self) -> Option<Token> {
-        Some(match self.src.peek()? {
+        Some(match self.src.next()? {
             '.' => {
                 if self.src.match_ch('.') && self.src.match_ch('.') {
                     Token::Ellipsis
@@ -124,7 +124,7 @@ impl Lexer<'_> {
                 }
             },
             '&' => {
-                if self.src.match_ch('&') {
+                if self.src.match_ch('=') {
                     Token::AndAssign
                 } else if self.src.match_ch('&') {
                     Token::And
@@ -174,9 +174,6 @@ impl Lexer<'_> {
             '~' => Token::Tilde,
             '?' => Token::Quest,
             _ => return None
-        }).and_then(|t| {
-            self.src.next();
-            Some(t)
         })
     }
 

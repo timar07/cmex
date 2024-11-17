@@ -7,48 +7,29 @@ mod tests {
     };
 
     #[test]
-    fn single_chars() {
+    fn one_or_two_character_tokens() {
         let lexer = Lexer::from("\
-            += & &= -> * , -- /= == >= ++ <= <<
-            <<= [ { ( %= *= != | |= >> >>= ] } )
-            ; -= ^=
+            ... . > >> >>= >= < << <<= <=
+            + += ++ - -= -- -> * *=
+            / /= % %= & &= && ^ ^=
+            | |= || = == ! != ; { } , :
+            ( ) [ ] ~ ?
         ");
 
-        // assert_eq!(
-        //     lexer.collect::<Vec<Token>>(),
-        //     vec![
-        //         AddAssign,
-        //         And,
-        //         AndAssign,
-        //         ArrowRight,
-        //         Asterisk,
-        //         Comma,
-        //         Decrement,
-        //         DivAssign,
-        //         Eq,
-        //         Ge,
-        //         Increment,
-        //         Le,
-        //         Left,
-        //         LeftAssign,
-        //         LeftBrace,
-        //         LeftCurly,
-        //         LeftParen,
-        //         ModAssign,
-        //         MulAssign,
-        //         Neq,
-        //         Or,
-        //         OrAssign,
-        //         Right,
-        //         RightAssign,
-        //         RightBrace,
-        //         RightCurly,
-        //         RightParen,
-        //         Semicolon,
-        //         SubAssign,
-        //         XorAssign
-        //     ]
-        // )
+        assert_eq!(
+            lexer.collect::<Vec<Token>>(),
+            vec![
+                Ellipsis, Dot, Gt, Right, RightAssign,
+                Ge, Lt, Left, LeftAssign, Le, Plus,
+                AddAssign, Increment, Minus, SubAssign,
+                Decrement, ArrowRight, Asterisk, MulAssign,
+                Slash, DivAssign, Mod, ModAssign, Ampersand,
+                AndAssign, And, Circ, XorAssign, Bar, OrAssign,
+                Or, Assign, Eq, Not, Neq, Semicolon, LeftCurly,
+                RightCurly, Comma, Colon, LeftParen, RightParen,
+                LeftBrace, RightBrace, Tilde, Quest
+            ]
+        )
     }
 
     #[test]
