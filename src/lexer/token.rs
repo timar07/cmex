@@ -70,6 +70,7 @@ pub enum Token {
     Struct,
     Switch,
     Minus,
+    NumberLiteral(String),
     SubAssign,
     TypeName(String),
     Typedef,
