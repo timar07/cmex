@@ -43,7 +43,11 @@ impl<'a> Cursor<'a> {
     {
         let mut lexeme = String::new();
 
-        while self.peek().is_some() && predicate(self.peek().unwrap()) {
+        while let Some(c) = self.peek(){
+            if !predicate(c) {
+                break;
+            }
+
             if let Some(c) = self.next() {
                 lexeme.push(c)
             }
