@@ -36,14 +36,28 @@ impl Lexer<'_> {
                 Some(self.parse_keyword_or_ident())
             },
             '\"' => self.parse_string(),
+            '0'..='9' => self.parse_number(),
             _ => self.parse_single_char()
         }
     }
 
+    // TODO: Refactor, this looks horrible
     fn parse_string(&mut self) -> Option<Token> {
-        Some(Token::StringLiteral(
-            self.src
-                .take_while(|c| c != '"')
+        self.src.next(); // "
+
+        Some(
+            Token::StringLiteral(
+                self.src.take_while(|c| c != '"')
+            )
+        ).and_then(|t| {
+            self.src.next(); // "
+            Some(t)
+        })
+    }
+
+    fn parse_number(&mut self) -> Option<Token> {
+        Some(Token::NumberLiteral(
+            self.src.take_while(|c| c.is_ascii_digit())
         ))
     }
 
