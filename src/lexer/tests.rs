@@ -7,6 +7,36 @@ mod tests {
     };
 
     #[test]
+    fn hello_world() {
+        let lexer = Lexer::from("\
+            int main() {
+                printf(\"Hello, world!\");
+                return 0;
+            }
+        ");
+
+        assert_eq!(
+            lexer.collect::<Vec<Token>>(),
+            vec![
+                Int,
+                Identifier("main".into()),
+                LeftParen,
+                RightParen,
+                LeftCurly,
+                Identifier("printf".into()),
+                LeftParen,
+                StringLiteral("Hello, world!".into()),
+                RightParen,
+                Semicolon,
+                Return,
+                NumberLiteral("0".into()),
+                Semicolon,
+                RightCurly
+            ]
+        )
+    }
+
+    #[test]
     fn one_or_two_character_tokens() {
         let lexer = Lexer::from("\
             ... . > >> >>= >= < << <<= <=
