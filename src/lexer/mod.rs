@@ -36,6 +36,10 @@ impl Lexer<'_> {
                 Some(self.parse_keyword_or_ident())
             },
             '\"' => self.parse_string(),
+            '/' if self.src.lookahead(1) == Some('*') => {
+                self.skip_comment();
+                self.lex_token()
+            },
             '0'..='9' => self.parse_number(),
             _ => self.parse_single_char()
         }
@@ -59,6 +63,16 @@ impl Lexer<'_> {
         Some(Token::NumberLiteral(
             self.src.take_while(|c| c.is_ascii_digit())
         ))
+    }
+
+    fn skip_comment(&mut self) {
+        loop {
+            self.src.next();
+
+            if self.src.match_ch('*') && self.src.match_ch('/') {
+                break;
+            }
+        }
     }
 
     fn parse_single_char(&mut self) -> Option<Token> {
