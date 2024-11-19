@@ -7,6 +7,40 @@ mod tests {
     };
 
     #[test]
+    fn comments() {
+        let lexer = Lexer::from("\
+            /* this is a comment */
+            int f() {
+                return 1; /* always one */
+            }
+
+            /*
+            int x() {
+                return 0;
+            }
+            */
+
+            int a() {
+                return 12321;
+            }
+        ");
+
+        assert_eq!(
+            lexer.collect::<Vec<Token>>(),
+            vec![
+                Int, Identifier("f".into()), LeftParen, RightParen,
+                LeftCurly, Return, NumberLiteral("1".into()), Semicolon,
+                RightCurly,
+
+                Int, Identifier("a".into()), LeftParen, RightParen,
+                LeftCurly, Return, NumberLiteral("12321".into()), Semicolon,
+                RightCurly
+            ]
+        );
+
+    }
+
+    #[test]
     fn hello_world() {
         let lexer = Lexer::from("\
             int main() {
