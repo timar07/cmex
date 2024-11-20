@@ -36,101 +36,14 @@ impl Lexer<'_> {
             c if c.is_ascii_alphabetic() => {
                 Some(self.parse_keyword_or_ident())
             },
-            '\"' => self.parse_string(),
+            '\"' => StringLiteralCollector::new(&mut self.src).collect(),
             '/' if self.src.lookahead(1) == Some('*') => {
                 self.skip_comment();
                 self.lex_token()
             },
-            '0'..='9' => self.parse_number(),
+            '0'..='9' => NumberLiteralCollector::new(&mut self.src).collect(),
             _ => self.parse_single_char()
         }
-    }
-
-    // TODO: Refactor, this looks horrible
-    fn parse_string(&mut self) -> Option<Token> {
-        self.src.next(); // "
-
-        Some(
-            Token::StringLiteral(
-                self.src.take_while(|c| c != '"')
-            )
-        ).and_then(|t| {
-            self.src.next(); // "
-            Some(t)
-        })
-    }
-
-    /// TODO: this function is too large, try splitting it out
-    fn parse_number(&mut self) -> Option<Token> {
-        let prefix = match self.src.next()? {
-            '0' => match self.src.next() {
-                Some('x') => Some(NumberLiteralPrefix::Hex),
-                Some('o') => Some(NumberLiteralPrefix::Oct),
-                Some('b') => Some(NumberLiteralPrefix::Bin),
-                Some('0'..='9') => None,
-                _ => panic!()
-            }
-            _ => None
-        };
-
-        while let Some(c) = self.src.peek() {
-            if !c.is_ascii_digit() {
-                break;
-            }
-
-            self.src.next();
-        }
-
-        let kind = match self.src.peek() {
-            Some('.') => {
-                self.src.next();
-                self.src.take_while(|c| c.is_ascii_digit());
-                NumberLiteralKind::Float
-            },
-            Some('e') => {
-                self.src.next();
-                self.src.match_ch('-');
-
-                if !self.src.peek().is_some_and(|c| c.is_ascii_digit()) {
-                    panic!();
-                }
-
-                self.src.take_while(|c| c.is_ascii_digit());
-                NumberLiteralKind::Exponent
-            },
-            _ => NumberLiteralKind::Int
-        };
-
-        let suffix = match self.src.peek() {
-            Some('u' | 'U') => {
-                self.src.next();
-
-                if matches!(self.src.next(), Some('l' | 'L')) {
-                    Some(NumberLiteralSuffix::UnsignedLong)
-                } else {
-                    Some(NumberLiteralSuffix::Unsigned)
-                }
-            },
-            Some('l' | 'L') => {
-                self.src.next();
-
-                match self.src.peek() {
-                    Some('l' | 'L') => Some(NumberLiteralSuffix::LongLong),
-                    Some('u' | 'U') => Some(NumberLiteralSuffix::UnsignedLong),
-                    _ => Some(NumberLiteralSuffix::Long)
-                }.and_then(|k| {
-                    self.src.next();
-                    Some(k)
-                })
-            },
-            _ => None
-        };
-
-        Some(Token::NumberLiteral {
-            prefix,
-            suffix,
-            kind
-        })
     }
 
     fn skip_comment(&mut self) {
@@ -312,5 +225,157 @@ impl Lexer<'_> {
             "while" => Token::While,
             _ => Token::Identifier(ident)
         }
+    }
+}
+
+struct NumberLiteralCollector<'src, 'a> {
+    src: &'a mut Cursor<'src>
+}
+
+impl<'src, 'a> NumberLiteralCollector<'src, 'a> {
+    fn new(src: &'a mut Cursor<'src>) -> Self {
+        Self { src }
+    }
+
+    pub fn collect(&mut self) -> Option<Token> {
+        let prefix = match self.src.peek()? {
+            '0' => {
+                self.src.next();
+                self.parse_prefix()
+            },
+            _ => None
+        };
+
+        match prefix {
+            Some(NumberLiteralPrefix::Hex) => self.consume_hex_digits(),
+            Some(NumberLiteralPrefix::Oct) => self.consume_oct_digits(),
+            Some(NumberLiteralPrefix::Bin) => self.consume_bin_digits(),
+            None => self.consume_dec_digits(),
+        }
+
+        let kind = match self.src.peek() {
+            Some('.') if prefix.is_none() => {
+                self.src.next();
+                self.src.take_while(|c| c.is_ascii_digit());
+
+                if self.src.match_ch('e') {
+                    self.consume_exponent();
+                    NumberLiteralKind::Exponent
+                } else {
+                    NumberLiteralKind::Float
+                }
+            },
+            Some('e') => {
+                if prefix.is_some() {
+                    // invalid digit `e`
+                    return None;
+                }
+
+                self.consume_exponent();
+                NumberLiteralKind::Exponent
+            },
+            _ => NumberLiteralKind::Int
+        };
+
+        let suffix = self.parse_suffix();
+
+        Some(Token::NumberLiteral {
+            prefix,
+            suffix,
+            kind
+        })
+    }
+
+    fn parse_suffix(&mut self) -> Option<NumberLiteralSuffix> {
+        match self.src.peek() {
+            Some('u' | 'U') => {
+                self.src.next();
+
+                if matches!(self.src.next(), Some('l' | 'L')) {
+                    Some(NumberLiteralSuffix::UnsignedLong)
+                } else {
+                    Some(NumberLiteralSuffix::Unsigned)
+                }
+            },
+            Some('l' | 'L') => {
+                self.src.next();
+
+                match self.src.peek() {
+                    Some('l' | 'L') => {
+                        self.src.next();
+                        Some(NumberLiteralSuffix::LongLong)
+                    },
+                    Some('u' | 'U') => {
+                        self.src.next();
+                        Some(NumberLiteralSuffix::UnsignedLong)
+                    }
+                    _ => Some(NumberLiteralSuffix::Long)
+                }
+            },
+            _ => None
+        }
+    }
+
+    fn parse_prefix(&mut self) -> Option<NumberLiteralPrefix> {
+        let prefix = match self.src.peek()? {
+            'x' => Some(NumberLiteralPrefix::Hex),
+            'o' => Some(NumberLiteralPrefix::Oct),
+            'b' => Some(NumberLiteralPrefix::Bin),
+            _ => return None
+        };
+
+        self.src.next();
+
+        prefix
+    }
+
+    fn consume_hex_digits(&mut self) {
+        self.src.take_while(|c| c.is_ascii_hexdigit());
+    }
+
+    fn consume_dec_digits(&mut self) {
+        self.src.take_while(|c| c.is_ascii_digit());
+    }
+
+    fn consume_oct_digits(&mut self) {
+        self.src.take_while(|c| matches!(c, '0'..='7'));
+    }
+
+    fn consume_bin_digits(&mut self) {
+        self.src.take_while(|c| matches!(c, '0'..='1'));
+    }
+
+    fn consume_exponent(&mut self) {
+        self.src.next();
+        self.src.match_ch('-');
+
+        if !self.src.peek().is_some_and(|c| c.is_ascii_digit()) {
+            panic!();
+        }
+
+        self.consume_dec_digits();
+    }
+}
+
+struct StringLiteralCollector<'src, 'a> {
+    src: &'a mut Cursor<'src>
+}
+
+impl<'src, 'a> StringLiteralCollector<'src, 'a> {
+    fn new(src: &'a mut Cursor<'src>) -> Self {
+        Self { src }
+    }
+
+    pub fn collect(&mut self) -> Option<Token> {
+        self.src.next(); // "
+
+        Some(
+            Token::StringLiteral(
+                self.src.take_while(|c| c != '"')
+            )
+        ).and_then(|t| {
+            self.src.next(); // "
+            Some(t)
+        })
     }
 }
