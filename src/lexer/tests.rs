@@ -1,10 +1,64 @@
 #[cfg(test)]
 mod tests {
     use crate::lexer::{
-        token::Token,
-        token::Token::*,
+        token::{NumberLiteralKind, NumberLiteralPrefix, NumberLiteralSuffix, Token::{self, *}},
         Lexer
     };
+
+    #[test]
+    fn numbers() {
+        let lexer = Lexer::from("\
+            123 3.141592 1.4142ll
+            0x234 0x234ul
+            123e3 123e-3 123e3lu
+        ");
+
+        assert_eq!(
+            lexer.collect::<Vec<Token>>(),
+            vec![
+                NumberLiteral {
+                    prefix: None,
+                    suffix: None,
+                    kind: NumberLiteralKind::Int
+                },
+                NumberLiteral {
+                    prefix: None,
+                    suffix: None,
+                    kind: NumberLiteralKind::Float
+                },
+                NumberLiteral {
+                    prefix: None,
+                    suffix: Some(NumberLiteralSuffix::LongLong),
+                    kind: NumberLiteralKind::Float
+                },
+                NumberLiteral {
+                    prefix: Some(NumberLiteralPrefix::Hex),
+                    suffix: None,
+                    kind: NumberLiteralKind::Int
+                },
+                NumberLiteral {
+                    prefix: Some(NumberLiteralPrefix::Hex),
+                    suffix: Some(NumberLiteralSuffix::UnsignedLong),
+                    kind: NumberLiteralKind::Int
+                },
+                NumberLiteral {
+                    prefix: None,
+                    suffix: None,
+                    kind: NumberLiteralKind::Exponent
+                },
+                NumberLiteral {
+                    prefix: None,
+                    suffix: None,
+                    kind: NumberLiteralKind::Exponent
+                },
+                NumberLiteral {
+                    prefix: None,
+                    suffix: Some(NumberLiteralSuffix::UnsignedLong),
+                    kind: NumberLiteralKind::Exponent
+                }
+            ]
+        );
+    }
 
     #[test]
     fn comments() {
@@ -28,12 +82,32 @@ mod tests {
         assert_eq!(
             lexer.collect::<Vec<Token>>(),
             vec![
-                Int, Identifier("f".into()), LeftParen, RightParen,
-                LeftCurly, Return, NumberLiteral("1".into()), Semicolon,
+                Int,
+                Identifier("f".into()),
+                LeftParen,
+                RightParen,
+                LeftCurly,
+                Return,
+                NumberLiteral {
+                    prefix: None,
+                    suffix: None,
+                    kind: NumberLiteralKind::Int
+                },
+                Semicolon,
                 RightCurly,
 
-                Int, Identifier("a".into()), LeftParen, RightParen,
-                LeftCurly, Return, NumberLiteral("12321".into()), Semicolon,
+                Int,
+                Identifier("a".into()),
+                LeftParen,
+                RightParen,
+                LeftCurly,
+                Return,
+                NumberLiteral {
+                    prefix: None,
+                    suffix: None,
+                    kind: NumberLiteralKind::Int
+                },
+                Semicolon,
                 RightCurly
             ]
         );
@@ -63,7 +137,11 @@ mod tests {
                 RightParen,
                 Semicolon,
                 Return,
-                NumberLiteral("0".into()),
+                NumberLiteral {
+                    prefix: None,
+                    suffix: None,
+                    kind: NumberLiteralKind::Int
+                },
                 Semicolon,
                 RightCurly
             ]

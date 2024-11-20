@@ -70,7 +70,11 @@ pub enum Token {
     Struct,
     Switch,
     Minus,
-    NumberLiteral(String),
+    NumberLiteral {
+        prefix: Option<NumberLiteralPrefix>,
+        suffix: Option<NumberLiteralSuffix>,
+        kind: NumberLiteralKind
+    },
     SubAssign,
     TypeName(String),
     Typedef,
@@ -83,4 +87,28 @@ pub enum Token {
     Circ,
     Quest,
     XorAssign,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum NumberLiteralKind {
+    Exponent,
+    Float,
+    Int
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum NumberLiteralPrefix {
+    Bin,
+    Oct,
+    Hex
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum NumberLiteralSuffix {
+    Double,
+    Float,
+    Unsigned,
+    Long,
+    UnsignedLong,
+    LongLong
 }

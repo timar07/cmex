@@ -1,3 +1,4 @@
+use token::{NumberLiteralKind, NumberLiteralPrefix, NumberLiteralSuffix};
 pub use token::Token;
 use cursor::Cursor;
 
@@ -59,10 +60,77 @@ impl Lexer<'_> {
         })
     }
 
+    /// TODO: this function is too large, try splitting it out
     fn parse_number(&mut self) -> Option<Token> {
-        Some(Token::NumberLiteral(
-            self.src.take_while(|c| c.is_ascii_digit())
-        ))
+        let prefix = match self.src.next()? {
+            '0' => match self.src.next() {
+                Some('x') => Some(NumberLiteralPrefix::Hex),
+                Some('o') => Some(NumberLiteralPrefix::Oct),
+                Some('b') => Some(NumberLiteralPrefix::Bin),
+                Some('0'..='9') => None,
+                _ => panic!()
+            }
+            _ => None
+        };
+
+        while let Some(c) = self.src.peek() {
+            if !c.is_ascii_digit() {
+                break;
+            }
+
+            self.src.next();
+        }
+
+        let kind = match self.src.peek() {
+            Some('.') => {
+                self.src.next();
+                self.src.take_while(|c| c.is_ascii_digit());
+                NumberLiteralKind::Float
+            },
+            Some('e') => {
+                self.src.next();
+                self.src.match_ch('-');
+
+                if !self.src.peek().is_some_and(|c| c.is_ascii_digit()) {
+                    panic!();
+                }
+
+                self.src.take_while(|c| c.is_ascii_digit());
+                NumberLiteralKind::Exponent
+            },
+            _ => NumberLiteralKind::Int
+        };
+
+        let suffix = match self.src.peek() {
+            Some('u' | 'U') => {
+                self.src.next();
+
+                if matches!(self.src.next(), Some('l' | 'L')) {
+                    Some(NumberLiteralSuffix::UnsignedLong)
+                } else {
+                    Some(NumberLiteralSuffix::Unsigned)
+                }
+            },
+            Some('l' | 'L') => {
+                self.src.next();
+
+                match self.src.peek() {
+                    Some('l' | 'L') => Some(NumberLiteralSuffix::LongLong),
+                    Some('u' | 'U') => Some(NumberLiteralSuffix::UnsignedLong),
+                    _ => Some(NumberLiteralSuffix::Long)
+                }.and_then(|k| {
+                    self.src.next();
+                    Some(k)
+                })
+            },
+            _ => None
+        };
+
+        Some(Token::NumberLiteral {
+            prefix,
+            suffix,
+            kind
+        })
     }
 
     fn skip_comment(&mut self) {
