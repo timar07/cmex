@@ -180,7 +180,7 @@ mod tests {
                 LeftCurly,
                 Identifier("printf".into()),
                 LeftParen,
-                StringLiteral("Hello, world!".into()),
+                StringLiteral,
                 RightParen,
                 Semicolon,
                 Return,
