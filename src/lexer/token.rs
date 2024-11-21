@@ -103,6 +103,16 @@ pub enum NumberLiteralPrefix {
     Hex
 }
 
+impl std::fmt::Display for NumberLiteralPrefix {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Bin => write!(f, "0b"),
+            Self::Oct => write!(f, "0o"),
+            Self::Hex => write!(f, "0x"),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Eq)]
 pub enum NumberLiteralSuffix {
     Double,
