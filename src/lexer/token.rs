@@ -66,7 +66,7 @@ pub enum Token {
     Signed,
     Sizeof,
     Static,
-    StringLiteral(String),
+    StringLiteral,
     Struct,
     Switch,
     Minus,

@@ -369,13 +369,49 @@ impl<'src, 'a> StringLiteralCollector<'src, 'a> {
     pub fn collect(&mut self) -> Option<Token> {
         self.src.next(); // "
 
-        Some(
-            Token::StringLiteral(
-                self.src.take_while(|c| c != '"')
-            )
-        ).and_then(|t| {
-            self.src.next(); // "
-            Some(t)
-        })
+        loop {
+            match self.src.peek() {
+                Some('\\') => self.parse_escape_sequence(),
+                Some('"') => {
+                    self.src.next();
+                    break;
+                },
+                None => panic!("unterminated string"),
+                _ => { self.src.next(); }
+            }
+        }
+
+        Some(Token::StringLiteral)
+    }
+
+    fn parse_escape_sequence(&mut self) {
+        match self.src.next() {
+            Some('0'..='7') => self.parse_octal_escape(),
+            Some('x') => self.parse_hex_escape(),
+            Some('b' | 't' | 'n' | 'f' | 'r' | '\"' | '\'' | '\\' | '?') => {
+                self.src.next();
+            },
+            _ => { panic!() }
+        }
+    }
+
+    fn parse_hex_escape(&mut self) {
+        for _ in 0..=2 {
+            if !self.src.peek().is_some_and(|c| c.is_ascii_hexdigit()) {
+                break;
+            }
+
+            self.src.next();
+        }
+    }
+
+    fn parse_octal_escape(&mut self) {
+        for _ in 0..=3 {
+            if !matches!(self.src.peek(), Some('0'..='7')) {
+                break;
+            }
+
+            self.src.next();
+        }
     }
 }
