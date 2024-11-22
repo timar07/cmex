@@ -78,7 +78,7 @@ mod tests {
                     suffix: Some(NumberLiteralSuffix::UnsignedLong),
                     kind: NumberLiteralKind::Int
                 }),
-                Err(InvalidDigit('g'))
+                Err(InvalidNumberLiteralSuffix("g".into()))
             ]
         )
     }
