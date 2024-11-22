@@ -35,7 +35,7 @@ mod tests {
     #[test]
     fn floats() {
         let lexer = Lexer::from("
-            3.141592 1.4142ll
+            3.141592 1.4142l 1.4142f
         ");
 
         assert_eq!(
@@ -51,7 +51,12 @@ mod tests {
                 },
                 NumberLiteral {
                     prefix: None,
-                    suffix: Some(NumberLiteralSuffix::LongLong),
+                    suffix: Some(NumberLiteralSuffix::Long),
+                    kind: NumberLiteralKind::Float
+                },
+                NumberLiteral {
+                    prefix: None,
+                    suffix: Some(NumberLiteralSuffix::Float),
                     kind: NumberLiteralKind::Float
                 },
             ]
@@ -86,8 +91,10 @@ mod tests {
     #[test]
     fn exponents() {
         let lexer = Lexer::from("
-            123e3 123e-3 123e3lu 1.6e19
-            123e-
+            123e3 123e-3
+            123e3l 123e-3l
+            1.6e19f 1.6e-19f
+            123e- 1.6e19lf
         ");
 
         assert_eq!(
@@ -105,15 +112,26 @@ mod tests {
                 }),
                 Ok(NumberLiteral {
                     prefix: None,
-                    suffix: Some(NumberLiteralSuffix::UnsignedLong),
+                    suffix: Some(NumberLiteralSuffix::Long),
                     kind: NumberLiteralKind::Exponent
                 }),
                 Ok(NumberLiteral {
                     prefix: None,
-                    suffix: None,
+                    suffix: Some(NumberLiteralSuffix::Long),
                     kind: NumberLiteralKind::Exponent
                 }),
-                Err(ExponentHasNoDigits)
+                Ok(NumberLiteral {
+                    prefix: None,
+                    suffix: Some(NumberLiteralSuffix::Float),
+                    kind: NumberLiteralKind::Exponent
+                }),
+                Ok(NumberLiteral {
+                    prefix: None,
+                    suffix: Some(NumberLiteralSuffix::Float),
+                    kind: NumberLiteralKind::Exponent
+                }),
+                Err(ExponentHasNoDigits),
+                Err(InvalidNumberLiteralSuffix("lf".into()))
             ]
         )
     }
