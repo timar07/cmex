@@ -1,8 +1,7 @@
 #[cfg(test)]
 mod tests {
     use crate::lexer::{
-        token::Token::{self, *},
-        Lexer
+        token::Token::{self, *}, LexError, Lexer
     };
 
     #[test]
@@ -16,7 +15,10 @@ mod tests {
         ");
 
         assert_eq!(
-            lexer.collect::<Vec<Token>>(),
+            lexer.collect::<Vec<Result<Token, LexError>>>()
+                .into_iter()
+                .flatten()
+                .collect::<Vec<Token>>(),
             vec![
                 StringLiteral,
                 StringLiteral,

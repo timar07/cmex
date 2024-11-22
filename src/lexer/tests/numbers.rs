@@ -1,13 +1,14 @@
 #[cfg(test)]
 mod tests {
     use crate::lexer::{
+        Lexer,
         token::{
             NumberLiteralKind,
             NumberLiteralPrefix,
             NumberLiteralSuffix,
             Token::{self, *}
         },
-        Lexer
+        LexError::{self, *}
     };
 
     #[test]
@@ -17,7 +18,10 @@ mod tests {
         ");
 
         assert_eq!(
-            lexer.collect::<Vec<Token>>(),
+            lexer.collect::<Vec<Result<Token, LexError>>>()
+                .into_iter()
+                .flatten()
+                .collect::<Vec<Token>>(),
             vec![
                 NumberLiteral {
                     prefix: None,
@@ -35,7 +39,10 @@ mod tests {
         ");
 
         assert_eq!(
-            lexer.collect::<Vec<Token>>(),
+            lexer.collect::<Vec<Result<Token, LexError>>>()
+                .into_iter()
+                .flatten()
+                .collect::<Vec<Token>>(),
             vec![
                 NumberLiteral {
                     prefix: None,
@@ -55,21 +62,23 @@ mod tests {
     fn hex_and_oct_integers() {
         let lexer = Lexer::from("
             0x234 0x234ul
+            0xefg
         ");
 
         assert_eq!(
-            lexer.collect::<Vec<Token>>(),
+            lexer.collect::<Vec<Result<Token, LexError>>>(),
             vec![
-                NumberLiteral {
+                Ok(NumberLiteral {
                     prefix: Some(NumberLiteralPrefix::Hex),
                     suffix: None,
                     kind: NumberLiteralKind::Int
-                },
-                NumberLiteral {
+                }),
+                Ok(NumberLiteral {
                     prefix: Some(NumberLiteralPrefix::Hex),
                     suffix: Some(NumberLiteralSuffix::UnsignedLong),
                     kind: NumberLiteralKind::Int
-                },
+                }),
+                Err(InvalidDigit('g'))
             ]
         )
     }
@@ -78,32 +87,77 @@ mod tests {
     fn exponents() {
         let lexer = Lexer::from("
             123e3 123e-3 123e3lu 1.6e19
+            123e-
         ");
 
         assert_eq!(
-            lexer.collect::<Vec<Token>>(),
+            lexer.collect::<Vec<Result<Token, LexError>>>(),
             vec![
-                NumberLiteral {
+                Ok(NumberLiteral {
                     prefix: None,
                     suffix: None,
                     kind: NumberLiteralKind::Exponent
-                },
-                NumberLiteral {
+                }),
+                Ok(NumberLiteral {
                     prefix: None,
                     suffix: None,
                     kind: NumberLiteralKind::Exponent
-                },
-                NumberLiteral {
+                }),
+                Ok(NumberLiteral {
                     prefix: None,
                     suffix: Some(NumberLiteralSuffix::UnsignedLong),
                     kind: NumberLiteralKind::Exponent
-                },
-                NumberLiteral {
+                }),
+                Ok(NumberLiteral {
                     prefix: None,
                     suffix: None,
                     kind: NumberLiteralKind::Exponent
-                }
+                }),
+                Err(ExponentHasNoDigits)
             ]
+        )
+    }
+
+    #[test]
+    fn valid_suffixes() {
+        let lexer = Lexer::from("
+            123l 123L
+            123ll 123LL
+            123u 123U
+            123ul 123uL 123lu 123Lu
+            123Ul 123UL 123lU 123LU
+            123ull 123uLL 123llu 123LLu
+            123Ull 123ULL 123llU 123LLU
+        ");
+
+        assert_eq!(
+            lexer.collect::<Vec<Result<Token, LexError>>>()
+                .iter()
+                .all(|t| t.is_ok()),
+            true
+        )
+    }
+
+    #[test]
+    fn invalid_suffixes() {
+        let lexer = Lexer::from("
+            123lL 123lL
+            123ulu 123uLu 123lul 123lUl
+            123Ulu 123uLU 123Lul 123LUl
+            123ulU 123ULu 123luL 123lUL
+            123UlU 123ULU 123LuL 123LUL
+
+            123ulL 123uLl 123Llu 123lLu
+            123UlL 123ULl 123LlU 123lLU
+
+            0xefg 0b1012 0o178
+        ");
+
+        assert_eq!(
+            lexer.collect::<Vec<Result<Token, LexError>>>()
+                .iter()
+                .all(|t| t.is_err()),
+            true
         )
     }
 
@@ -127,7 +181,10 @@ mod tests {
         ");
 
         assert_eq!(
-            lexer.collect::<Vec<Token>>(),
+            lexer.collect::<Vec<Result<Token, LexError>>>()
+                .into_iter()
+                .flatten()
+                .collect::<Vec<Token>>(),
             vec![
                 Int,
                 Identifier("f".into()),
@@ -171,7 +228,10 @@ mod tests {
         ");
 
         assert_eq!(
-            lexer.collect::<Vec<Token>>(),
+            lexer.collect::<Vec<Result<Token, LexError>>>()
+                .into_iter()
+                .flatten()
+                .collect::<Vec<Token>>(),
             vec![
                 Int,
                 Identifier("main".into()),
@@ -206,7 +266,10 @@ mod tests {
         ");
 
         assert_eq!(
-            lexer.collect::<Vec<Token>>(),
+            lexer.collect::<Vec<Result<Token, LexError>>>()
+                .into_iter()
+                .flatten()
+                .collect::<Vec<Token>>(),
             vec![
                 Ellipsis, Dot, Gt, Right, RightAssign,
                 Ge, Lt, Left, LeftAssign, Le, Plus,
