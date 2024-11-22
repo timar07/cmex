@@ -3,10 +3,12 @@ pub enum LexError {
     UnexpectedCharacter(char),
     UnknownEscapeSequenceCharacter(char),
     UnterminatedString,
+    UnterminatedCharacterLiteral,
     UnexpectedEof,
     InvalidDigit(char),
     ExponentHasNoDigits,
-    InvalidNumberLiteralSuffix(String)
+    InvalidNumberLiteralSuffix(String),
+    EmptyCharacterConstant,
 }
 
 impl std::fmt::Display for LexError {
@@ -15,6 +17,9 @@ impl std::fmt::Display for LexError {
             Self::UnterminatedString => {
                 write!(f, "unterminated string")
             },
+            Self::UnterminatedCharacterLiteral => {
+                write!(f, "unterminated character literal")
+            }
             Self::UnexpectedCharacter(c) => {
                 write!(f, "unexpected character `{c}`")
             },
@@ -32,6 +37,9 @@ impl std::fmt::Display for LexError {
             },
             Self::InvalidNumberLiteralSuffix(s) => {
                 write!(f, "invalid suffix `{s}`")
+            },
+            Self::EmptyCharacterConstant => {
+                write!(f, "empty character constant")
             }
         }
     }

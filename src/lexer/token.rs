@@ -13,6 +13,7 @@ pub enum Token {
     Case,
     Char,
     Comma,
+    CharLiteral,
     Colon,
     Const,
     Continue,
@@ -76,7 +77,6 @@ pub enum Token {
         kind: NumberLiteralKind
     },
     SubAssign,
-    TypeName(String),
     Typedef,
     Tilde,
     Union,
@@ -115,7 +115,6 @@ impl std::fmt::Display for NumberLiteralPrefix {
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum NumberLiteralSuffix {
-    Double,
     Float,
     Unsigned,
     Long,

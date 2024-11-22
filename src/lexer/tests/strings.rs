@@ -5,6 +5,20 @@ mod tests {
     };
 
     #[test]
+    fn character_literal() {
+        let lexer = Lexer::from("'a' '' '");
+
+        assert_eq!(
+            lexer.collect::<Vec<Result<Token, LexError>>>(),
+            vec![
+                Ok(CharLiteral),
+                Err(LexError::EmptyCharacterConstant),
+                Err(LexError::UnterminatedCharacterLiteral)
+            ]
+        )
+    }
+
+    #[test]
     fn strings_literals() {
         let lexer = Lexer::from("\
             \"hello, world\"

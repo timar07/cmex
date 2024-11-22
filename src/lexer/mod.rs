@@ -40,6 +40,7 @@ impl Lexer<'_> {
                 Some(self.parse_keyword_or_ident())
             },
             '\"' => Some(StringLiteralCollector::new(&mut self.src).collect()),
+            '\'' => Some(CharLiteralCollector::new(&mut self.src).collect()),
             '/' if self.src.lookahead(1) == Some('*') => {
                 self.skip_comment();
                 self.lex_token()
@@ -460,7 +461,7 @@ struct StringLiteralCollector<'src, 'a> {
 }
 
 impl<'src, 'a> StringLiteralCollector<'src, 'a> {
-    fn new(src: &'a mut Cursor<'src>) -> Self {
+    pub fn new(src: &'a mut Cursor<'src>) -> Self {
         Self { src }
     }
 
@@ -470,7 +471,7 @@ impl<'src, 'a> StringLiteralCollector<'src, 'a> {
         loop {
             match self.src.peek() {
                 Some('\\') => {
-                    self.parse_escape_sequence()?;
+                    EscapeSequenceCollector::new(self.src).collect()?;
                 },
                 Some('"') => {
                     self.src.next();
@@ -483,8 +484,51 @@ impl<'src, 'a> StringLiteralCollector<'src, 'a> {
 
         Ok(Token::StringLiteral)
     }
+}
 
-    fn parse_escape_sequence(&mut self) -> Result<(), LexError> {
+struct CharLiteralCollector<'src, 'a> {
+    src: &'a mut Cursor<'src>
+}
+
+impl<'src, 'a> CharLiteralCollector<'src, 'a> {
+    fn new(src: &'a mut Cursor<'src>) -> Self {
+        Self { src }
+    }
+
+    pub fn collect(&mut self) -> Result<Token, LexError> {
+        assert!(self.src.next() == Some('\''));
+
+        match self.src.peek() {
+            Some('\\') => {
+                EscapeSequenceCollector::new(self.src).collect()?;
+            },
+            Some('\'') => {
+                self.src.next();
+                return Err(EmptyCharacterConstant);
+            },
+            _ => { self.src.next(); }
+        };
+
+        if !self.src.match_ch('\'') {
+            return Err(UnterminatedCharacterLiteral);
+        }
+
+        Ok(Token::CharLiteral)
+    }
+}
+
+struct EscapeSequenceCollector<'src, 'a> {
+    src: &'a mut Cursor<'src>
+}
+
+impl<'src, 'a> EscapeSequenceCollector<'src, 'a> {
+    fn new(src: &'a mut Cursor<'src>) -> Self {
+        Self { src }
+    }
+
+    pub fn collect(&mut self) -> Result<(), LexError> {
+        assert!(self.src.next() == Some('\\'));
+
         match self.src.next() {
             Some('0'..='7') => self.parse_octal_escape(),
             Some('x') => self.parse_hex_escape(),
