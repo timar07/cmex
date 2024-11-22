@@ -22,7 +22,7 @@ impl<'a> From<&'a str> for Lexer<'a> {
 }
 
 impl<'a> Iterator for Lexer<'a> {
-    type Item = Result<Token, LexError>;
+    type Item = Result<TokenTag, LexError>;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.lex_token()
@@ -30,7 +30,7 @@ impl<'a> Iterator for Lexer<'a> {
 }
 
 impl Lexer<'_> {
-    fn lex_token(&mut self) -> Option<Result<Token, LexError>> {
+    fn lex_token(&mut self) -> Option<Result<TokenTag, LexError>> {
         match self.src.peek()? {
             c if c.is_ascii_whitespace() => {
                 self.src.next();
@@ -60,174 +60,174 @@ impl Lexer<'_> {
         }
     }
 
-    fn parse_single_char(&mut self) -> Option<Result<Token, LexError>> {
+    fn parse_single_char(&mut self) -> Option<Result<TokenTag, LexError>> {
         Some(Ok(match self.src.next()? {
             '.' => {
                 if self.src.match_ch('.') && self.src.match_ch('.') {
-                    Token::Ellipsis
+                    TokenTag::Ellipsis
                 } else {
-                    Token::Dot
+                    TokenTag::Dot
                 }
             },
             '>' => {
                 if self.src.match_ch('>') {
                     if self.src.match_ch('=') {
-                        Token::RightAssign
+                        TokenTag::RightAssign
                     } else {
-                        Token::Right
+                        TokenTag::Right
                     }
                 } else if self.src.match_ch('=') {
-                    Token::Ge
+                    TokenTag::Ge
                 } else {
-                    Token::Gt
+                    TokenTag::Gt
                 }
             },
             '<' => {
                 if self.src.match_ch('<') {
                     if self.src.match_ch('=') {
-                        Token::LeftAssign
+                        TokenTag::LeftAssign
                     } else {
-                        Token::Left
+                        TokenTag::Left
                     }
                 } else if self.src.match_ch('=') {
-                    Token::Le
+                    TokenTag::Le
                 } else {
-                    Token::Lt
+                    TokenTag::Lt
                 }
             },
             '+' => {
                 if self.src.match_ch('=') {
-                    Token::AddAssign
+                    TokenTag::AddAssign
                 } else if self.src.match_ch('+') {
-                    Token::Increment
+                    TokenTag::Increment
                 } else {
-                    Token::Plus
+                    TokenTag::Plus
                 }
             },
             '-' => {
                 if self.src.match_ch('=') {
-                    Token::SubAssign
+                    TokenTag::SubAssign
                 } else if self.src.match_ch('-') {
-                    Token::Decrement
+                    TokenTag::Decrement
                 } else if self.src.match_ch('>') {
-                    Token::ArrowRight
+                    TokenTag::ArrowRight
                 } else {
-                    Token::Minus
+                    TokenTag::Minus
                 }
             },
             '*' => {
                 if self.src.match_ch('=') {
-                    Token::MulAssign
+                    TokenTag::MulAssign
                 } else {
-                    Token::Asterisk
+                    TokenTag::Asterisk
                 }
             },
             '/' => {
                 if self.src.match_ch('=') {
-                    Token::DivAssign
+                    TokenTag::DivAssign
                 } else {
-                    Token::Slash
+                    TokenTag::Slash
                 }
             },
             '%' => {
                 if self.src.match_ch('=') {
-                    Token::ModAssign
+                    TokenTag::ModAssign
                 } else {
-                    Token::Mod
+                    TokenTag::Mod
                 }
             },
             '&' => {
                 if self.src.match_ch('=') {
-                    Token::AndAssign
+                    TokenTag::AndAssign
                 } else if self.src.match_ch('&') {
-                    Token::And
+                    TokenTag::And
                 } else {
-                    Token::Ampersand
+                    TokenTag::Ampersand
                 }
             },
             '^' => {
                 if self.src.match_ch('=') {
-                    Token::XorAssign
+                    TokenTag::XorAssign
                 } else {
-                    Token::Circ
+                    TokenTag::Circ
                 }
             },
             '|' => {
                 if self.src.match_ch('=') {
-                    Token::OrAssign
+                    TokenTag::OrAssign
                 } else if self.src.match_ch('|') {
-                    Token::Or
+                    TokenTag::Or
                 } else {
-                    Token::Bar
+                    TokenTag::Bar
                 }
             },
             '=' => {
                 if self.src.match_ch('=') {
-                    Token::Eq
+                    TokenTag::Eq
                 } else {
-                    Token::Assign
+                    TokenTag::Assign
                 }
             },
             '!' => {
                 if self.src.match_ch('=') {
-                    Token::Neq
+                    TokenTag::Neq
                 } else {
-                    Token::Not
+                    TokenTag::Not
                 }
             },
-            ';' => Token::Semicolon,
-            '{' => Token::LeftCurly,
-            '}' => Token::RightCurly,
-            ',' => Token::Comma,
-            ':' => Token::Colon,
-            '(' => Token::LeftParen,
-            ')' => Token::RightParen,
-            '[' => Token::LeftBrace,
-            ']' => Token::RightBrace,
-            '~' => Token::Tilde,
-            '?' => Token::Quest,
+            ';' => TokenTag::Semicolon,
+            '{' => TokenTag::LeftCurly,
+            '}' => TokenTag::RightCurly,
+            ',' => TokenTag::Comma,
+            ':' => TokenTag::Colon,
+            '(' => TokenTag::LeftParen,
+            ')' => TokenTag::RightParen,
+            '[' => TokenTag::LeftBrace,
+            ']' => TokenTag::RightBrace,
+            '~' => TokenTag::Tilde,
+            '?' => TokenTag::Quest,
             _ => return Some(Err(UnexpectedCharacter(self.src.peek().unwrap())))
         }))
     }
 
-    fn parse_keyword_or_ident(&mut self) -> Result<Token, LexError> {
+    fn parse_keyword_or_ident(&mut self) -> Result<TokenTag, LexError> {
         let ident: String = self.src
             .take_while(|c| c.is_ascii_alphanumeric() || c == '_');
 
         Ok(match ident.as_str() {
-            "auto" => Token::Auto,
-            "break" => Token::Break,
-            "char" => Token::Char,
-            "case" => Token::Case,
-            "const" => Token::Const,
-            "continue" => Token::Continue,
-            "default" => Token::Default,
-            "do" => Token::Do,
-            "double" => Token::Double,
-            "else" => Token::Else,
-            "enum" => Token::Enum,
-            "extern" => Token::Extern,
-            "float" => Token::Float,
-            "for" => Token::For,
-            "goto" => Token::Goto,
-            "if" => Token::If,
-            "int" => Token::Int,
-            "long" => Token::Long,
-            "register" => Token::Register,
-            "return" => Token::Return,
-            "short" => Token::Short,
-            "signed" => Token::Signed,
-            "sizeof" => Token::Sizeof,
-            "static" => Token::Static,
-            "struct" => Token::Struct,
-            "switch" => Token::Switch,
-            "typedef" => Token::Typedef,
-            "union" => Token::Union,
-            "unsigned" => Token::Unsigned,
-            "void" => Token::Void,
-            "volatile" => Token::Volatile,
-            "while" => Token::While,
-            _ => Token::Identifier(ident)
+            "auto" => TokenTag::Auto,
+            "break" => TokenTag::Break,
+            "char" => TokenTag::Char,
+            "case" => TokenTag::Case,
+            "const" => TokenTag::Const,
+            "continue" => TokenTag::Continue,
+            "default" => TokenTag::Default,
+            "do" => TokenTag::Do,
+            "double" => TokenTag::Double,
+            "else" => TokenTag::Else,
+            "enum" => TokenTag::Enum,
+            "extern" => TokenTag::Extern,
+            "float" => TokenTag::Float,
+            "for" => TokenTag::For,
+            "goto" => TokenTag::Goto,
+            "if" => TokenTag::If,
+            "int" => TokenTag::Int,
+            "long" => TokenTag::Long,
+            "register" => TokenTag::Register,
+            "return" => TokenTag::Return,
+            "short" => TokenTag::Short,
+            "signed" => TokenTag::Signed,
+            "sizeof" => TokenTag::Sizeof,
+            "static" => TokenTag::Static,
+            "struct" => TokenTag::Struct,
+            "switch" => TokenTag::Switch,
+            "typedef" => TokenTag::Typedef,
+            "union" => TokenTag::Union,
+            "unsigned" => TokenTag::Unsigned,
+            "void" => TokenTag::Void,
+            "volatile" => TokenTag::Volatile,
+            "while" => TokenTag::While,
+            _ => TokenTag::Identifier(ident)
         })
     }
 }
@@ -241,7 +241,7 @@ impl<'src, 'a> NumberLiteralCollector<'src, 'a> {
         Self { src }
     }
 
-    pub fn collect(&mut self) -> Result<Token, LexError> {
+    pub fn collect(&mut self) -> Result<TokenTag, LexError> {
         let prefix = match self.src.peek().unwrap() {
             '0' => {
                 self.src.next();
@@ -291,7 +291,7 @@ impl<'src, 'a> NumberLiteralCollector<'src, 'a> {
             }
         )?;
 
-        Ok(Token::NumberLiteral {
+        Ok(TokenTag::NumberLiteral {
             prefix,
             suffix,
             kind
@@ -465,7 +465,7 @@ impl<'src, 'a> StringLiteralCollector<'src, 'a> {
         Self { src }
     }
 
-    pub fn collect(&mut self) -> Result<Token, LexError> {
+    pub fn collect(&mut self) -> Result<TokenTag, LexError> {
         self.src.next(); // "
 
         loop {
@@ -482,7 +482,7 @@ impl<'src, 'a> StringLiteralCollector<'src, 'a> {
             }
         }
 
-        Ok(Token::StringLiteral)
+        Ok(TokenTag::StringLiteral)
     }
 }
 
@@ -495,7 +495,7 @@ impl<'src, 'a> CharLiteralCollector<'src, 'a> {
         Self { src }
     }
 
-    pub fn collect(&mut self) -> Result<Token, LexError> {
+    pub fn collect(&mut self) -> Result<TokenTag, LexError> {
         assert!(self.src.next() == Some('\''));
 
         match self.src.peek() {
@@ -513,7 +513,7 @@ impl<'src, 'a> CharLiteralCollector<'src, 'a> {
             return Err(UnterminatedCharacterLiteral);
         }
 
-        Ok(Token::CharLiteral)
+        Ok(TokenTag::CharLiteral)
     }
 }
 

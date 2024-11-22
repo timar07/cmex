@@ -1,5 +1,5 @@
 #[derive(Debug, PartialEq, Eq)]
-pub enum Token {
+pub enum TokenTag {
     Assign,
     AddAssign,
     And,

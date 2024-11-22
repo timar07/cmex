@@ -6,7 +6,7 @@ mod tests {
             NumberLiteralKind,
             NumberLiteralPrefix,
             NumberLiteralSuffix,
-            Token::{self, *}
+            TokenTag::{self, *}
         },
         LexError::{self, *}
     };
@@ -18,10 +18,10 @@ mod tests {
         ");
 
         assert_eq!(
-            lexer.collect::<Vec<Result<Token, LexError>>>()
+            lexer.collect::<Vec<Result<TokenTag, LexError>>>()
                 .into_iter()
                 .flatten()
-                .collect::<Vec<Token>>(),
+                .collect::<Vec<TokenTag>>(),
             vec![
                 NumberLiteral {
                     prefix: None,
@@ -39,10 +39,10 @@ mod tests {
         ");
 
         assert_eq!(
-            lexer.collect::<Vec<Result<Token, LexError>>>()
+            lexer.collect::<Vec<Result<TokenTag, LexError>>>()
                 .into_iter()
                 .flatten()
-                .collect::<Vec<Token>>(),
+                .collect::<Vec<TokenTag>>(),
             vec![
                 NumberLiteral {
                     prefix: None,
@@ -71,7 +71,7 @@ mod tests {
         ");
 
         assert_eq!(
-            lexer.collect::<Vec<Result<Token, LexError>>>(),
+            lexer.collect::<Vec<Result<TokenTag, LexError>>>(),
             vec![
                 Ok(NumberLiteral {
                     prefix: Some(NumberLiteralPrefix::Hex),
@@ -98,7 +98,7 @@ mod tests {
         ");
 
         assert_eq!(
-            lexer.collect::<Vec<Result<Token, LexError>>>(),
+            lexer.collect::<Vec<Result<TokenTag, LexError>>>(),
             vec![
                 Ok(NumberLiteral {
                     prefix: None,
@@ -149,7 +149,7 @@ mod tests {
         ");
 
         assert_eq!(
-            lexer.collect::<Vec<Result<Token, LexError>>>()
+            lexer.collect::<Vec<Result<TokenTag, LexError>>>()
                 .iter()
                 .all(|t| t.is_ok()),
             true
@@ -172,7 +172,7 @@ mod tests {
         ");
 
         assert_eq!(
-            lexer.collect::<Vec<Result<Token, LexError>>>()
+            lexer.collect::<Vec<Result<TokenTag, LexError>>>()
                 .iter()
                 .all(|t| t.is_err()),
             true
@@ -199,10 +199,10 @@ mod tests {
         ");
 
         assert_eq!(
-            lexer.collect::<Vec<Result<Token, LexError>>>()
+            lexer.collect::<Vec<Result<TokenTag, LexError>>>()
                 .into_iter()
                 .flatten()
-                .collect::<Vec<Token>>(),
+                .collect::<Vec<TokenTag>>(),
             vec![
                 Int,
                 Identifier("f".into()),
@@ -246,10 +246,10 @@ mod tests {
         ");
 
         assert_eq!(
-            lexer.collect::<Vec<Result<Token, LexError>>>()
+            lexer.collect::<Vec<Result<TokenTag, LexError>>>()
                 .into_iter()
                 .flatten()
-                .collect::<Vec<Token>>(),
+                .collect::<Vec<TokenTag>>(),
             vec![
                 Int,
                 Identifier("main".into()),
@@ -284,10 +284,10 @@ mod tests {
         ");
 
         assert_eq!(
-            lexer.collect::<Vec<Result<Token, LexError>>>()
+            lexer.collect::<Vec<Result<TokenTag, LexError>>>()
                 .into_iter()
                 .flatten()
-                .collect::<Vec<Token>>(),
+                .collect::<Vec<TokenTag>>(),
             vec![
                 Ellipsis, Dot, Gt, Right, RightAssign,
                 Ge, Lt, Left, LeftAssign, Le, Plus,
