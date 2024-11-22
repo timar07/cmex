@@ -279,7 +279,16 @@ impl<'src, 'a> NumberLiteralCollector<'src, 'a> {
             _ => NumberLiteralKind::Int
         };
 
-        let suffix = self.parse_suffix()?;
+        let suffix = self.parse_suffix(
+            match kind {
+                NumberLiteralKind::Exponent | NumberLiteralKind::Float => {
+                    Self::parse_float_suffix
+                },
+                NumberLiteralKind::Int => {
+                    Self::parse_integer_suffix
+                }
+            }
+        )?;
 
         Ok(Token::NumberLiteral {
             prefix,
@@ -288,11 +297,26 @@ impl<'src, 'a> NumberLiteralCollector<'src, 'a> {
         })
     }
 
-    fn parse_suffix(&mut self) -> Result<Option<NumberLiteralSuffix>, LexError> {
+    fn parse_suffix<F>(
+        &mut self,
+        strategy: F
+    ) -> Result<Option<NumberLiteralSuffix>, LexError>
+    where
+        F: Fn(&mut Cursor) -> Option<NumberLiteralSuffix>
+    {
         let suffix = self.src.take_while(|c| c.is_ascii_alphanumeric());
         let mut cursor = Cursor::new(&suffix);
+        let result = strategy(&mut cursor);
 
-        let result = match cursor.peek() {
+        if cursor.peek().is_some() { // characters left in suffix
+            Err(InvalidNumberLiteralSuffix(suffix))
+        } else {
+            Ok(result)
+        }
+    }
+
+    fn parse_integer_suffix(cursor: &mut Cursor) -> Option<NumberLiteralSuffix> {
+        match cursor.peek() {
             Some('u' | 'U') => {
                 cursor.next();
 
@@ -367,12 +391,22 @@ impl<'src, 'a> NumberLiteralCollector<'src, 'a> {
                 }
             },
             _ => None
-        };
+        }
+    }
 
-        if cursor.peek().is_some() { // characters left in suffix
-            Err(InvalidNumberLiteralSuffix(suffix))
-        } else {
-            Ok(result)
+    fn parse_float_suffix(cursor: &mut Cursor) -> Option<NumberLiteralSuffix> {
+        match cursor.peek() {
+            Some('f' | 'F') => {
+                cursor.next();
+
+                Some(NumberLiteralSuffix::Float)
+            },
+            Some('l' | 'L') => {
+                cursor.next();
+
+                Some(NumberLiteralSuffix::Long)
+            }
+            _ => None
         }
     }
 
