@@ -120,5 +120,6 @@ pub enum NumberLiteralSuffix {
     Unsigned,
     Long,
     UnsignedLong,
+    UnsignedLongLong,
     LongLong
 }
