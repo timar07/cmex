@@ -1,23 +1,41 @@
-use std::str::Chars;
+use std::str::{CharIndices, Chars};
 
 /// Iterator over the string used due the lexing phase.
 pub struct Cursor<'src> {
-    src: Chars<'src>,
+    src: CharIndices<'src>,
+    iter: Chars<'src>,
     current: Option<char>,
+    pub pos: usize
 }
 
 impl<'a> Cursor<'a> {
     pub fn new(src: &'a str) -> Self {
         Self {
-            src: src.chars(),
+            src: src.char_indices(),
+            iter: src.chars(),
             current: None,
+            pos: 0
         }
     }
 
     pub fn next(&mut self) -> Option<char> {
         let c = self.current;
-        self.current = self.src.next();
+        self.current = self.iter.next();
+
+        if c.is_some() {
+            self.pos += 1;
+        }
+
         c.or(self.current)
+    }
+
+    pub fn slice(&self, start: usize, end: usize) -> String {
+        dbg!(self.src
+            .clone()
+            .skip(start)
+            .take(end - start)
+            .map(|(_, c)| c)
+            .collect::<String>())
     }
 
     pub fn match_ch(&mut self, ch: char) -> bool {
@@ -34,7 +52,7 @@ impl<'a> Cursor<'a> {
     }
 
     pub fn lookahead(&mut self, n: usize) -> Option<char> {
-        self.src.clone().skip(n - 1).next()
+        self.iter.clone().skip(n - 1).next()
     }
 
     pub fn take_while<P>(&mut self, mut predicate: P) -> String

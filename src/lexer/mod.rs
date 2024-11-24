@@ -4,6 +4,7 @@ mod cursor;
 mod tests;
 
 pub use errors::LexError;
+use token::Spanned;
 pub use token::*;
 
 use cursor::Cursor;
@@ -29,7 +30,43 @@ impl<'a> Iterator for Lexer<'a> {
     }
 }
 
+impl<'a> Positioned for Lexer<'a> {
+    fn get_pos(&self) -> usize { self.src.pos }
+}
+
+pub struct Lexemes<'a> {
+    iter: Spanned<Lexer<'a>>
+}
+
+impl<'a> Lexemes<'a> {
+    pub fn new(iter: Spanned<Lexer<'a>>) -> Self {
+        Self { iter }
+    }
+}
+
+impl<'a> Iterator for Lexemes<'a> {
+    type Item = String;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter
+            .next()
+            .map(|(_, span)| {
+                self.iter.iter.src.slice(span.0, span.1)
+            })
+    }
+}
+
+impl<'a> Spanned<Lexer<'a>> {
+    pub fn lexemes(self) -> Lexemes<'a> {
+        Lexemes::new(self)
+    }
+}
+
 impl Lexer<'_> {
+    pub fn spanned(self) -> Spanned<Self> {
+        Spanned::new(self)
+    }
+
     fn lex_token(&mut self) -> Option<Result<TokenTag, LexError>> {
         match self.src.peek()? {
             c if c.is_ascii_whitespace() => {

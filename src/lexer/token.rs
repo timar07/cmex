@@ -34,6 +34,7 @@ pub enum TokenTag {
     Goto,
     Ge,
     Gt,
+    #[allow(dead_code)]
     Hash,
     Identifier(String),
     Increment,
@@ -121,4 +122,38 @@ pub enum NumberLiteralSuffix {
     UnsignedLong,
     UnsignedLongLong,
     LongLong
+}
+
+#[derive(Debug)]
+pub struct Span(pub usize, pub usize);
+
+pub struct Spanned<I> {
+    pub iter: I,
+}
+
+impl<I> Spanned<I> {
+    pub fn new(iter: I) -> Self {
+        Self { iter }
+    }
+}
+
+impl<I> Iterator for Spanned<I>
+where
+    I: Positioned + Iterator
+{
+    type Item = (<I as Iterator>::Item, Span);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let start = self.iter.get_pos();
+        let item = self.iter.next()?;
+
+        Some((item, Span(
+            start,
+            self.iter.get_pos()
+        )))
+    }
+}
+
+pub trait Positioned {
+    fn get_pos(&self) -> usize;
 }
