@@ -58,6 +58,13 @@ impl<'a> Iterator for Lexemes<'a> {
     }
 }
 
+impl<'a> Spanned<Lexer<'a>> {
+    pub fn lexemes(self) -> Lexemes<'a> {
+        Lexemes::new(self)
+    }
+}
+
+
 impl Lexer<'_> {
     pub fn spanned(self) -> Spanned<Self> {
         Spanned::new(self)
