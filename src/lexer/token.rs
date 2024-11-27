@@ -88,6 +88,9 @@ pub enum TokenTag {
     Circ,
     Quest,
     XorAssign,
+
+    /// Error-recovered token
+    Error
 }
 
 #[derive(Debug, PartialEq, Eq)]

@@ -4,7 +4,7 @@ mod cursor;
 mod tests;
 
 pub use errors::LexError;
-use token::Spanned;
+pub use token::Spanned;
 pub use token::*;
 
 use cursor::Cursor;
@@ -34,6 +34,8 @@ impl<'a> Positioned for Lexer<'a> {
     fn get_pos(&self) -> usize { self.src.pos }
 }
 
+/// Iterator over tokens' lexemes
+/// todo: write tests
 pub struct Lexemes<'a> {
     iter: Spanned<Lexer<'a>>
 }
@@ -53,12 +55,6 @@ impl<'a> Iterator for Lexemes<'a> {
             .map(|(_, span)| {
                 self.iter.iter.src.slice(span.0, span.1)
             })
-    }
-}
-
-impl<'a> Spanned<Lexer<'a>> {
-    pub fn lexemes(self) -> Lexemes<'a> {
-        Lexemes::new(self)
     }
 }
 
