@@ -1,3 +1,4 @@
+use std::iter::Peekable;
 use crate::lexer::{
     Lexer,
     Spanned,
@@ -7,12 +8,12 @@ use crate::lexer::{
 mod expr;
 
 pub struct Parser<'a> {
-    iter: Tokens<'a>
+    iter: Peekable<Tokens<'a>>
 }
 
 impl<'a> Parser<'a> {
     pub fn new(iter: Lexer<'a>) -> Self {
-        Self { iter: Tokens::new(iter.spanned()) }
+        Self { iter: Tokens::new(iter.spanned()).peekable() }
     }
 }
 
@@ -41,4 +42,15 @@ impl<'a> Iterator for Tokens<'_> {
                 }
             })
     }
+}
+
+#[macro_export]
+macro_rules! require_tok {
+    ($p:expr, $tok:expr) => {
+        if $p.iter.peek().is_some_and(|t| *t != $tok) {
+            panic!("Expected {:?}", $tok);
+        } else {
+            $p.iter.next();
+        }
+    };
 }
