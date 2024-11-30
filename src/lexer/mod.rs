@@ -64,6 +64,13 @@ impl<'a> Spanned<Lexer<'a>> {
     }
 }
 
+macro_rules! consume {
+    ($lexer:expr, $pattern:pat) => {
+        if matches!($lexer.src.peek(), $pattern) {
+            $lexer.src.next();
+        }
+    };
+}
 
 impl Lexer<'_> {
     pub fn spanned(self) -> Spanned<Self> {
@@ -231,7 +238,7 @@ impl Lexer<'_> {
     }
 
     fn parse_keyword_or_ident(&mut self) -> Result<TokenTag, LexError> {
-        let ident: String = self.src
+        let ident = self.src
             .take_while(|c| c.is_ascii_alphanumeric() || c == '_');
 
         Ok(match ident.as_str() {
@@ -267,7 +274,7 @@ impl Lexer<'_> {
             "void" => TokenTag::Void,
             "volatile" => TokenTag::Volatile,
             "while" => TokenTag::While,
-            _ => TokenTag::Identifier(ident)
+            _ => TokenTag::Identifier
         })
     }
 }
@@ -483,9 +490,7 @@ impl<'src, 'a> NumberLiteralCollector<'src, 'a> {
     fn consume_exponent(&mut self) -> Result<(), LexError> {
         self.src.next(); //
 
-        if matches!(self.src.peek(), Some('+' | '-')) {
-            self.src.next();
-        }
+        consume!(self, Some('+' | '-'));
 
         if !self.src.peek().is_some_and(|c| c.is_ascii_digit()) {
             return Err(ExponentHasNoDigits)
