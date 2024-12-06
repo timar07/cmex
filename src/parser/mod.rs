@@ -45,6 +45,24 @@ impl<'a> Iterator for Tokens<'_> {
 }
 
 #[macro_export]
+macro_rules! match_tok {
+    ($parser:expr, $pat:pat) => {
+        if matches!($parser.iter.peek(), Some($pat)) {
+            $parser.iter.next()
+        } else {
+            None
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! check_tok {
+    ($parser:expr, $pat:pat) => {
+        match_tok!($parser, $pat).is_some()
+    };
+}
+
+#[macro_export]
 macro_rules! require_tok {
     ($p:expr, $tok:expr) => {
         if $p.iter.peek().is_some_and(|t| *t != $tok) {
