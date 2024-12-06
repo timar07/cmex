@@ -1,9 +1,13 @@
+use crate::lexer::TokenTag;
+
+#[derive(Debug)]
 pub struct Expr {
-    tag: ExprTag,
+    pub tag: ExprTag,
     // todo: spans and stuff
 }
 
 /// An operation performed between two operands
+#[derive(Debug)]
 pub enum BinOp {
     /// Addition,'+' token
     Add,
@@ -12,12 +16,15 @@ pub enum BinOp {
 }
 
 /// An operation performed over the one operand
+#[derive(Debug)]
 pub enum UnOp {
     /// Unary minus, '-' token
     Minus
 }
 
+#[derive(Debug)]
 pub enum ExprTag {
+    Primary,
     BinExpr {
         op: BinOp,
         lhs: Box<Expr>,
@@ -27,7 +34,13 @@ pub enum ExprTag {
         op: UnOp,
         rhs: Box<Expr>
     },
-    TernExpr
+    TernExpr,
+    Call {
+        /// foo(5, bar)
+        /// ^~~ call expression
+        calle: Box<Expr>,
+        /// foo(5, bar)
+        ///    ^~~~~~~~ args
+        args: Vec<Expr>
+    }
 }
-
-
