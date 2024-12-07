@@ -10,50 +10,103 @@ use super::Parser;
 
 impl<'a> Parser<'a> {
     pub fn expression(&mut self) -> Expr {
-        self.postfix()
+        todo!()
     }
 
     fn assignment(&mut self) -> Expr {
         todo!();
     }
 
-    fn postfix(&mut self) -> Expr {
-        let expr = Box::new(self.primary());
+    fn cast(&mut self) -> Expr {
+        todo!();
+    }
 
-        match self.iter.peek().unwrap() {
-            // todo: somehow make this transformation with macros
-            TokenTag::LeftBrace => { // sugar
-                self.iter.next();
-                self.expression();
-                require_tok!(self, TokenTag::RightBrace);
-                todo!()
+    fn unary(&mut self) -> Expr {
+        match self.iter.peek() {
+            Some(
+                TokenTag::Ampersand
+                | TokenTag::Asterisk
+                | TokenTag::Plus
+                | TokenTag::Minus
+                | TokenTag::Tilde
+                | TokenTag::Not
+            ) => {
+                Expr {
+                    tag: ExprTag::UnExpr {
+                        op: self.iter.next().unwrap(),
+                        rhs: Box::new(self.cast())
+                    }
+                }
             },
-            TokenTag::LeftParen => self.parse_call(expr),
-            TokenTag::Dot => {
-                self.iter.next();
-                require_tok!(self, TokenTag::Identifier);
-                todo!()
+            Some(TokenTag::Sizeof) => {
+                if check_tok!(self, TokenTag::LeftParen) {
+                    let sizeof_expr = Expr {
+                        tag: ExprTag::SizeofType {
+                            r#type: require_tok!(self, TokenTag::Identifier)
+                        }
+                    };
+                    require_tok!(self, TokenTag::RightParen);
+                    sizeof_expr
+                } else {
+                    Expr {
+                        tag: ExprTag::SizeofExpr {
+                            expr: Box::new(self.unary())
+                        }
+                    }
+                }
             },
-            TokenTag::ArrowRight => { // sugar
-                self.iter.next();
-                require_tok!(self, TokenTag::Identifier);
-                todo!()
-            },
-            TokenTag::Increment | TokenTag::Decrement => { // sugar
-                self.iter.next();
-                todo!()
-            },
-            _ => panic!()
+            _ => self.postfix()
         }
     }
 
-    fn parse_call(&mut self, calle: Box<Expr>) -> Expr {
+    fn postfix(&mut self) -> Expr {
+        let mut expr = self.primary();
+
+        while let Some(tok) = match_tok!(
+            self,
+            TokenTag::LeftBrace
+            | TokenTag::LeftParen
+            | TokenTag::Dot
+            | TokenTag::ArrowRight
+            | TokenTag::Decrement
+        ) {
+            expr = match tok {
+                // todo: somehow make this transformation with macros
+                TokenTag::LeftBrace => { // sugar
+                    self.expression();
+                    require_tok!(self, TokenTag::RightBrace);
+                    todo!()
+                },
+                TokenTag::LeftParen => self.parse_call(expr),
+                TokenTag::Dot => {
+                    Expr {
+                        tag: ExprTag::MemberAccess {
+                            expr: Box::new(expr),
+                            member: tok
+                        }
+                    }
+                },
+                TokenTag::ArrowRight => { // sugar
+                    require_tok!(self, TokenTag::Identifier);
+                    todo!()
+                },
+                TokenTag::Increment | TokenTag::Decrement => { // sugar
+                    todo!()
+                },
+                _ => panic!()
+            }
+        }
+
+        expr
+    }
+
+    fn parse_call(&mut self, calle: Expr) -> Expr {
         self.iter.next();
 
         if check_tok!(self, TokenTag::LeftParen) {
             return Expr {
                 tag: ExprTag::Call {
-                    calle,
+                    calle: Box::new(calle),
                     args: Vec::with_capacity(0),
                 }
             }
@@ -61,7 +114,7 @@ impl<'a> Parser<'a> {
 
         Expr {
             tag: ExprTag::Call {
-                calle,
+                calle: Box::new(calle),
                 args: self.parse_args(),
             }
         }
