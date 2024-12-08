@@ -6,35 +6,18 @@ pub struct Expr {
     // todo: spans and stuff
 }
 
-/// An operation performed between two operands
-#[derive(Debug)]
-pub enum BinOp {
-    /// Addition,'+' token
-    Add,
-    /// Substraction
-    Sub,
-}
-
-/// An operation performed over the one operand
-#[derive(Debug)]
-pub enum UnOp {
-    /// Unary minus, '-' token
-    Minus
-}
-
 #[derive(Debug)]
 pub enum ExprTag {
     Primary,
     BinExpr {
-        op: BinOp,
+        op: TokenTag,
         lhs: Box<Expr>,
         rhs: Box<Expr>
     },
     UnExpr {
-        op: UnOp,
+        op: TokenTag,
         rhs: Box<Expr>
     },
-    TernExpr,
     Call {
         /// foo(5, bar)
         /// ^~~ call expression
@@ -42,5 +25,30 @@ pub enum ExprTag {
         /// foo(5, bar)
         ///    ^~~~~~~~ args
         args: Vec<Expr>
+    },
+    MemberAccess {
+        /// mystruct.member
+        /// ^~~~~~~~ expression
+        expr: Box<Expr>,
+        /// mystruct.member
+        ///          ^~~~~~ member that being accessed
+        member: TokenTag
+    },
+    SizeofType {
+        /// sizeof (int)
+        ///         ^~~ type
+        r#type: TokenTag
+    },
+    SizeofExpr {
+        expr: Box<Expr>
+    },
+    CastExpr {
+        r#type: TokenTag,
+        expr: Box<Expr>
+    },
+    Conditional {
+        cond: Box<Expr>,
+        then: Box<Expr>,
+        otherwise: Box<Expr>
     }
 }
