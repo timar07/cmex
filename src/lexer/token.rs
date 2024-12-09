@@ -1,4 +1,6 @@
-#[derive(Debug, PartialEq, Eq)]
+pub type Token = (TokenTag, Span);
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TokenTag {
     Assign,
     AddAssign,
@@ -93,14 +95,14 @@ pub enum TokenTag {
     Error
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum NumberLiteralKind {
     Exponent,
     Float,
     Int
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum NumberLiteralPrefix {
     Bin,
     Oct,
@@ -117,7 +119,7 @@ impl std::fmt::Display for NumberLiteralPrefix {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum NumberLiteralSuffix {
     Float,
     Unsigned,
@@ -127,7 +129,7 @@ pub enum NumberLiteralSuffix {
     LongLong
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Span(pub usize, pub usize);
 
 pub struct Spanned<I> {

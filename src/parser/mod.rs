@@ -6,6 +6,7 @@ use crate::lexer::{
 };
 
 mod expr;
+mod tests;
 
 pub struct Parser<'a> {
     iter: Peekable<Tokens<'a>>
@@ -64,11 +65,10 @@ macro_rules! check_tok {
 
 #[macro_export]
 macro_rules! require_tok {
-    ($p:expr, $tok:expr) => {
-        if $p.iter.peek().is_some_and(|t| *t != $tok) {
-            panic!("Expected {:?}", $tok);
-        } else {
-            $p.iter.next();
+    ($p:expr, $pat:pat) => {
+        match $p.iter.peek() {
+            Some($pat) => $p.iter.next().unwrap(),
+            _ => panic!()
         }
     };
 }

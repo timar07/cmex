@@ -70,7 +70,7 @@ impl<'a> Parser<'a> {
             }
         }
 
-        return self.logical_or();
+        return cond;
     }
 
     fn logical_or(&mut self) -> Expr {
@@ -211,7 +211,8 @@ impl<'a> Parser<'a> {
                     lhs: Box::new(expr),
                     rhs: Box::new(self.multiplicative())
                 }
-            }
+            };
+            dbg!(&expr);
         }
 
         expr
@@ -329,8 +330,6 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_call(&mut self, calle: Expr) -> Expr {
-        self.iter.next();
-
         if check_tok!(self, LeftParen) {
             return Expr {
                 tag: ExprTag::Call {
@@ -360,18 +359,18 @@ impl<'a> Parser<'a> {
     }
 
     fn primary(&mut self) -> Expr {
-        match self.iter.peek().unwrap() {
-            Identifier
-            | StringLiteral
-            | CharLiteral
-            | NumberLiteral { .. } => {
-                self.iter.next();
+        match self.iter.next() {
+            Some(
+                Identifier
+                | StringLiteral
+                | CharLiteral
+                | NumberLiteral { .. }
+            ) => {
                 Expr {
                     tag: ExprTag::Primary
                 }
             },
-            LeftParen => {
-                self.iter.next();
+            Some(LeftParen) => {
                 let expr = self.expression();
                 require_tok!(self, RightParen);
                 expr
