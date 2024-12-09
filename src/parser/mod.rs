@@ -1,20 +1,23 @@
-use std::iter::Peekable;
+mod expr;
+mod lookahead;
+mod tests;
+
 use crate::lexer::{
     Lexer,
     Spanned,
     TokenTag
 };
-
-mod expr;
-mod tests;
+use lookahead::Lookahead;
 
 pub struct Parser<'a> {
-    iter: Peekable<Tokens<'a>>
+    iter: Lookahead<Tokens<'a>>
 }
 
 impl<'a> Parser<'a> {
     pub fn new(iter: Lexer<'a>) -> Self {
-        Self { iter: Tokens::new(iter.spanned()).peekable() }
+        Self {
+            iter: Lookahead::from(Tokens::new(iter.spanned()))
+        }
     }
 }
 
@@ -44,6 +47,7 @@ impl<'a> Iterator for Tokens<'_> {
             })
     }
 }
+
 
 #[macro_export]
 macro_rules! match_tok {

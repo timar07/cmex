@@ -235,7 +235,10 @@ impl<'a> Parser<'a> {
     }
 
     fn cast(&mut self) -> Expr {
-        if check_tok!(self, LeftParen) {
+        if matches!(self.iter.peek(), Some(LeftParen))
+            && matches!(self.iter.lookahead(1), Some(Identifier))
+        {
+            self.iter.next();
             let type_name = require_tok!(self, Identifier); // TODO: Parse type name
             require_tok!(self, RightParen);
 
