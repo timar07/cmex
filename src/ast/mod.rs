@@ -1,5 +1,13 @@
 use crate::lexer::TokenTag;
 
+pub struct Stmt {
+    pub tag: StmtTag
+}
+
+pub enum StmtTag {
+    Declaration
+}
+
 #[derive(Debug)]
 pub struct Expr {
     pub tag: ExprTag,

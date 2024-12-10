@@ -9,6 +9,10 @@ use crate::{check_tok, match_tok, require_tok};
 use super::Parser;
 
 impl<'a> Parser<'a> {
+    pub fn constant_expression(&mut self) -> Expr {
+        self.conditional()
+    }
+
     pub fn expression(&mut self) -> Expr {
         let mut expr = self.assignment();
 

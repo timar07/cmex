@@ -1,3 +1,4 @@
+mod stmt;
 mod expr;
 mod lookahead;
 mod tests;
