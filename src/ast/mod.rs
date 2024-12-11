@@ -5,7 +5,22 @@ pub struct Stmt {
 }
 
 pub enum StmtTag {
-    Declaration
+    Assign,
+    Func,
+    Labeled,
+    While,
+    Dowhile,
+    For,
+    Block,
+    Case,
+    Cond,
+    Init,
+    Return,
+    Switch,
+    Goto,
+    Ident,
+    Expr,
+    Declaration,
 }
 
 #[derive(Debug)]
