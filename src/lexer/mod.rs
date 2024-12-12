@@ -233,7 +233,7 @@ impl Lexer<'_> {
             ']' => TokenTag::RightBrace,
             '~' => TokenTag::Tilde,
             '?' => TokenTag::Quest,
-            _ => return Some(Err(UnexpectedCharacter(self.src.peek().unwrap())))
+            c => return Some(Err(UnexpectedCharacter(c)))
         }))
     }
 
@@ -446,12 +446,10 @@ impl<'src, 'a> NumberLiteralCollector<'src, 'a> {
         match cursor.peek() {
             Some('f' | 'F') => {
                 cursor.next();
-
                 Some(NumberLiteralSuffix::Float)
             },
             Some('l' | 'L') => {
                 cursor.next();
-
                 Some(NumberLiteralSuffix::Long)
             }
             _ => None
@@ -467,7 +465,6 @@ impl<'src, 'a> NumberLiteralCollector<'src, 'a> {
         };
 
         self.src.next();
-
         prefix
     }
 
@@ -488,7 +485,7 @@ impl<'src, 'a> NumberLiteralCollector<'src, 'a> {
     }
 
     fn consume_exponent(&mut self) -> Result<(), LexError> {
-        self.src.next(); //
+        self.src.next(); // e
 
         consume!(self, Some('+' | '-'));
 
@@ -577,8 +574,7 @@ impl<'src, 'a> EscapeSequenceCollector<'src, 'a> {
         match self.src.next() {
             Some('0'..='7') => self.parse_octal_escape(),
             Some('x') => self.parse_hex_escape(),
-            Some('b' | 't' | 'n' | 'f' | 'r' | '\"' | '\'' | '\\' | '?') => {
-                self.src.next();
+            Some('b' | 'v' | 't' | 'n' | 'f' | 'r' | '\"' | '\'' | '\\' | '?') => {
                 Ok(())
             },
             Some(c) => { Err(UnknownEscapeSequenceCharacter(c)) },
