@@ -1,4 +1,4 @@
-pub type Token = (TokenTag, Span);
+pub struct Token(TokenTag, Span);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TokenTag {
@@ -91,8 +91,48 @@ pub enum TokenTag {
     Quest,
     XorAssign,
 
-    /// Error-recovered token
+    /// Error recovery token
     Error
+}
+
+impl TokenTag {
+    pub fn is_keyword(&self) -> bool {
+        matches!(
+            self,
+            TokenTag::Auto
+            | TokenTag::Break
+            | TokenTag::Case
+            | TokenTag::Char
+            | TokenTag::Const
+            | TokenTag::Continue
+            | TokenTag::Default
+            | TokenTag::Do
+            | TokenTag::Double
+            | TokenTag::Else
+            | TokenTag::Enum
+            | TokenTag::Extern
+            | TokenTag::Float
+            | TokenTag::For
+            | TokenTag::Goto
+            | TokenTag::If
+            | TokenTag::Int
+            | TokenTag::Long
+            | TokenTag::Register
+            | TokenTag::Return
+            | TokenTag::Short
+            | TokenTag::Signed
+            | TokenTag::Sizeof
+            | TokenTag::Static
+            | TokenTag::Struct
+            | TokenTag::Switch
+            | TokenTag::Typedef
+            | TokenTag::Union
+            | TokenTag::Unsigned
+            | TokenTag::Void
+            | TokenTag::Volatile
+            | TokenTag::While
+        )
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
