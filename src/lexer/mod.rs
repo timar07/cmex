@@ -35,7 +35,6 @@ impl<'a> Positioned for Lexer<'a> {
 }
 
 /// Iterator over tokens' lexemes
-/// todo: write tests
 pub struct Lexemes<'a> {
     iter: Spanned<Lexer<'a>>
 }
@@ -53,7 +52,10 @@ impl<'a> Iterator for Lexemes<'a> {
         self.iter
             .next()
             .map(|(_, span)| {
-                self.iter.iter.src.slice(span.0, span.1)
+                self.iter.iter.src
+                    .slice(span.0, span.1)
+                    .trim()
+                    .to_owned()
             })
     }
 }
