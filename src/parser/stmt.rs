@@ -2,7 +2,7 @@
 ///! For more information about grammar, see
 ///! <https://www.lysator.liu.se/c/ANSI-C-grammar-y.html>
 
-use crate::ast::{DeclStmt, EnumConstantDecl, FieldDecl, Stmt, StmtTag};
+use crate::ast::{DeclStmt, EnumConstantDecl, Expr, FieldDecl, Stmt, StmtTag};
 use crate::lexer::TokenTag::*;
 use crate::{check_tok, match_tok, require_tok};
 use super::Parser;
@@ -30,8 +30,76 @@ macro_rules! paren_wrapped {
 }
 
 impl<'a> Parser<'a> {
-    pub fn statement(&mut self) {
+    pub fn statement(&mut self) -> Stmt {
         todo!();
+    }
+
+    fn expression_statement(&mut self) -> Option<Expr> {
+        let expr = if !check_tok!(self, Semicolon) {
+            Some(self.expression())
+        } else {
+            None
+        };
+
+        require_tok!(self, Semicolon);
+        expr
+    }
+
+    fn iteration_statement(&mut self) -> Stmt {
+        match self.iter.peek() {
+            Some(While) => {
+                self.iter.next();
+
+                Stmt {
+                    tag: StmtTag::WhileStmt {
+                        cond: paren_wrapped!(self, {
+                            self.expression()
+                        }),
+                        stmt: Box::new(self.statement())
+                    }
+                }
+            },
+            Some(Do) => {
+                self.iter.next();
+                let stmt = Box::new(self.statement());
+                require_tok!(self, While);
+                let cond = paren_wrapped!(self, {
+                    self.expression()
+                });
+                require_tok!(self, Semicolon);
+
+                Stmt {
+                    tag: StmtTag::DoStmt {
+                        cond,
+                        stmt
+                    }
+                }
+            },
+            Some(For) => {
+                self.iter.next();
+                let header = paren_wrapped!(self, {
+                    (
+                        self.expression_statement(),
+                        self.expression_statement(),
+                        if !check_tok!(self, RightParen) {
+                            Some(self.expression())
+                        } else {
+                            None
+                        }
+                    )
+                });
+
+                Stmt {
+                    tag: StmtTag::ForStmt(
+                        header.0,
+                        header.1,
+                        header.2,
+                        Box::new(self.statement())
+                    )
+                }
+            },
+            _ => panic!()
+        }
     }
 
     fn jump_statement(&mut self) {
