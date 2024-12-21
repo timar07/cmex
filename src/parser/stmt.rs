@@ -2,7 +2,7 @@
 ///! For more information about grammar, see
 ///! <https://www.lysator.liu.se/c/ANSI-C-grammar-y.html>
 
-use crate::ast::{Stmt, StmtTag};
+use crate::ast::{DeclStmt, EnumConstantDecl, FieldDecl, Stmt, StmtTag};
 use crate::lexer::TokenTag::*;
 use crate::{check_tok, match_tok, require_tok};
 use super::Parser;
@@ -23,7 +23,7 @@ macro_rules! paren_wrapped {
         {
             match_tok!($self, LeftParen);
             let inner = $expr;
-            require_tok!($self, RightRight);
+            require_tok!($self, RightParen);
             inner
         }
     };
@@ -34,24 +34,118 @@ impl<'a> Parser<'a> {
         todo!();
     }
 
+    fn jump_statement(&mut self) {
+        match self.iter.peek() {
+            Some(Goto) => {
+                self.iter.next();
+                require_tok!(self, Identifier);
+                require_tok!(self, Semicolon);
+            },
+            Some(Continue) => {
+                self.iter.next();
+                require_tok!(self, Semicolon);
+            },
+            Some(Break) => {
+                self.iter.next();
+                require_tok!(self, Semicolon);
+            },
+            Some(Return) => {
+                self.iter.next();
+
+                if !check_tok!(self, Semicolon) {
+                    self.expression();
+                }
+
+                require_tok!(self, Semicolon);
+            },
+            _ => panic!()
+        }
+    }
+
     fn declaration(&mut self) -> Stmt {
         let spec = self.declaration_specifiers();
 
         if check_tok!(self, Semicolon) {
-            return Stmt {
-                tag: StmtTag::Declaration
-            }
+            todo!()
         }
 
         let decl_list = self.init_declarator_list();
+        require_tok!(self, Semicolon);
+        todo!()
+    }
 
-        return Stmt {
-            tag: StmtTag::Declaration
+    fn declaration_specifiers(&mut self) -> () {
+        if self.type_speficier().is_ok() {
+            panic!("Expected type specifier")
+        }
+
+
+    }
+
+    fn is_storage_class_specifier(&mut self) -> bool {
+        matches!(self.iter.peek(), Some(
+            Typedef
+            | Extern
+            | Static
+            | Auto
+            | Register
+        ))
+    }
+
+    fn is_type_specifier(&mut self) -> bool {
+        match self.iter.peek() {
+            Some(
+                Void
+                | Char
+                | Short
+                | Int
+                | Long
+                | Float
+                | Double
+                | Signed
+                | Unsigned
+                | Identifier // TODO: check
+            ) => true,
+            Some(Struct | Union | Enum) => {
+                return matches!(
+                    self.iter.lookahead(2), // no need do lookahead more
+                    Some(Identifier | LeftCurly)
+                )
+            },
+            _ => false
         }
     }
 
-    fn declaration_specifiers(&mut self) -> Stmt {
-        todo!()
+    fn type_speficier(&mut self) -> Result<(), ()> {
+        match self.iter.peek() {
+            Some(
+                Void
+                | Char
+                | Short
+                | Int
+                | Long
+                | Float
+                | Double
+                | Signed
+                | Unsigned
+            ) => { self.iter.next(); },
+            Some(Struct | Union) => {
+                self.struct_or_union();
+            },
+            Some(Enum) => {
+                self.enum_specifier();
+            },
+            Some(Identifier) => {
+                self.iter.next();
+            },
+            _ => return Err(())
+        };
+
+        Ok(())
+    }
+
+    fn is_type_qualifier(&mut self) -> bool {
+        matches!(self.iter.peek(), Some(Const | Volatile))
     }
 
     fn init_declarator_list(&mut self) -> Stmt {
@@ -81,10 +175,12 @@ impl<'a> Parser<'a> {
 
         if !matches!(self.iter.peek(), Some(LeftCurly)) {
             if maybe_id.is_none() {
-                panic!();
+                panic!("declaration has no declarator");
             }
 
-            return todo!();
+            return Stmt {
+                tag: StmtTag::DeclStmt(DeclStmt::RecordDecl(vec![]))
+            }
         }
 
         // Struct/Union has a body
@@ -92,15 +188,42 @@ impl<'a> Parser<'a> {
             self.struct_declarator_list();
         });
 
-        todo!()
+        return Stmt {
+            tag: StmtTag::DeclStmt(DeclStmt::RecordDecl(
+                self.struct_declaration_list()
+            ))
+        }
     }
 
-    fn struct_declarator_list(&mut self) -> Stmt {
-        todo!()
+    fn struct_declaration_list(&mut self) -> Vec<FieldDecl> {
+        if self.is_type_qualifier() || self.is_type_specifier() {
+            self.iter.next();
+
+            self.struct_declarator_list();
+            todo!()
+        }
+
+        return vec![]
     }
 
-    fn struct_declarator(&mut self) -> Stmt {
-        todo!()
+    fn struct_declarator_list(&mut self) -> () {
+        self.struct_declarator();
+
+        while check_tok!(self, Comma) {
+            self.struct_declarator();
+        }
+    }
+
+    fn struct_declarator(&mut self) -> () {
+        if check_tok!(self, Colon) {
+            self.constant_expression();
+        } else {
+            self.declarator();
+
+            if check_tok!(self, Colon) {
+                self.constant_expression();
+            }
+        }
     }
 
     fn enum_specifier(&mut self) -> Stmt {
@@ -110,20 +233,24 @@ impl<'a> Parser<'a> {
 
         if !matches!(self.iter.peek(), Some(LeftCurly)) {
             if maybe_id.is_none() {
-                panic!();
+                panic!("declaration has no initializer");
             }
 
-            return todo!();
+            return Stmt {
+                tag: StmtTag::DeclStmt(DeclStmt::EnumDecl(vec![]))
+            };
         }
 
-        curly_wrapped!(self, {
-            self.enumerator_list();
-        });
-
-        todo!()
+        Stmt {
+            tag: StmtTag::DeclStmt(DeclStmt::EnumDecl(
+                curly_wrapped!(self, {
+                    self.enumerator_list()
+                })
+            ))
+        }
     }
 
-    fn enumerator_list(&mut self) -> Stmt {
+    fn enumerator_list(&mut self) -> Vec<EnumConstantDecl> {
         self.enumerator();
 
         while check_tok!(self, Comma) {
@@ -133,15 +260,18 @@ impl<'a> Parser<'a> {
         todo!();
     }
 
-    fn enumerator(&mut self) -> Stmt {
-        require_tok!(self, Identifier);
+    fn enumerator(&mut self) -> EnumConstantDecl {
+        let id = require_tok!(self, Identifier);
+        let cexpr = if check_tok!(self, Assign) {
+            Some(self.constant_expression())
+        } else {
+            None
+        };
 
-        if check_tok!(self, Assign) {
-            self.constant_expression();
-            return todo!();
+        EnumConstantDecl {
+            id: todo!(),
+            cexpr
         }
-
-        todo!()
     }
 
     fn declarator(&mut self) {

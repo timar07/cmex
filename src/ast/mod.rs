@@ -1,26 +1,42 @@
-use crate::lexer::TokenTag;
+use crate::lexer::{Token, TokenTag};
 
 pub struct Stmt {
     pub tag: StmtTag
 }
 
 pub enum StmtTag {
-    Assign,
-    Func,
-    Labeled,
-    While,
-    Dowhile,
-    For,
-    Block,
-    Case,
-    Cond,
-    Init,
-    Return,
-    Switch,
-    Goto,
-    Ident,
-    Expr,
-    Declaration,
+    CompoundStmt,
+    DeclStmt(DeclStmt)
+}
+
+pub enum DeclStmt {
+    RecordDecl(Vec<FieldDecl>),
+    EnumDecl(Vec<EnumConstantDecl>)
+}
+
+/// Field declaration in some record.
+/// For example:
+/// ```c
+/// struct foo {
+///     int bar; /* field */
+///     /* ... */
+/// }
+/// ```
+pub struct FieldDecl {
+
+}
+
+/// Enum variant
+pub struct EnumConstantDecl {
+    pub id: Token,
+    /// enum variant can be a constant expression:
+    /// ```c
+    /// enum foo {
+    ///     bar = 1,
+    ///  /* ^~~~~~~ constant expression */
+    /// }
+    /// ```
+    pub cexpr: Option<Expr>
 }
 
 #[derive(Debug)]
