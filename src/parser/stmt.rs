@@ -135,6 +135,42 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn labeled_statement(&mut self) -> Stmt {
+        match self.iter.peek() {
+            Some(Identifier) => {
+                let id = self.iter.next();
+                require_tok!(self, Colon);
+                Stmt {
+                    tag: StmtTag::LabelStmt(
+                        todo!(),
+                        Box::new(self.statement())
+                    )
+                }
+            },
+            Some(Case) => {
+                self.iter.next();
+                let expr = self.constant_expression();
+                require_tok!(self, Colon);
+                Stmt {
+                    tag: StmtTag::CaseStmt(
+                        expr,
+                        Box::new(self.statement())
+                    )
+                }
+            },
+            Some(Default) => {
+                self.iter.next();
+                require_tok!(self, Colon);
+                Stmt {
+                    tag: StmtTag::DefaultStmt(
+                        Box::new(self.statement())
+                    )
+                }
+            },
+            _ => panic!()
+        }
+    }
+
     fn jump_statement(&mut self) {
         match self.iter.peek() {
             Some(Goto) => {

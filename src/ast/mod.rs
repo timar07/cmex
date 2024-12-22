@@ -24,7 +24,11 @@ pub enum StmtTag {
     /// switch (expr) stmt
     SwitchStmt(Expr, Box<Stmt>),
     /// case expr: stmt
-    CaseStmt(Expr, Box<Stmt>)
+    CaseStmt(Expr, Box<Stmt>),
+    /// id: stmt
+    LabelStmt(Token, Box<Stmt>),
+    /// default: stmt
+    DefaultStmt(Box<Stmt>)
 }
 
 pub enum DeclStmt {
