@@ -6,7 +6,25 @@ pub struct Stmt {
 
 pub enum StmtTag {
     CompoundStmt,
-    DeclStmt(DeclStmt)
+    DeclStmt(DeclStmt),
+    /// while (cond) stmt
+    WhileStmt {
+        cond: Expr,
+        stmt: Box<Stmt>
+    },
+    /// do stmt while (cond);
+    DoStmt {
+        cond: Expr,
+        stmt: Box<Stmt>
+    },
+    /// for (expr, expr, expr) stmt
+    ForStmt(Option<Expr>, Option<Expr>, Option<Expr>, Box<Stmt>),
+    /// if (expr) stmt else stmt
+    IfStmt(Expr, Box<Stmt>, Option<Box<Stmt>>),
+    /// switch (expr) stmt
+    SwitchStmt(Expr, Box<Stmt>),
+    /// case expr: stmt
+    CaseStmt(Expr, Box<Stmt>)
 }
 
 pub enum DeclStmt {
