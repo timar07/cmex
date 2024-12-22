@@ -240,7 +240,7 @@ impl<'a> Parser<'a> {
 
     fn cast(&mut self) -> Expr {
         if matches!(self.iter.peek(), Some(LeftParen))
-            && matches!(self.iter.lookahead(1), Some(Identifier))
+            && matches!(self.iter.lookahead(2), Some(Identifier))
         {
             self.iter.next();
             let type_name = require_tok!(self, Identifier); // TODO: Parse type name
@@ -337,7 +337,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_call(&mut self, calle: Expr) -> Expr {
-        if check_tok!(self, LeftParen) {
+        if check_tok!(self, RightParen) { // Empty args
             return Expr {
                 tag: ExprTag::Call {
                     calle: Box::new(calle),
@@ -346,12 +346,15 @@ impl<'a> Parser<'a> {
             }
         }
 
-        Expr {
+        let expr = Expr {
             tag: ExprTag::Call {
                 calle: Box::new(calle),
                 args: self.parse_args(),
             }
-        }
+        };
+
+        require_tok!(self, RightParen);
+        expr
     }
 
     fn parse_args(&mut self) -> Vec<Expr> {
