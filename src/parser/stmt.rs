@@ -102,6 +102,39 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn selection_statement(&mut self) -> Stmt {
+        match self.iter.peek() {
+            Some(If) => {
+                self.iter.next();
+                let cond = paren_wrapped!(self, {
+                    self.expression()
+                });
+                let if_stmt = Box::new(self.statement());
+                let else_stmt = if check_tok!(self, Else) {
+                    Some(Box::new(self.statement()))
+                } else {
+                    None
+                };
+
+                Stmt {
+                    tag: StmtTag::IfStmt(cond, if_stmt, else_stmt)
+                }
+            },
+            Some(Switch) => {
+                self.iter.next();
+                Stmt {
+                    tag: StmtTag::SwitchStmt(
+                        paren_wrapped!(self, {
+                            self.expression()
+                        }),
+                        Box::new(self.statement())
+                    )
+                }
+            },
+            _ => panic!()
+        }
+    }
+
     fn jump_statement(&mut self) {
         match self.iter.peek() {
             Some(Goto) => {
@@ -176,7 +209,7 @@ impl<'a> Parser<'a> {
             ) => true,
             Some(Struct | Union | Enum) => {
                 return matches!(
-                    self.iter.lookahead(2), // no need do lookahead more
+                    self.iter.lookahead(2), // no need to lookahead more
                     Some(Identifier | LeftCurly)
                 )
             },
