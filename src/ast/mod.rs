@@ -1,11 +1,14 @@
 use crate::lexer::{Token, TokenTag};
 
+#[derive(Debug)]
 pub struct Stmt {
     pub tag: StmtTag
 }
 
+#[derive(Debug)]
 pub enum StmtTag {
-    CompoundStmt,
+    ExprStmt(Option<Expr>),
+    CompoundStmt(Vec<Stmt>),
     DeclStmt(DeclStmt),
     /// while (cond) stmt
     WhileStmt {
@@ -28,9 +31,14 @@ pub enum StmtTag {
     /// id: stmt
     LabelStmt(Token, Box<Stmt>),
     /// default: stmt
-    DefaultStmt(Box<Stmt>)
+    DefaultStmt(Box<Stmt>),
+    BreakStmt,
+    ContinueStmt,
+    ReturnStmt,
+    GotoStmt(Token)
 }
 
+#[derive(Debug)]
 pub enum DeclStmt {
     RecordDecl(Vec<FieldDecl>),
     EnumDecl(Vec<EnumConstantDecl>)
@@ -44,11 +52,13 @@ pub enum DeclStmt {
 ///     /* ... */
 /// }
 /// ```
+#[derive(Debug)]
 pub struct FieldDecl {
 
 }
 
 /// Enum variant
+#[derive(Debug)]
 pub struct EnumConstantDecl {
     pub id: Token,
     /// enum variant can be a constant expression:

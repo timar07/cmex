@@ -3,7 +3,8 @@
 ///! <https://www.lysator.liu.se/c/ANSI-C-grammar-y.html>
 
 use crate::ast::{DeclStmt, EnumConstantDecl, Expr, FieldDecl, Stmt, StmtTag};
-use crate::lexer::TokenTag::*;
+use crate::lexer::TokenTag::{self, *};
+use crate::lexer::Token;
 use crate::{check_tok, match_tok, require_tok};
 use super::Parser;
 
@@ -31,7 +32,45 @@ macro_rules! paren_wrapped {
 
 impl<'a> Parser<'a> {
     pub fn statement(&mut self) -> Stmt {
-        todo!();
+        match self.iter.peek() {
+            Some(
+                While
+                | Do
+                | For
+            ) => self.iteration_statement(),
+            Some(If | Switch) => self.selection_statement(),
+            Some(LeftCurly) => {
+                self.compound_statement()
+            },
+            Some(Case | Default) => self.labeled_statement(),
+            Some(Identifier) => {
+                if let Some(Colon) = self.iter.lookahead(1) {
+                    self.labeled_statement()
+                } else {
+                    Stmt {
+                        tag: StmtTag::ExprStmt(self.expression_statement())
+                    }
+                }
+            },
+            Some(Goto | Continue | Break | Return) => self.jump_statement(),
+            _ => Stmt {
+                tag: StmtTag::ExprStmt(self.expression_statement())
+            },
+        }
+    }
+
+    fn compound_statement(&mut self) -> Stmt {
+        self.iter.next(); // {
+
+        let mut stmts = Vec::new();
+
+        while !check_tok!(self, RightCurly) {
+            stmts.push(self.statement());
+        }
+
+        Stmt {
+            tag: StmtTag::CompoundStmt(stmts)
+        }
     }
 
     fn expression_statement(&mut self) -> Option<Expr> {
@@ -40,6 +79,8 @@ impl<'a> Parser<'a> {
         } else {
             None
         };
+
+        dbg!(self.iter.peek());
 
         require_tok!(self, Semicolon);
         expr
@@ -103,7 +144,7 @@ impl<'a> Parser<'a> {
     }
 
     fn selection_statement(&mut self) -> Stmt {
-        match self.iter.peek() {
+        match dbg!(self.iter.peek()) {
             Some(If) => {
                 self.iter.next();
                 let cond = paren_wrapped!(self, {
@@ -171,20 +212,29 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn jump_statement(&mut self) {
+    fn jump_statement(&mut self) -> Stmt {
         match self.iter.peek() {
             Some(Goto) => {
                 self.iter.next();
-                require_tok!(self, Identifier);
+                let id = require_tok!(self, Identifier);
                 require_tok!(self, Semicolon);
+                Stmt {
+                    tag: StmtTag::GotoStmt(todo!())
+                }
             },
             Some(Continue) => {
                 self.iter.next();
                 require_tok!(self, Semicolon);
+                Stmt {
+                    tag: StmtTag::ContinueStmt
+                }
             },
             Some(Break) => {
                 self.iter.next();
                 require_tok!(self, Semicolon);
+                Stmt {
+                    tag: StmtTag::BreakStmt
+                }
             },
             Some(Return) => {
                 self.iter.next();
@@ -194,6 +244,9 @@ impl<'a> Parser<'a> {
                 }
 
                 require_tok!(self, Semicolon);
+                Stmt {
+                    tag: StmtTag::ReturnStmt
+                }
             },
             _ => panic!()
         }
@@ -229,6 +282,40 @@ impl<'a> Parser<'a> {
         ))
     }
 
+    fn maybe_parse_type_specifier(&mut self) -> Option<TokenTag> {
+        if self.is_type_specifier() {
+            return Some(self.type_speficier());
+        }
+
+        None
+    }
+
+    fn type_speficier(&mut self) -> () {
+        match self.iter.peek() {
+            Some(
+                Void
+                | Char
+                | Short
+                | Int
+                | Long
+                | Float
+                | Double
+                | Signed
+                | Unsigned
+            ) => { self.iter.next(); },
+            Some(Struct | Union) => {
+                self.struct_or_union();
+            },
+            Some(Enum) => {
+                self.enum_specifier();
+            },
+            Some(Identifier) => {
+                self.iter.next();
+            },
+            _ => panic!()
+        };
+    }
+
     fn is_type_specifier(&mut self) -> bool {
         match self.iter.peek() {
             Some(
@@ -251,38 +338,6 @@ impl<'a> Parser<'a> {
             },
             _ => false
         }
-    }
-
-    fn type_speficier(&mut self) -> Result<(), ()> {
-        match self.iter.peek() {
-            Some(
-                Void
-                | Char
-                | Short
-                | Int
-                | Long
-                | Float
-                | Double
-                | Signed
-                | Unsigned
-            ) => { self.iter.next(); },
-            Some(Struct | Union) => {
-                self.struct_or_union();
-            },
-            Some(Enum) => {
-                self.enum_specifier();
-            },
-            Some(Identifier) => {
-                self.iter.next();
-            },
-            _ => return Err(())
-        };
-
-        Ok(())
-    }
-
-    fn is_type_qualifier(&mut self) -> bool {
-        matches!(self.iter.peek(), Some(Const | Volatile))
     }
 
     fn init_declarator_list(&mut self) -> Stmt {
@@ -333,14 +388,31 @@ impl<'a> Parser<'a> {
     }
 
     fn struct_declaration_list(&mut self) -> Vec<FieldDecl> {
-        if self.is_type_qualifier() || self.is_type_specifier() {
-            self.iter.next();
-
-            self.struct_declarator_list();
-            todo!()
+        while self.is_specifier_qualifier() {
         }
 
         return vec![]
+    }
+
+    fn struct_declaration(&mut self) {
+        self.specifier_qualifier_list();
+    }
+
+    fn specifier_qualifier_list(&mut self) {
+        self.specifier_qualifier();
+
+        while self.is_specifier_qualifier() {
+            self.specifier_qualifier();
+        }
+    }
+
+    fn specifier_qualifier(&mut self) -> Option<TokenTag> {
+        self.maybe_parse_type_qualifier()
+            .or_else(|| self.maybe_parse_type_specifier())
+    }
+
+    fn is_specifier_qualifier(&mut self) -> bool {
+        self.is_type_qualifier() || self.is_type_specifier()
     }
 
     fn struct_declarator_list(&mut self) -> () {
@@ -472,12 +544,26 @@ impl<'a> Parser<'a> {
         todo!()
     }
 
-    fn type_qualifier_list(&mut self) -> Stmt {
-        while check_tok!(self, Const | Volatile) {
-            todo!()
+    fn type_qualifier_list(&mut self) -> Vec<TokenTag> {
+        let mut qualifiers = Vec::new();
+
+        while let Some(tok) = self.maybe_parse_type_qualifier() {
+            qualifiers.push(tok);
         }
 
-        todo!()
+        qualifiers
+    }
+
+    fn maybe_parse_type_qualifier(&mut self) -> Option<TokenTag> {
+        if self.is_type_qualifier() {
+            return self.iter.next();
+        }
+
+        None
+    }
+
+    fn is_type_qualifier(&mut self) -> bool {
+        matches!(self.iter.peek(), Some(Const | Volatile))
     }
 
     fn parameter_type_list(&mut self) -> Stmt {
