@@ -80,7 +80,7 @@ impl<'a> Parser<'a> {
             None
         };
 
-        dbg!(self.iter.peek());
+        self.iter.peek();
 
         require_tok!(self, Semicolon);
         expr
@@ -144,7 +144,7 @@ impl<'a> Parser<'a> {
     }
 
     fn selection_statement(&mut self) -> Stmt {
-        match dbg!(self.iter.peek().val()) {
+        match self.iter.peek().val() {
             Some(If) => {
                 self.iter.next();
                 let cond = paren_wrapped!(self, {
@@ -183,7 +183,7 @@ impl<'a> Parser<'a> {
                 require_tok!(self, Colon);
                 Stmt {
                     tag: StmtTag::LabelStmt(
-                        todo!(),
+                        id.unwrap(),
                         Box::new(self.statement())
                     )
                 }
@@ -219,7 +219,7 @@ impl<'a> Parser<'a> {
                 let id = require_tok!(self, Identifier);
                 require_tok!(self, Semicolon);
                 Stmt {
-                    tag: StmtTag::GotoStmt(todo!())
+                    tag: StmtTag::GotoStmt(id)
                 }
             },
             Some(Continue) => {
@@ -479,10 +479,7 @@ impl<'a> Parser<'a> {
             None
         };
 
-        EnumConstantDecl {
-            id: todo!(),
-            cexpr
-        }
+        EnumConstantDecl { id, cexpr }
     }
 
     fn declarator(&mut self) {
