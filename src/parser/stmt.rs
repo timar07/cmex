@@ -482,29 +482,33 @@ impl<'a> Parser<'a> {
         EnumConstantDecl { id, cexpr }
     }
 
-    fn declarator(&mut self) {
+    fn declarator(&mut self) -> Stmt {
         if matches!(self.iter.peek().val(), Some(Asterisk)) {
             self.pointer();
         }
 
-        self.direct_declarator();
-        todo!()
+        self.direct_declarator()
     }
 
     fn direct_declarator(&mut self) -> Stmt {
-        if let Some(id) = match_tok!(self, Identifier) {
-            return todo!()
-        }
-
-        if matches!(self.iter.peek().val(), Some(LeftParen)) {
-            return paren_wrapped!(self, {
-                self.declarator();
+        match self.iter.peek().val() {
+            Some(Identifier) => {
+                self.iter.next();
                 todo!()
-            });
+            },
+            Some(LeftParen) => {
+                return paren_wrapped!(self, {
+                    self.declarator();
+                    todo!()
+                });
+            },
+            _ => panic!()
         }
 
-        self.direct_declarator();
+        self.declarator_suffix();
+    }
 
+    fn declarator_suffix(&mut self) -> () {
         match self.iter.next().val() {
             Some(LeftBrace) => {
                 if check_tok!(self, RightBrace) {
@@ -568,8 +572,11 @@ impl<'a> Parser<'a> {
     fn parameter_type_list(&mut self) -> Stmt {
         self.parameter_list();
 
-        if check_tok!(self, Comma) {
-            require_tok!(self, Ellipsis);
+        if matches!(self.iter.peek().val(), Some(Comma))
+            && matches!(self.iter.lookahead(2).val(), Some(Ellipsis))
+        {
+            self.iter.next(); // ,
+            self.iter.next(); // ...
         }
 
         todo!()
@@ -586,6 +593,8 @@ impl<'a> Parser<'a> {
     }
 
     fn parameter_declaration(&mut self) -> Stmt {
+        self.declaration_specifiers();
+
         todo!()
     }
 
@@ -604,15 +613,112 @@ impl<'a> Parser<'a> {
     }
 
     fn abstract_declarator(&mut self) -> Stmt {
+        if matches!(self.iter.peek().val(), Some(Asterisk)) {
+            self.pointer();
+            self.maybe_parse_direct_abstract_declarator();
+        } else {
+            self.direct_abstract_declarator();
+        }
+
         todo!();
+    }
+
+    fn maybe_parse_direct_abstract_declarator(&mut self) -> Option<Stmt> {
+        if self.is_direct_abstract_declarator() {
+            Some(self.direct_abstract_declarator())
+        } else {
+            None
+        }
     }
 
     fn direct_abstract_declarator(&mut self) -> Stmt {
-        todo!();
+        if matches!(self.iter.peek().val(), Some(LeftParen)) {
+            paren_wrapped!(self, {
+                self.abstract_declarator();
+            });
+        } else {
+            self.abstract_declarator_suffix();
+        }
+
+        while self.is_abstract_declarator_suffix() {
+            self.abstract_declarator_suffix();
+        }
+
+        todo!()
+    }
+
+    fn is_direct_abstract_declarator(&mut self) -> bool {
+        matches!(self.iter.peek().val(), Some( // todo: is it enough to determine?
+            LeftParen
+            | LeftBrace
+        ))
+    }
+
+    fn maybe_parse_abstract_declarator_suffix(&mut self) -> Option<Stmt> {
+        if self.is_abstract_declarator_suffix() {
+            Some(self.abstract_declarator_suffix())
+        } else {
+            None
+        }
+    }
+
+    fn abstract_declarator_suffix(&mut self) -> Stmt {
+        match self.iter.peek().val() {
+            Some(LeftBrace) => {
+                self.iter.next();
+
+                if check_tok!(self, RightBrace) {
+                    // ...
+                }
+
+                self.constant_expression();
+                require_tok!(self, RightBrace);
+            },
+            Some(LeftParen) => {
+                self.iter.next();
+
+                if check_tok!(self, RightParen) {
+                    // ...
+                }
+
+                self.parameter_type_list();
+                require_tok!(self, RightParen);
+            },
+            _ => panic!()
+        }
+
+        todo!()
+    }
+
+    fn is_abstract_declarator_suffix(&mut self) -> bool {
+        matches!(self.iter.peek().val(), Some(
+            LeftBrace | LeftParen
+        ))
     }
 
     fn initializer(&mut self) -> Stmt {
-        todo!();
+        match self.iter.peek().val() {
+            Some(LeftCurly) => {
+                self.iter.next();
+                self.initializer_list();
+                match_tok!(self, Comma);
+            },
+            _ => {
+                self.assignment();
+            }
+        }
+
+        todo!()
+    }
+
+    fn initializer_list(&mut self) -> Stmt {
+        self.initializer();
+
+        while check_tok!(self, Comma) {
+            self.initializer();
+        }
+
+        todo!()
     }
 }
 
