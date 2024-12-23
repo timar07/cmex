@@ -4,9 +4,7 @@ mod lookahead;
 mod tests;
 
 use crate::lexer::{
-    Lexer,
-    Spanned,
-    TokenTag
+    Lexer, Span, Spanned, TokenTag
 };
 use lookahead::Lookahead;
 
@@ -34,26 +32,26 @@ impl<'a> Tokens<'a> {
 }
 
 impl<'a> Iterator for Tokens<'_> {
-    type Item = TokenTag;
+    type Item = (TokenTag, Span);
 
     fn next(&mut self) -> Option<Self::Item> {
         self.iter
             .next()
-            .map(|(i, _)| match i {
-                Ok(i) => i,
+            .map(|(i, span)| match i {
+                Ok(i) => (i, span),
                 Err(e) => {
                     println!("{e}");
-                    TokenTag::Error
+                    (TokenTag::Error, span)
                 }
             })
     }
 }
 
-
+/// Check if the next token matches $pat, returns it if it does
 #[macro_export]
 macro_rules! match_tok {
     ($parser:expr, $pat:pat) => {
-        if matches!($parser.iter.peek(), Some($pat)) {
+        if matches!($parser.iter.peek(), Some(($pat, _))) {
             $parser.iter.next()
         } else {
             None
@@ -61,6 +59,7 @@ macro_rules! match_tok {
     };
 }
 
+/// Check if the next token matches $pat, returns true if it does
 #[macro_export]
 macro_rules! check_tok {
     ($parser:expr, $pat:pat) => {
@@ -68,12 +67,13 @@ macro_rules! check_tok {
     };
 }
 
+/// Check if the next token matches $pat, raises a panic if it doesn't
 #[macro_export]
 macro_rules! require_tok {
     ($p:expr, $pat:pat) => {
         match $p.iter.peek() {
-            Some($pat) => $p.iter.next().unwrap(),
-            _ => panic!()
+            Some(($pat, _)) => $p.iter.next().unwrap(),
+            _ => panic!("expected {}", stringify!($pat))
         }
     };
 }

@@ -1,4 +1,4 @@
-pub struct Token(TokenTag, Span);
+pub type Token = (TokenTag, Span);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TokenTag {
@@ -167,6 +167,19 @@ pub enum NumberLiteralSuffix {
     UnsignedLong,
     UnsignedLongLong,
     LongLong
+}
+
+pub trait Unspanable<T> {
+    fn val(self) -> Option<T>;
+}
+
+pub type SpannedOption<I> = Option<(I, Span)>;
+
+impl<T> Unspanable<T> for SpannedOption<T> {
+    /// A handy method to convert `Option<(T, Span)>` to `Option<T>`
+    fn val(self) -> Option<T> {
+        self.map(|(val, _)| val)
+    }
 }
 
 #[derive(Debug, Clone, Copy)]

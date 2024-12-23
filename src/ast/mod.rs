@@ -1,4 +1,4 @@
-use crate::lexer::{Token, TokenTag};
+use crate::lexer::Token;
 
 #[derive(Debug)]
 pub struct Stmt {
@@ -81,12 +81,12 @@ pub struct Expr {
 pub enum ExprTag {
     Primary,
     BinExpr {
-        op: TokenTag,
+        op: Token,
         lhs: Box<Expr>,
         rhs: Box<Expr>
     },
     UnExpr {
-        op: TokenTag,
+        op: Token,
         rhs: Box<Expr>
     },
     Call {
@@ -103,18 +103,18 @@ pub enum ExprTag {
         expr: Box<Expr>,
         /// mystruct.member
         ///          ^~~~~~ member that being accessed
-        member: TokenTag
+        member: Token
     },
     SizeofType {
         /// sizeof (int)
         ///         ^~~ type
-        r#type: TokenTag
+        r#type: Token
     },
     SizeofExpr {
         expr: Box<Expr>
     },
     CastExpr {
-        r#type: TokenTag,
+        r#type: Token,
         expr: Box<Expr>
     },
     Conditional {

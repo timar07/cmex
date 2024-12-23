@@ -4,7 +4,7 @@
 
 use crate::ast::{DeclStmt, EnumConstantDecl, Expr, FieldDecl, Stmt, StmtTag};
 use crate::lexer::TokenTag::{self, *};
-use crate::lexer::Token;
+use crate::lexer::Unspanable;
 use crate::{check_tok, match_tok, require_tok};
 use super::Parser;
 
@@ -32,7 +32,7 @@ macro_rules! paren_wrapped {
 
 impl<'a> Parser<'a> {
     pub fn statement(&mut self) -> Stmt {
-        match self.iter.peek() {
+        match self.iter.peek().val() {
             Some(
                 While
                 | Do
@@ -44,7 +44,7 @@ impl<'a> Parser<'a> {
             },
             Some(Case | Default) => self.labeled_statement(),
             Some(Identifier) => {
-                if let Some(Colon) = self.iter.lookahead(1) {
+                if let Some(Colon) = self.iter.lookahead(1).val() {
                     self.labeled_statement()
                 } else {
                     Stmt {
@@ -87,7 +87,7 @@ impl<'a> Parser<'a> {
     }
 
     fn iteration_statement(&mut self) -> Stmt {
-        match self.iter.peek() {
+        match self.iter.peek().val() {
             Some(While) => {
                 self.iter.next();
 
@@ -144,7 +144,7 @@ impl<'a> Parser<'a> {
     }
 
     fn selection_statement(&mut self) -> Stmt {
-        match dbg!(self.iter.peek()) {
+        match dbg!(self.iter.peek().val()) {
             Some(If) => {
                 self.iter.next();
                 let cond = paren_wrapped!(self, {
@@ -177,7 +177,7 @@ impl<'a> Parser<'a> {
     }
 
     fn labeled_statement(&mut self) -> Stmt {
-        match self.iter.peek() {
+        match self.iter.peek().val() {
             Some(Identifier) => {
                 let id = self.iter.next();
                 require_tok!(self, Colon);
@@ -213,7 +213,7 @@ impl<'a> Parser<'a> {
     }
 
     fn jump_statement(&mut self) -> Stmt {
-        match self.iter.peek() {
+        match self.iter.peek().val() {
             Some(Goto) => {
                 self.iter.next();
                 let id = require_tok!(self, Identifier);
@@ -265,21 +265,21 @@ impl<'a> Parser<'a> {
     }
 
     fn declaration_specifiers(&mut self) -> () {
-        if self.type_speficier().is_ok() {
-            panic!("Expected type specifier")
-        }
-
-
+        self.maybe_parse_type_specifier()
+            .expect("expected type specifier");
     }
 
     fn is_storage_class_specifier(&mut self) -> bool {
-        matches!(self.iter.peek(), Some(
-            Typedef
-            | Extern
-            | Static
-            | Auto
-            | Register
-        ))
+        self.iter.peek().is_some_and(|t| {
+            matches!(
+                t.0,
+                Typedef
+                | Extern
+                | Static
+                | Auto
+                | Register
+            )
+        })
     }
 
     fn maybe_parse_type_specifier(&mut self) -> Option<TokenTag> {
@@ -290,8 +290,8 @@ impl<'a> Parser<'a> {
         None
     }
 
-    fn type_speficier(&mut self) -> () {
-        match self.iter.peek() {
+    fn type_speficier(&mut self) -> TokenTag {
+        match self.iter.peek().val() {
             Some(
                 Void
                 | Char
@@ -314,10 +314,12 @@ impl<'a> Parser<'a> {
             },
             _ => panic!()
         };
+
+        todo!()
     }
 
     fn is_type_specifier(&mut self) -> bool {
-        match self.iter.peek() {
+        match self.iter.peek().val() {
             Some(
                 Void
                 | Char
@@ -332,7 +334,7 @@ impl<'a> Parser<'a> {
             ) => true,
             Some(Struct | Union | Enum) => {
                 return matches!(
-                    self.iter.lookahead(2), // no need to lookahead more
+                    self.iter.lookahead(2).val(), // no need to lookahead more
                     Some(Identifier | LeftCurly)
                 )
             },
@@ -365,7 +367,7 @@ impl<'a> Parser<'a> {
 
         let maybe_id = match_tok!(self, Identifier);
 
-        if !matches!(self.iter.peek(), Some(LeftCurly)) {
+        if !matches!(self.iter.peek().val(), Some(LeftCurly)) {
             if maybe_id.is_none() {
                 panic!("declaration has no declarator");
             }
@@ -440,7 +442,7 @@ impl<'a> Parser<'a> {
 
         let maybe_id = match_tok!(self, Identifier);
 
-        if !matches!(self.iter.peek(), Some(LeftCurly)) {
+        if !matches!(self.iter.peek().val(), Some(LeftCurly)) {
             if maybe_id.is_none() {
                 panic!("declaration has no initializer");
             }
@@ -484,7 +486,7 @@ impl<'a> Parser<'a> {
     }
 
     fn declarator(&mut self) {
-        if matches!(self.iter.peek(), Some(Asterisk)) {
+        if matches!(self.iter.peek().val(), Some(Asterisk)) {
             self.pointer();
         }
 
@@ -497,7 +499,7 @@ impl<'a> Parser<'a> {
             return todo!()
         }
 
-        if matches!(self.iter.peek(), Some(LeftParen)) {
+        if matches!(self.iter.peek().val(), Some(LeftParen)) {
             return paren_wrapped!(self, {
                 self.declarator();
                 todo!()
@@ -506,7 +508,7 @@ impl<'a> Parser<'a> {
 
         self.direct_declarator();
 
-        match self.iter.next() {
+        match self.iter.next().val() {
             Some(LeftBrace) => {
                 if check_tok!(self, RightBrace) {
                     return todo!();
@@ -521,7 +523,7 @@ impl<'a> Parser<'a> {
                     todo!()
                 }
 
-                if matches!(self.iter.peek(), Some(Identifier)) {
+                if matches!(self.iter.peek().val(), Some(Identifier)) {
                     self.identifier_list();
                     return todo!();
                 }
@@ -536,7 +538,7 @@ impl<'a> Parser<'a> {
     fn pointer(&mut self) -> Stmt {
         require_tok!(self, Asterisk);
 
-        if matches!(self.iter.peek(), Some(Const | Volatile)) {
+        if matches!(self.iter.peek().val(), Some(Const | Volatile)) {
             self.type_qualifier_list();
         }
 
@@ -556,14 +558,14 @@ impl<'a> Parser<'a> {
 
     fn maybe_parse_type_qualifier(&mut self) -> Option<TokenTag> {
         if self.is_type_qualifier() {
-            return self.iter.next();
+            return self.iter.next().val();
         }
 
         None
     }
 
     fn is_type_qualifier(&mut self) -> bool {
-        matches!(self.iter.peek(), Some(Const | Volatile))
+        matches!(self.iter.peek().val(), Some(Const | Volatile))
     }
 
     fn parameter_type_list(&mut self) -> Stmt {

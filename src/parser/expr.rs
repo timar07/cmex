@@ -3,7 +3,8 @@
 ///! <https://www.lysator.liu.se/c/ANSI-C-grammar-y.html>
 
 use crate::ast::{Expr, ExprTag};
-use crate::lexer::TokenTag::*;
+use crate::lexer::{TokenTag::*, Unspanable};
+use crate::lexer::Token;
 use crate::{check_tok, match_tok, require_tok};
 
 use super::Parser;
@@ -239,8 +240,8 @@ impl<'a> Parser<'a> {
     }
 
     fn cast(&mut self) -> Expr {
-        if matches!(self.iter.peek(), Some(LeftParen))
-            && matches!(self.iter.lookahead(2), Some(Identifier))
+        if matches!(self.iter.peek().val(), Some(LeftParen))
+            && matches!(self.iter.lookahead(2).val(), Some(Identifier))
         {
             self.iter.next();
             let type_name = require_tok!(self, Identifier); // TODO: Parse type name
@@ -258,7 +259,7 @@ impl<'a> Parser<'a> {
     }
 
     fn unary(&mut self) -> Expr {
-        match self.iter.peek() {
+        match self.iter.peek().val() {
             Some(
                 Ampersand
                 | Asterisk
@@ -306,7 +307,7 @@ impl<'a> Parser<'a> {
             | ArrowRight
             | Decrement
         ) {
-            expr = match tok {
+            expr = match tok.0 {
                 // todo: somehow make this transformation with macros
                 LeftBrace => { // sugar
                     self.expression();
@@ -369,7 +370,7 @@ impl<'a> Parser<'a> {
     }
 
     fn primary(&mut self) -> Expr {
-        match self.iter.next() {
+        match self.iter.next().val() {
             Some(
                 Identifier
                 | StringLiteral
