@@ -44,6 +44,59 @@ pub enum DeclStmt {
     EnumDecl(Vec<EnumConstantDecl>)
 }
 
+#[derive(Debug)]
+pub enum DeclSpecifier {
+    TypeSpecifier(TypeSpecifier),
+    TypeQualifier(Token)
+}
+
+/// Represents single declaration in AST.
+#[derive(Debug)]
+pub struct Decl {
+    /// ```c
+    ///    register int a, b, c
+    /// /* ^~~~~~~~~~~~ spec */
+    /// ```
+    pub spec: Vec<DeclSpecifier>,
+    /// ```c
+    /// int a, b, c
+    ///  /* ^~~~~~~ declarators list */
+    /// ```
+    pub decl_list: Vec<InitDeclarator>
+}
+
+#[derive(Debug)]
+pub enum Initializer {
+    Assign(Expr),
+    List(Vec<Initializer>)
+}
+
+#[derive(Debug)]
+pub struct InitDeclarator(pub Declarator, pub Option<Initializer>);
+
+#[derive(Debug)]
+pub struct Declarator {
+    pub inner: Box<DirectDeclarator>,
+    pub suffix: Option<DeclaratorSuffix>
+}
+
+#[derive(Debug)]
+pub enum DirectDeclarator {
+    Identifier(Token),
+    Paren(Declarator)
+}
+
+#[derive(Debug)]
+pub enum DeclaratorSuffix {
+    /// ```c
+    /// int *c[123]
+    /// /*    ^~~~~ array declarator suffix */
+    /// ```
+    Array(Option<Expr>),
+    /// TODO
+    Func()
+}
+
 /// Field declaration in some record.
 /// For example:
 /// ```c
@@ -72,6 +125,12 @@ pub struct EnumConstantDecl {
 }
 
 #[derive(Debug)]
+pub enum TypeSpecifier {
+    Simple(Token),
+    Compound
+}
+
+#[derive(Debug)]
 pub struct Expr {
     pub tag: ExprTag,
     // todo: spans and stuff
@@ -79,7 +138,7 @@ pub struct Expr {
 
 #[derive(Debug)]
 pub enum ExprTag {
-    Primary,
+    Primary(Token),
     BinExpr {
         op: Token,
         lhs: Box<Expr>,
