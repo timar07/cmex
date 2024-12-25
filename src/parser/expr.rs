@@ -30,7 +30,7 @@ impl<'a> Parser<'a> {
         expr
     }
 
-    fn assignment(&mut self) -> Expr {
+    pub(crate) fn assignment(&mut self) -> Expr {
         let expr = self.conditional();
 
         if let Some(op) = match_tok!(
@@ -217,7 +217,6 @@ impl<'a> Parser<'a> {
                     rhs: Box::new(self.multiplicative())
                 }
             };
-            dbg!(&expr);
         }
 
         expr
@@ -359,6 +358,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_args(&mut self) -> Vec<Expr> {
+        dbg!(self.iter.peek());
         let mut args = Vec::new();
         args.push(self.assignment());
 
@@ -370,7 +370,7 @@ impl<'a> Parser<'a> {
     }
 
     fn primary(&mut self) -> Expr {
-        match self.iter.next().val() {
+        match self.iter.peek().val() {
             Some(
                 Identifier
                 | StringLiteral
@@ -378,10 +378,11 @@ impl<'a> Parser<'a> {
                 | NumberLiteral { .. }
             ) => {
                 Expr {
-                    tag: ExprTag::Primary
+                    tag: ExprTag::Primary(self.iter.next().unwrap())
                 }
             },
             Some(LeftParen) => {
+                self.iter.next();
                 let expr = self.expression();
                 require_tok!(self, RightParen);
                 expr
