@@ -185,6 +185,12 @@ impl<T> Unspanable<T> for SpannedOption<T> {
 #[derive(Debug, Clone, Copy)]
 pub struct Span(pub usize, pub usize);
 
+impl std::fmt::Display for Span {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!("{}:{}", self.0, self.1))
+    }
+}
+
 pub struct Spanned<I> {
     pub iter: I,
 }
