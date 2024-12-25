@@ -3,9 +3,8 @@ mod expr;
 mod lookahead;
 mod tests;
 
-use crate::lexer::{
-    Lexer, Span, Spanned, TokenTag
-};
+use crate::ast::Stmt;
+use crate::lexer::{Lexer, Span, Spanned, Token, TokenTag};
 use lookahead::Lookahead;
 
 pub struct Parser<'a> {
@@ -16,6 +15,18 @@ impl<'a> Parser<'a> {
     pub fn new(iter: Lexer<'a>) -> Self {
         Self {
             iter: Lookahead::from(Tokens::new(iter.spanned()))
+        }
+    }
+}
+
+impl<'a> Iterator for Parser<'a> {
+    type Item = Stmt;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.iter.peek().is_some() {
+            Some(self.statement())
+        } else {
+            None
         }
     }
 }
@@ -45,6 +56,15 @@ impl<'a> Iterator for Tokens<'_> {
                 }
             })
     }
+}
+
+#[derive(Debug)]
+pub enum ParseError {
+    Expected(String),
+    DeclarationHasNoIdentifier,
+    DeclarationHasNoInitializer,
+    UnexpectedToken(Token),
+    UnexpectedEof
 }
 
 /// Check if the next token matches $pat, returns it if it does

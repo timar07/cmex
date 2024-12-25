@@ -6,7 +6,7 @@ use crate::ast::*;
 use crate::lexer::TokenTag::*;
 use crate::lexer::{Token, Unspanable};
 use crate::{check_tok, match_tok, require_tok};
-use super::Parser;
+use super::{ParseError, Parser};
 
 macro_rules! curly_wrapped {
     ($self:expr, $expr:expr) => {
@@ -29,6 +29,8 @@ macro_rules! paren_wrapped {
         }
     };
 }
+
+type PR<T> = Result<T, ParseError>;
 
 impl<'a> Parser<'a> {
     pub fn parse(&mut self) {
@@ -151,7 +153,7 @@ impl<'a> Parser<'a> {
                     )
                 }
             },
-            _ => panic!()
+            _ => unreachable!()
         }
     }
 
@@ -184,7 +186,7 @@ impl<'a> Parser<'a> {
                     )
                 }
             },
-            _ => panic!()
+            _ => unreachable!()
         }
     }
 
@@ -220,7 +222,7 @@ impl<'a> Parser<'a> {
                     )
                 }
             },
-            _ => panic!()
+            _ => unreachable!()
         }
     }
 
@@ -260,43 +262,47 @@ impl<'a> Parser<'a> {
                     tag: StmtTag::ReturnStmt
                 }
             },
-            _ => panic!()
+            _ => unreachable!()
         }
     }
 
-    fn declaration(&mut self) -> Decl {
-        let spec = self.declaration_specifiers();
+    fn declaration(&mut self) -> PR<Decl> {
+        let spec = self.declaration_specifiers()?;
 
         if check_tok!(self, Semicolon) {
-            todo!()
+            return Ok(Decl {
+                spec,
+                decl_list: Vec::with_capacity(0)
+            })
         }
 
-        let decl_list = self.init_declarator_list();
+        let decl_list = self.init_declarator_list()?;
         require_tok!(self, Semicolon);
 
-        Decl {
+        Ok(Decl {
             spec,
             decl_list
-        }
+        })
     }
 
-    fn declaration_specifiers(&mut self) -> Vec<DeclSpecifier> {
+    fn declaration_specifiers(&mut self) -> PR<Vec<DeclSpecifier>> {
         let mut specs = Vec::new();
 
-        while let Some(spec) = self.maybe_parse_declaration_secifier() {
+        while let Some(spec) = self.maybe_parse_declaration_secifier()? {
             specs.push(spec)
         }
 
-        specs
+        Ok(specs)
     }
 
-    fn maybe_parse_declaration_secifier(&mut self) -> Option<DeclSpecifier> {
-        self.maybe_parse_type_specifier()
+    fn maybe_parse_declaration_secifier(&mut self) -> PR<Option<DeclSpecifier>> {
+        Ok(self.maybe_parse_type_specifier()?
             .and_then(|spec| Some(DeclSpecifier::TypeSpecifier(spec)))
             .or_else(|| {
                 self.maybe_parse_type_qualifier()
                     .and_then(|qual| Some(DeclSpecifier::TypeQualifier(qual)))
             })
+        )
     }
 
     fn is_storage_class_specifier(&mut self) -> bool {
@@ -312,15 +318,15 @@ impl<'a> Parser<'a> {
         })
     }
 
-    fn maybe_parse_type_specifier(&mut self) -> Option<TypeSpecifier> {
+    fn maybe_parse_type_specifier(&mut self) -> PR<Option<TypeSpecifier>> {
         if self.is_type_specifier() {
-            return Some(self.type_speficier());
+            return Ok(Some(self.type_speficier()?));
         }
 
-        None
+        Ok(None)
     }
 
-    fn type_speficier(&mut self) -> TypeSpecifier {
+    fn type_speficier(&mut self) -> PR<TypeSpecifier> {
         match self.iter.peek().val() {
             Some(
                 Void
@@ -333,11 +339,11 @@ impl<'a> Parser<'a> {
                 | Signed
                 | Unsigned
             ) => {
-                TypeSpecifier::Simple(
+                Ok(TypeSpecifier::Simple(
                     self.iter
                         .next()
                         .unwrap()
-                )
+                ))
             },
             Some(Struct | Union) => {
                 self.struct_or_union();
@@ -348,13 +354,13 @@ impl<'a> Parser<'a> {
                 todo!()
             },
             Some(Identifier) if self.is_type_specifier() => {
-                TypeSpecifier::Simple(
+                Ok(TypeSpecifier::Simple(
                     self.iter
                         .next()
                         .unwrap()
-                )
+                ))
             },
-            _ => panic!()
+            _ => Err(ParseError::Expected("type specifier".into()))
         }
     }
 
@@ -382,41 +388,42 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn init_declarator_list(&mut self) -> Vec<InitDeclarator> {
+    fn init_declarator_list(&mut self) -> PR<Vec<InitDeclarator>> {
         let mut init_decl_list = Vec::new();
-        init_decl_list.push(self.init_declarator());
+        init_decl_list.push(self.init_declarator()?);
 
         while check_tok!(self, Comma) {
-            init_decl_list.push(self.init_declarator());
+            init_decl_list.push(self.init_declarator()?);
         }
 
-        init_decl_list
+        Ok(init_decl_list)
     }
 
-    fn init_declarator(&mut self) -> InitDeclarator {
-        InitDeclarator(
-            self.declarator(),
+    fn init_declarator(&mut self) -> PR<InitDeclarator> {
+        Ok(InitDeclarator(
+            self.declarator()?,
             if check_tok!(self, Assign) {
                 Some(self.initializer())
             } else {
                 None
             }
-        )
+        ))
     }
 
-    fn struct_or_union(&mut self) -> Stmt {
+    fn struct_or_union(&mut self) -> PR<Stmt> {
         require_tok!(self, Struct | Union);
 
         let maybe_id = match_tok!(self, Identifier);
 
+        // Bodyless struct/union
         if !matches!(self.iter.peek().val(), Some(LeftCurly)) {
             if maybe_id.is_none() {
-                panic!("declaration has no declarator");
+                return Err(ParseError::DeclarationHasNoIdentifier);
             }
 
-            return Stmt {
+            return Ok(Stmt {
                 tag: StmtTag::DeclStmt(DeclStmt::RecordDecl(vec![]))
-            }
+            })
         }
 
         // Struct/Union has a body
@@ -424,11 +431,11 @@ impl<'a> Parser<'a> {
             self.struct_declarator_list();
         });
 
-        return Stmt {
+        Ok(Stmt {
             tag: StmtTag::DeclStmt(DeclStmt::RecordDecl(
                 self.struct_declaration_list()
             ))
-        }
+        })
     }
 
     fn struct_declaration_list(&mut self) -> Vec<FieldDecl> {
@@ -481,28 +488,28 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn enum_specifier(&mut self) -> Stmt {
+    fn enum_specifier(&mut self) -> PR<Stmt> {
         require_tok!(self, Enum);
 
         let maybe_id = match_tok!(self, Identifier);
 
         if !matches!(self.iter.peek().val(), Some(LeftCurly)) {
             if maybe_id.is_none() {
-                panic!("declaration has no initializer");
+                return Err(ParseError::DeclarationHasNoInitializer);
             }
 
-            return Stmt {
+            return Ok(Stmt {
                 tag: StmtTag::DeclStmt(DeclStmt::EnumDecl(vec![]))
-            };
+            });
         }
 
-        Stmt {
+        Ok(Stmt {
             tag: StmtTag::DeclStmt(DeclStmt::EnumDecl(
                 curly_wrapped!(self, {
                     self.enumerator_list()
                 })
             ))
-        }
+        })
     }
 
     fn enumerator_list(&mut self) -> Vec<EnumConstantDecl> {
@@ -526,7 +533,7 @@ impl<'a> Parser<'a> {
         EnumConstantDecl { id, cexpr }
     }
 
-    fn declarator(&mut self) -> Declarator {
+    fn declarator(&mut self) -> PR<Declarator> {
         if matches!(self.iter.peek().val(), Some(Asterisk)) {
             self.pointer();
         }
@@ -534,7 +541,7 @@ impl<'a> Parser<'a> {
         self.direct_declarator()
     }
 
-    fn direct_declarator(&mut self) -> Declarator {
+    fn direct_declarator(&mut self) -> PR<Declarator> {
         let dir_decl = match self.iter.peek().val() {
             Some(Identifier) => {
                 DirectDeclarator::Identifier(
@@ -544,17 +551,20 @@ impl<'a> Parser<'a> {
             Some(LeftParen) => {
                 paren_wrapped!(self, {
                     DirectDeclarator::Paren(
-                        self.declarator()
+                        self.declarator()?
                     )
                 })
             },
-            c => panic!("unexpected token {c:?}")
+            Some(_) => return Err(ParseError::UnexpectedToken(
+                self.iter.peek().unwrap()
+            )),
+            _ => return Err(ParseError::UnexpectedEof)
         };
 
-        Declarator {
+        Ok(Declarator {
             inner: Box::new(dir_decl),
             suffix: self.maybe_parse_declarator_suffix()
-        }
+        })
     }
 
     fn maybe_parse_declarator_suffix(&mut self) -> Option<DeclaratorSuffix> {
@@ -763,6 +773,7 @@ impl<'a> Parser<'a> {
             Some(LeftCurly) => {
                 self.iter.next();
                 let init = self.initializer_list();
+                require_tok!(self, RightCurly);
                 match_tok!(self, Comma); // dangling comma
                 init
             },
