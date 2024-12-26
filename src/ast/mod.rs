@@ -89,12 +89,15 @@ pub enum DirectDeclarator {
 #[derive(Debug)]
 pub enum DeclaratorSuffix {
     /// ```c
-    /// int *c[123]
+    /// int *c[123];
     /// /*    ^~~~~ array declarator suffix */
     /// ```
     Array(Option<Expr>),
-    /// TODO
-    Func()
+    /// ```c
+    /// int *(func)(int a);
+    ///         /* ^~~~~~~ function declarator suffix */
+    /// ```
+    Func(Vec<ParamDecl>)
 }
 
 /// Field declaration in some record.
@@ -122,6 +125,13 @@ pub struct EnumConstantDecl {
     /// }
     /// ```
     pub cexpr: Option<Expr>
+}
+
+/// Parameter declaration
+#[derive(Debug)]
+pub struct ParamDecl {
+    pub spec: Vec<DeclSpecifier>,
+    pub decl: Box<Declarator>
 }
 
 #[derive(Debug)]
