@@ -339,22 +339,24 @@ impl<'a> Parser<'a> {
                 | Signed
                 | Unsigned
             ) => {
-                Ok(TypeSpecifier::Simple(
+                Ok(TypeSpecifier::TypeName(
                     self.iter
                         .next()
                         .unwrap()
                 ))
             },
             Some(Struct | Union) => {
-                self.struct_or_union();
-                todo!()
+                Ok(TypeSpecifier::TypeDecl(
+                    self.struct_or_union_specifier()?
+                ))
             },
             Some(Enum) => {
-                self.enum_specifier();
-                todo!()
+                Ok(TypeSpecifier::TypeDecl(
+                    self.enum_specifier()?
+                ))
             },
             Some(Identifier) if self.is_type_specifier() => {
-                Ok(TypeSpecifier::Simple(
+                Ok(TypeSpecifier::TypeName(
                     self.iter
                         .next()
                         .unwrap()
@@ -379,7 +381,7 @@ impl<'a> Parser<'a> {
             ) => true,
             Some(Struct | Union | Enum) => {
                 return matches!(
-                    self.iter.lookahead(2).val(), // no need to lookahead more
+                    self.iter.lookahead(1).val(), // no need to lookahead more
                     Some(Identifier | LeftCurly)
                 )
             },
@@ -410,7 +412,7 @@ impl<'a> Parser<'a> {
         ))
     }
 
-    fn struct_or_union(&mut self) -> PR<Stmt> {
+    fn struct_or_union_specifier(&mut self) -> PR<DeclTag> {
         require_tok!(self, Struct | Union);
 
         let maybe_id = match_tok!(self, Identifier);
@@ -421,32 +423,45 @@ impl<'a> Parser<'a> {
                 return Err(ParseError::DeclarationHasNoIdentifier);
             }
 
-            return Ok(Stmt {
-                tag: StmtTag::DeclStmt(DeclStmt::RecordDecl(vec![]))
+            return Ok(DeclTag::RecordDecl(vec![]))
+        }
+
+        Ok(DeclTag::RecordDecl(
+            curly_wrapped!(self, {
+                self.struct_declaration_list()?
             })
-        }
-
-        // Struct/Union has a body
-        curly_wrapped!(self, {
-            self.struct_declarator_list();
-        });
-
-        Ok(Stmt {
-            tag: StmtTag::DeclStmt(DeclStmt::RecordDecl(
-                self.struct_declaration_list()
-            ))
-        })
+        ))
     }
 
-    fn struct_declaration_list(&mut self) -> Vec<FieldDecl> {
-        while self.is_specifier_qualifier() {
+    fn struct_declaration_list(&mut self) -> PR<Vec<FieldDecl>> {
+        let mut struct_decl_list = Vec::new();
+        struct_decl_list.push(self.struct_declaration()?);
+
+        while let Some(struct_decl) = self.maybe_parse_struct_declaration()? {
+            struct_decl_list.push(struct_decl);
         }
 
-        return vec![]
+
+        Ok(struct_decl_list)
     }
 
-    fn struct_declaration(&mut self) {
+    fn maybe_parse_struct_declaration(&mut self) -> PR<Option<FieldDecl>> {
+        if self.is_struct_declaration() {
+            Ok(Some(self.struct_declaration()?))
+        } else {
+            Ok(None)
+        }
+    }
+
+    fn struct_declaration(&mut self) -> PR<FieldDecl> {
         self.specifier_qualifier_list();
+        let decl = self.struct_declarator()?;
+        require_tok!(self, Semicolon);
+        Ok(FieldDecl { decl })
+    }
+
+    fn is_struct_declaration(&mut self) -> bool {
+        self.is_specifier_qualifier()
     }
 
     fn specifier_qualifier_list(&mut self) {
@@ -457,11 +472,12 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn specifier_qualifier(&mut self) -> Option<()> {
+    fn specifier_qualifier(&mut self) -> PR<Option<()>> {
         if !self.maybe_parse_type_qualifier().is_some() {
-            self.maybe_parse_type_specifier();
+            self.maybe_parse_type_specifier()?;
         }
-        todo!()
+
+        Ok(None)
     }
 
     fn is_specifier_qualifier(&mut self) -> bool {
@@ -476,19 +492,23 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn struct_declarator(&mut self) -> () {
+    fn struct_declarator(&mut self) -> PR<FieldDeclarator> {
         if check_tok!(self, Colon) {
             self.constant_expression();
+            todo!()
         } else {
-            self.declarator();
-
-            if check_tok!(self, Colon) {
-                self.constant_expression();
-            }
+            Ok(FieldDeclarator {
+                decl: self.declarator()?,
+                width: if check_tok!(self, Colon) {
+                    Some(self.constant_expression())
+                } else {
+                    None
+                }
+            })
         }
     }
 
-    fn enum_specifier(&mut self) -> PR<Stmt> {
+    fn enum_specifier(&mut self) -> PR<DeclTag> {
         require_tok!(self, Enum);
 
         let maybe_id = match_tok!(self, Identifier);
@@ -498,28 +518,25 @@ impl<'a> Parser<'a> {
                 return Err(ParseError::DeclarationHasNoInitializer);
             }
 
-            return Ok(Stmt {
-                tag: StmtTag::DeclStmt(DeclStmt::EnumDecl(vec![]))
-            });
+            return Ok(DeclTag::EnumDecl(vec![]));
         }
 
-        Ok(Stmt {
-            tag: StmtTag::DeclStmt(DeclStmt::EnumDecl(
-                curly_wrapped!(self, {
-                    self.enumerator_list()
-                })
-            ))
-        })
+        Ok(DeclTag::EnumDecl(
+            curly_wrapped!(self, {
+                self.enumerator_list()
+            })
+        ))
     }
 
     fn enumerator_list(&mut self) -> Vec<EnumConstantDecl> {
-        self.enumerator();
+        let mut enum_list = Vec::new();
+        enum_list.push(self.enumerator());
 
         while check_tok!(self, Comma) {
-            self.enumerator();
+            enum_list.push(self.enumerator());
         }
 
-        todo!();
+        enum_list
     }
 
     fn enumerator(&mut self) -> EnumConstantDecl {

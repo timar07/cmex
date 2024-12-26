@@ -9,7 +9,7 @@ pub struct Stmt {
 pub enum StmtTag {
     ExprStmt(Option<Expr>),
     CompoundStmt(Vec<Stmt>),
-    DeclStmt(DeclStmt),
+    DeclStmt(DeclTag),
     /// while (cond) stmt
     WhileStmt {
         cond: Expr,
@@ -39,9 +39,10 @@ pub enum StmtTag {
 }
 
 #[derive(Debug)]
-pub enum DeclStmt {
+pub enum DeclTag {
     RecordDecl(Vec<FieldDecl>),
-    EnumDecl(Vec<EnumConstantDecl>)
+    EnumDecl(Vec<EnumConstantDecl>),
+    VarDecl
 }
 
 #[derive(Debug)]
@@ -110,18 +111,31 @@ pub enum DeclaratorSuffix {
 /// ```
 #[derive(Debug)]
 pub struct FieldDecl {
+    pub decl: FieldDeclarator
+}
 
+#[derive(Debug)]
+pub struct FieldDeclarator {
+    pub decl: Declarator,
+    /// A bit field width, in ANSI C you can write:
+    /// ```c
+    /// struct foo {
+    ///     unsigned a: 5;
+    ///              /* ^ width */
+    /// }
+    /// ```
+    pub width: Option<Expr>
 }
 
 /// Enum variant
 #[derive(Debug)]
 pub struct EnumConstantDecl {
     pub id: Token,
-    /// enum variant can be a constant expression:
+    /// `enum` variant can be initialized with a constant expression:
     /// ```c
     /// enum foo {
     ///     bar = 1,
-    ///  /* ^~~~~~~ constant expression */
+    ///        /* ^ constant expression */
     /// }
     /// ```
     pub cexpr: Option<Expr>
@@ -136,8 +150,18 @@ pub struct ParamDecl {
 
 #[derive(Debug)]
 pub enum TypeSpecifier {
-    Simple(Token),
-    Compound
+    /// Type specifier that refers to a declared type name
+    /// ```c
+    ///     int foo = 1;
+    ///  /* ^~~ type name  */
+    /// ```
+    TypeName(Token),
+    /// Type specifier that declares the type itself
+    /// ```c
+    ///     struct { int a; } foo = { 1 };
+    ///  /* ^~~~~~~~~~~~~~~~~ definition */
+    /// ```
+    TypeDecl(DeclTag)
 }
 
 #[derive(Debug)]
