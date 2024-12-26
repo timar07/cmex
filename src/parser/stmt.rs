@@ -269,7 +269,7 @@ impl<'a> Parser<'a> {
     fn declaration(&mut self) -> PR<Decl> {
         let spec = self.declaration_specifiers()?;
 
-        if check_tok!(self, Semicolon) {
+        if matches!(self.iter.peek().val(), Some(Semicolon)) {
             return Ok(Decl {
                 spec,
                 decl_list: Vec::with_capacity(0)
@@ -563,32 +563,32 @@ impl<'a> Parser<'a> {
 
         Ok(Declarator {
             inner: Box::new(dir_decl),
-            suffix: self.maybe_parse_declarator_suffix()
+            suffix: self.maybe_parse_declarator_suffix()?
         })
     }
 
-    fn maybe_parse_declarator_suffix(&mut self) -> Option<DeclaratorSuffix> {
+    fn maybe_parse_declarator_suffix(&mut self) -> PR<Option<DeclaratorSuffix>> {
         if self.is_declarator_suffix() {
-            Some(self.declarator_suffix())
+            Ok(Some(self.declarator_suffix()?))
         } else {
-            None
+            Ok(None)
         }
     }
 
-    fn declarator_suffix(&mut self) -> DeclaratorSuffix {
+    fn declarator_suffix(&mut self) -> PR<DeclaratorSuffix> {
         match self.iter.next().val() {
             Some(LeftBrace) => {
                 if check_tok!(self, RightBrace) {
-                    return DeclaratorSuffix::Array(None)
+                    return Ok(DeclaratorSuffix::Array(None))
                 }
 
                 let expr = self.constant_expression();
                 require_tok!(self, RightBrace);
-                DeclaratorSuffix::Array(Some(expr))
+                Ok(DeclaratorSuffix::Array(Some(expr)))
             }
             Some(LeftParen) => {
                 if check_tok!(self, RightParen) {
-                    todo!()
+                    return Ok(DeclaratorSuffix::Func(vec![]));
                 }
 
                 if matches!(self.iter.peek().val(), Some(Identifier)) {
@@ -596,8 +596,9 @@ impl<'a> Parser<'a> {
                     return todo!();
                 }
 
-                self.parameter_type_list();
-                todo!()
+                paren_wrapped!(self, {
+                    Ok(DeclaratorSuffix::Func(self.parameter_type_list()?))
+                })
             },
             _ => panic!()
         }
@@ -641,8 +642,8 @@ impl<'a> Parser<'a> {
         matches!(self.iter.peek().val(), Some(Const | Volatile))
     }
 
-    fn parameter_type_list(&mut self) -> Stmt {
-        self.parameter_list();
+    fn parameter_type_list(&mut self) -> PR<Vec<ParamDecl>> {
+        let param_list = self.parameter_list();
 
         if matches!(self.iter.peek().val(), Some(Comma))
             && matches!(self.iter.lookahead(2).val(), Some(Ellipsis))
@@ -651,33 +652,40 @@ impl<'a> Parser<'a> {
             self.iter.next(); // ...
         }
 
-        todo!()
+        param_list
     }
 
-    fn parameter_list(&mut self) -> Stmt {
-        self.parameter_declaration();
+    fn parameter_list(&mut self) -> PR<Vec<ParamDecl>> {
+        let mut param_list = Vec::new();
+        param_list.push(self.parameter_declaration()?);
 
         while check_tok!(self, Comma) {
-            self.parameter_declaration();
+            param_list.push(self.parameter_declaration()?);
         }
 
-        todo!()
+        Ok(param_list)
     }
 
-    fn parameter_declaration(&mut self) -> Stmt {
-        self.declaration_specifiers();
-
-        todo!()
+    fn parameter_declaration(&mut self) -> PR<ParamDecl> {
+        Ok(ParamDecl {
+            spec: self.declaration_specifiers()?,
+            decl: Box::new(self.declarator()?)
+        })
     }
 
-    fn identifier_list(&mut self) -> Stmt {
-        match_tok!(self, Identifier);
+    fn identifier_list(&mut self) -> Vec<Token> {
+        let mut id_list = Vec::new();
+        id_list.push(require_tok!(self, Identifier));
 
         while check_tok!(self, Comma) {
-            match_tok!(self, Identifier);
+            if let Some(id) = match_tok!(self, Identifier) {
+                id_list.push(id);
+            } else {
+                break;
+            }
         }
 
-        todo!()
+        id_list
     }
 
     fn type_name(&mut self) -> Stmt {
