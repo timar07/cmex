@@ -37,15 +37,83 @@ impl<'a> Parser<'a> {
         self.translation_unit();
     }
 
-    fn translation_unit(&mut self) {
-        self.external_declaration();
+    fn translation_unit(&mut self) -> PR<Vec<Decl>> {
+        let mut decls = Vec::new();
+
+        while self.iter.peek().is_some() {
+            decls.push(dbg!(self.external_declaration())?);
+        }
+
+        todo!();
     }
 
-    fn external_declaration(&mut self) { // todo: functions
-        dbg!(self.declaration());
+    /// External declaration is a top level declaration (e.g. functions)
+    /// or a regular declaration
+    fn external_declaration(&mut self) -> PR<Vec<Decl>> {
+        let mut decl_list = Vec::with_capacity(1);
+
+        if let Some(spec) = self.maybe_parse_declaration_specifiers()? {
+            while !matches!(self.iter.peek().val(), Some(Semicolon) | None) {
+                let decl = self.init_declarator()?;
+
+                // Declator has an initializer e.g. `int foo = bar, ...`
+                if decl.1.is_some() {
+                    decl_list.push(self.declaration(spec.clone(), decl.clone())?);
+                }
+
+                // A function definition
+                if matches!(self.iter.peek().val(), Some(LeftCurly)) {
+                    // Function has a array suffix e.g. `int foo[100]() { ... }`
+                    if let Some(DeclaratorSuffix::Array(_)) = decl.0.suffix {
+                        return Err(ParseError::UnexpectedDeclarationSuffix);
+                    }
+
+                    // There was a declarations before. So you can't
+                    // write `int foo = 5, bar() { return 0 }` because
+                    // function is a top-level declaration in grammar
+                    if !decl_list.is_empty() {
+                        return Err(ParseError::Expected(
+                            "`;` after top level declaration".into()
+                        ))
+                    }
+
+                    decl_list.push(Decl::FuncDecl {
+                        spec,
+                        decl: *decl.0.inner,
+                        body: Box::new(self.compound_statement()?)
+                    });
+
+                    break;
+                }
+
+                // Declarations listed `int foo = 5, bar = 7, ...`
+                if check_tok!(self, Comma) {
+                    self.iter.next();
+                } else {
+                    break;
+                }
+            }
+        } else {
+            let decl = self.init_declarator()?;
+            decl_list.push(self.declaration(
+                vec![],
+                decl
+            )?)
+        }
+
+        Ok(decl_list)
     }
 
-    pub fn statement(&mut self) -> Stmt {
+    pub fn statement(&mut self) -> PR<Stmt> {
+        if let Some(spec) = self.maybe_parse_declaration_specifiers()? {
+            let init_decl = self.init_declarator()?;
+            return Ok(Stmt {
+                tag: StmtTag::DeclStmt(
+                    self.declaration(spec, init_decl)?
+                )
+            });
+        }
+
         match self.iter.peek().val() {
             Some(
                 While
@@ -61,30 +129,30 @@ impl<'a> Parser<'a> {
                 if let Some(Colon) = self.iter.lookahead(1).val() {
                     self.labeled_statement()
                 } else {
-                    Stmt {
+                    Ok(Stmt {
                         tag: StmtTag::ExprStmt(self.expression_statement())
-                    }
+                    })
                 }
             },
             Some(Goto | Continue | Break | Return) => self.jump_statement(),
-            _ => Stmt {
+            _ => Ok(Stmt {
                 tag: StmtTag::ExprStmt(self.expression_statement())
-            },
+            }),
         }
     }
 
-    fn compound_statement(&mut self) -> Stmt {
-        self.iter.next(); // {
+    fn compound_statement(&mut self) -> PR<Stmt> {
+        assert_eq!(self.iter.next().val(), Some(LeftCurly));
 
         let mut stmts = Vec::new();
 
         while !check_tok!(self, RightCurly) {
-            stmts.push(self.statement());
+            stmts.push(self.statement()?);
         }
 
-        Stmt {
+        Ok(Stmt {
             tag: StmtTag::CompoundStmt(stmts)
-        }
+        })
     }
 
     fn expression_statement(&mut self) -> Option<Expr> {
@@ -100,8 +168,8 @@ impl<'a> Parser<'a> {
         expr
     }
 
-    fn iteration_statement(&mut self) -> Stmt {
-        match self.iter.peek().val() {
+    fn iteration_statement(&mut self) -> PR<Stmt> {
+        Ok(match self.iter.peek().val() {
             Some(While) => {
                 self.iter.next();
 
@@ -110,13 +178,13 @@ impl<'a> Parser<'a> {
                         cond: paren_wrapped!(self, {
                             self.expression()
                         }),
-                        stmt: Box::new(self.statement())
+                        stmt: Box::new(self.statement()?)
                     }
                 }
             },
             Some(Do) => {
                 self.iter.next();
-                let stmt = Box::new(self.statement());
+                let stmt = Box::new(self.statement()?);
                 require_tok!(self, While);
                 let cond = paren_wrapped!(self, {
                     self.expression()
@@ -149,56 +217,56 @@ impl<'a> Parser<'a> {
                         header.0,
                         header.1,
                         header.2,
-                        Box::new(self.statement())
+                        Box::new(self.statement()?)
                     )
                 }
             },
             _ => unreachable!()
-        }
+        })
     }
 
-    fn selection_statement(&mut self) -> Stmt {
+    fn selection_statement(&mut self) -> PR<Stmt> {
         match self.iter.peek().val() {
             Some(If) => {
                 self.iter.next();
                 let cond = paren_wrapped!(self, {
                     self.expression()
                 });
-                let if_stmt = Box::new(self.statement());
+                let if_stmt = Box::new(self.statement()?);
                 let else_stmt = if check_tok!(self, Else) {
-                    Some(Box::new(self.statement()))
+                    Some(Box::new(self.statement()?))
                 } else {
                     None
                 };
 
-                Stmt {
+                Ok(Stmt {
                     tag: StmtTag::IfStmt(cond, if_stmt, else_stmt)
-                }
+                })
             },
             Some(Switch) => {
                 self.iter.next();
-                Stmt {
+                Ok(Stmt {
                     tag: StmtTag::SwitchStmt(
                         paren_wrapped!(self, {
                             self.expression()
                         }),
-                        Box::new(self.statement())
+                        Box::new(self.statement()?)
                     )
-                }
+                })
             },
             _ => unreachable!()
         }
     }
 
-    fn labeled_statement(&mut self) -> Stmt {
-        match self.iter.peek().val() {
+    fn labeled_statement(&mut self) -> PR<Stmt> {
+        Ok(match self.iter.peek().val() {
             Some(Identifier) => {
                 let id = self.iter.next();
                 require_tok!(self, Colon);
                 Stmt {
                     tag: StmtTag::LabelStmt(
                         id.unwrap(),
-                        Box::new(self.statement())
+                        Box::new(self.statement()?)
                     )
                 }
             },
@@ -209,7 +277,7 @@ impl<'a> Parser<'a> {
                 Stmt {
                     tag: StmtTag::CaseStmt(
                         expr,
-                        Box::new(self.statement())
+                        Box::new(self.statement()?)
                     )
                 }
             },
@@ -218,37 +286,37 @@ impl<'a> Parser<'a> {
                 require_tok!(self, Colon);
                 Stmt {
                     tag: StmtTag::DefaultStmt(
-                        Box::new(self.statement())
+                        Box::new(self.statement()?)
                     )
                 }
             },
             _ => unreachable!()
-        }
+        })
     }
 
-    fn jump_statement(&mut self) -> Stmt {
+    fn jump_statement(&mut self) -> PR<Stmt> {
         match self.iter.peek().val() {
             Some(Goto) => {
                 self.iter.next();
                 let id = require_tok!(self, Identifier);
                 require_tok!(self, Semicolon);
-                Stmt {
+                Ok(Stmt {
                     tag: StmtTag::GotoStmt(id)
-                }
+                })
             },
             Some(Continue) => {
                 self.iter.next();
                 require_tok!(self, Semicolon);
-                Stmt {
+                Ok(Stmt {
                     tag: StmtTag::ContinueStmt
-                }
+                })
             },
             Some(Break) => {
                 self.iter.next();
                 require_tok!(self, Semicolon);
-                Stmt {
+                Ok(Stmt {
                     tag: StmtTag::BreakStmt
-                }
+                })
             },
             Some(Return) => {
                 self.iter.next();
@@ -258,28 +326,23 @@ impl<'a> Parser<'a> {
                 }
 
                 require_tok!(self, Semicolon);
-                Stmt {
+                Ok(Stmt {
                     tag: StmtTag::ReturnStmt
-                }
+                })
             },
             _ => unreachable!()
         }
     }
 
-    fn declaration(&mut self) -> PR<Decl> {
-        let spec = self.declaration_specifiers()?;
-
-        if matches!(self.iter.peek().val(), Some(Semicolon)) {
-            return Ok(Decl {
-                spec,
-                decl_list: Vec::with_capacity(0)
-            })
-        }
-
-        let decl_list = self.init_declarator_list()?;
+    fn declaration(
+        &mut self,
+        spec: Vec<DeclSpecifier>,
+        init_decl: InitDeclarator
+    ) -> PR<Decl> {
+        let decl_list = self.init_declarator_list(init_decl)?;
         require_tok!(self, Semicolon);
 
-        Ok(Decl {
+        Ok(Decl::VarDecl {
             spec,
             decl_list
         })
@@ -293,6 +356,22 @@ impl<'a> Parser<'a> {
         }
 
         Ok(specs)
+    }
+
+    fn maybe_parse_declaration_specifiers(
+        &mut self
+    ) -> PR<Option<Vec<DeclSpecifier>>> {
+        let mut spec_list = Vec::with_capacity(0);
+
+        while let Some(spec) = self.maybe_parse_declaration_secifier()? {
+            spec_list.push(spec);
+        }
+
+        Ok(if !spec_list.is_empty() {
+            Some(spec_list)
+        } else {
+            None
+        })
     }
 
     fn maybe_parse_declaration_secifier(&mut self) -> PR<Option<DeclSpecifier>> {
@@ -390,9 +469,9 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn init_declarator_list(&mut self) -> PR<Vec<InitDeclarator>> {
+    fn init_declarator_list(&mut self, tail: InitDeclarator) -> PR<Vec<InitDeclarator>> {
         let mut init_decl_list = Vec::new();
-        init_decl_list.push(self.init_declarator()?);
+        init_decl_list.push(tail);
 
         while check_tok!(self, Comma) {
             init_decl_list.push(self.init_declarator()?);
@@ -412,7 +491,7 @@ impl<'a> Parser<'a> {
         ))
     }
 
-    fn struct_or_union_specifier(&mut self) -> PR<DeclTag> {
+    fn struct_or_union_specifier(&mut self) -> PR<Decl> {
         require_tok!(self, Struct | Union);
 
         let maybe_id = match_tok!(self, Identifier);
@@ -423,10 +502,10 @@ impl<'a> Parser<'a> {
                 return Err(ParseError::DeclarationHasNoIdentifier);
             }
 
-            return Ok(DeclTag::RecordDecl(vec![]))
+            return Ok(Decl::RecordDecl(vec![]))
         }
 
-        Ok(DeclTag::RecordDecl(
+        Ok(Decl::RecordDecl(
             curly_wrapped!(self, {
                 self.struct_declaration_list()?
             })
@@ -455,7 +534,7 @@ impl<'a> Parser<'a> {
 
     fn struct_declaration(&mut self) -> PR<FieldDecl> {
         self.specifier_qualifier_list();
-        let decl = self.struct_declarator()?;
+        let decl = self.struct_declarator()?; // TODO: struct_declarator_list
         require_tok!(self, Semicolon);
         Ok(FieldDecl { decl })
     }
@@ -508,7 +587,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn enum_specifier(&mut self) -> PR<DeclTag> {
+    fn enum_specifier(&mut self) -> PR<Decl> {
         require_tok!(self, Enum);
 
         let maybe_id = match_tok!(self, Identifier);
@@ -518,10 +597,10 @@ impl<'a> Parser<'a> {
                 return Err(ParseError::DeclarationHasNoInitializer);
             }
 
-            return Ok(DeclTag::EnumDecl(vec![]));
+            return Ok(Decl::EnumDecl(vec![]));
         }
 
-        Ok(DeclTag::EnumDecl(
+        Ok(Decl::EnumDecl(
             curly_wrapped!(self, {
                 self.enumerator_list()
             })
@@ -605,16 +684,20 @@ impl<'a> Parser<'a> {
             }
             Some(LeftParen) => {
                 if check_tok!(self, RightParen) {
-                    return Ok(DeclaratorSuffix::Func(vec![]));
+                    return Ok(DeclaratorSuffix::Func(None));
                 }
 
+                #[cfg(feature = "kr_func_decl")]
                 if matches!(self.iter.peek().val(), Some(Identifier)) {
-                    self.identifier_list();
-                    return todo!();
+                    return Ok(DeclaratorSuffix::Func(Some(
+                        ParamList::Identifier(self.identifier_list())
+                    )));
                 }
 
                 paren_wrapped!(self, {
-                    Ok(DeclaratorSuffix::Func(self.parameter_type_list()?))
+                    Ok(DeclaratorSuffix::Func(Some(
+                        self.parameter_type_list()?
+                    )))
                 })
             },
             _ => panic!()
@@ -659,8 +742,8 @@ impl<'a> Parser<'a> {
         matches!(self.iter.peek().val(), Some(Const | Volatile))
     }
 
-    fn parameter_type_list(&mut self) -> PR<Vec<ParamDecl>> {
-        let param_list = self.parameter_list();
+    fn parameter_type_list(&mut self) -> PR<ParamList> {
+        let param_list = self.parameter_list()?;
 
         if matches!(self.iter.peek().val(), Some(Comma))
             && matches!(self.iter.lookahead(2).val(), Some(Ellipsis))
@@ -669,7 +752,7 @@ impl<'a> Parser<'a> {
             self.iter.next(); // ...
         }
 
-        param_list
+        Ok(ParamList::Type(param_list))
     }
 
     fn parameter_list(&mut self) -> PR<Vec<ParamDecl>> {

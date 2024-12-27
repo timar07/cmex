@@ -1,15 +1,15 @@
 use crate::lexer::Token;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Stmt {
     pub tag: StmtTag
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum StmtTag {
     ExprStmt(Option<Expr>),
     CompoundStmt(Vec<Stmt>),
-    DeclStmt(DeclTag),
+    DeclStmt(Decl),
     /// while (cond) stmt
     WhileStmt {
         cond: Expr,
@@ -38,56 +38,57 @@ pub enum StmtTag {
     GotoStmt(Token)
 }
 
-#[derive(Debug)]
-pub enum DeclTag {
-    RecordDecl(Vec<FieldDecl>),
-    EnumDecl(Vec<EnumConstantDecl>),
-    VarDecl
-}
-
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum DeclSpecifier {
     TypeSpecifier(TypeSpecifier),
     TypeQualifier(Token)
 }
 
-/// Represents single declaration in AST.
-#[derive(Debug)]
-pub struct Decl {
-    /// ```c
-    ///    register int a, b, c
-    /// /* ^~~~~~~~~~~~ spec */
-    /// ```
-    pub spec: Vec<DeclSpecifier>,
-    /// ```c
-    /// int a, b, c
-    ///  /* ^~~~~~~ declarators list */
-    /// ```
-    pub decl_list: Vec<InitDeclarator>
+#[derive(Debug, Clone)]
+pub enum Decl {
+    RecordDecl(Vec<FieldDecl>),
+    EnumDecl(Vec<EnumConstantDecl>),
+    FuncDecl {
+        spec: Vec<DeclSpecifier>,
+        decl: DirectDeclarator,
+        body: Box<Stmt>
+    },
+    VarDecl {
+        /// ```c
+        ///    register int a, b, c
+        /// /* ^~~~~~~~~~~~ spec */
+        /// ```
+        spec: Vec<DeclSpecifier>,
+        /// ```c
+        /// int a, b, c
+        ///  /* ^~~~~~~ declarators list */
+        /// ```
+        decl_list: Vec<InitDeclarator>
+    }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Initializer {
     Assign(Expr),
     List(Vec<Initializer>)
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct InitDeclarator(pub Declarator, pub Option<Initializer>);
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Declarator {
     pub inner: Box<DirectDeclarator>,
     pub suffix: Option<DeclaratorSuffix>
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum DirectDeclarator {
     Identifier(Token),
     Paren(Declarator)
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum DeclaratorSuffix {
     /// ```c
     /// int *c[123];
@@ -98,7 +99,7 @@ pub enum DeclaratorSuffix {
     /// int *(func)(int a);
     ///         /* ^~~~~~~ function declarator suffix */
     /// ```
-    Func(Vec<ParamDecl>)
+    Func(Option<ParamList>)
 }
 
 /// Field declaration in some record.
@@ -109,12 +110,12 @@ pub enum DeclaratorSuffix {
 ///     /* ... */
 /// }
 /// ```
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FieldDecl {
     pub decl: FieldDeclarator
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FieldDeclarator {
     pub decl: Declarator,
     /// A bit field width, in ANSI C you can write:
@@ -128,7 +129,7 @@ pub struct FieldDeclarator {
 }
 
 /// Enum variant
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct EnumConstantDecl {
     pub id: Token,
     /// `enum` variant can be initialized with a constant expression:
@@ -141,14 +142,27 @@ pub struct EnumConstantDecl {
     pub cexpr: Option<Expr>
 }
 
+#[derive(Debug, Clone)]
+pub enum ParamList {
+    /// In ANSI C it's possible to describe parameters
+    /// as a list of identifiers (K&R style)
+    /// ```c
+    /// int foo(bar, baz) { /* ... */ }
+    /// ```
+    #[cfg(feature = "kr_func_decl")]
+    Identifier(Vec<Token>),
+    /// Typed parameters list
+    Type(Vec<ParamDecl>)
+}
+
 /// Parameter declaration
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ParamDecl {
     pub spec: Vec<DeclSpecifier>,
     pub decl: Box<Declarator>
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum TypeSpecifier {
     /// Type specifier that refers to a declared type name
     /// ```c
@@ -161,16 +175,16 @@ pub enum TypeSpecifier {
     ///     struct { int a; } foo = { 1 };
     ///  /* ^~~~~~~~~~~~~~~~~ definition */
     /// ```
-    TypeDecl(DeclTag)
+    TypeDecl(Decl)
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Expr {
     pub tag: ExprTag,
     // todo: spans and stuff
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ExprTag {
     Primary(Token),
     BinExpr {
