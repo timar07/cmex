@@ -1,30 +1,18 @@
+mod errors;
 mod lexer;
+mod parser;
+mod ast;
+use std::{env, fs};
 
+use ast::ast_dump::AstDumper;
 use lexer::Lexer;
-use lexer::Token;
+use parser::Parser;
 
 fn main() {
-    let mut lexer = Lexer::from("\
-              break case char const \
-            continue default do double \
-            else enum extern float for \
-            goto if int long register \
-            return short signed sizeof \
-            static struct switch typedef \
-            union unsigned void volatile \
-            while
-        ");
-    println!(
-        "\
-              break case char const \
-            continue default do double \
-            else enum extern float for \
-            goto if int long register \
-            return short signed sizeof \
-            static struct switch typedef \
-            union unsigned void volatile \
-            while
-        "
-    );
-    dbg!(lexer.collect::<Vec<Token>>());
+    let args: Vec<String> = env::args().collect();
+    let file = fs::read_to_string(&args[1])
+        .expect(&format!("unable to read file `{}`", args[0]));
+    let lexer = Lexer::from(file.as_str());
+    let mut parser = Parser::new(lexer);
+    println!("{}", AstDumper::new(&parser.parse().unwrap()));
 }
