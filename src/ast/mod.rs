@@ -1,4 +1,23 @@
+pub mod ast_dump;
+
+use ast_dump::{AstNodeDump, TreeBuilder};
 use crate::lexer::Token;
+
+pub struct TranslationUnit(pub Vec<Vec<Decl>>);
+
+impl AstNodeDump for TranslationUnit {
+    fn dump(&self, tb: &mut TreeBuilder) {
+        tb.open("TranslationUnit".into());
+
+        for decls in self.0.clone() {
+            decls.iter().for_each(|decl| {
+                decl.dump(tb)
+            });
+        }
+
+        tb.close();
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct Stmt {
@@ -38,10 +57,59 @@ pub enum StmtTag {
     GotoStmt(Token)
 }
 
-#[derive(Debug, Clone)]
-pub enum DeclSpecifier {
-    TypeSpecifier(TypeSpecifier),
-    TypeQualifier(Token)
+impl AstNodeDump for StmtTag {
+    fn dump(&self, tb: &mut TreeBuilder) -> () {
+        match self {
+            StmtTag::ExprStmt(expr) => {
+                tb.open("ExprStmt".into()).close();
+            },
+            StmtTag::CompoundStmt(stmts) => {
+                tb.open("CompoundStmt".into());
+                stmts.iter().for_each(|stmt| stmt.tag.dump(tb));
+                tb.close();
+            },
+            StmtTag::DeclStmt(decl) => {
+                tb.open("DeclStmt".into()).close();
+            },
+            StmtTag::WhileStmt { cond, stmt } => {
+                tb.open("WhileStmt".into());
+                tb.append_leaf("<Expr>".into());
+                stmt.tag.dump(tb);
+                tb.close();
+            },
+            StmtTag::DoStmt { cond, stmt } => todo!(),
+            StmtTag::ForStmt(expr, expr1, expr2, stmt) => todo!(),
+            StmtTag::IfStmt(expr, stmt, stmt1) => todo!(),
+            StmtTag::SwitchStmt(expr, stmt) => {
+                tb.open("SwitchStmt".into());
+                expr.dump(tb);
+                stmt.tag.dump(tb);
+                tb.close();
+            },
+            StmtTag::CaseStmt(expr, stmt) => {
+                tb.open("CaseStmt".into());
+                expr.dump(tb);
+                stmt.tag.dump(tb);
+                tb.close();
+            },
+            StmtTag::LabelStmt(_, stmt) => todo!(),
+            StmtTag::DefaultStmt(stmt) => {
+                tb.open("DefaultStmt".into());
+                stmt.tag.dump(tb);
+                tb.close();
+            },
+            StmtTag::BreakStmt => {
+                tb.append_leaf("BreakStmt".into());
+            }
+            StmtTag::ContinueStmt => {
+                tb.append_leaf("ContinueStmt".into());
+            },
+            StmtTag::ReturnStmt => {
+                tb.append_leaf("ReturnStmt".into());
+            },
+            StmtTag::GotoStmt(_) => todo!(),
+        };
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -50,7 +118,8 @@ pub enum Decl {
     EnumDecl(Vec<EnumConstantDecl>),
     FuncDecl {
         spec: Vec<DeclSpecifier>,
-        decl: DirectDeclarator,
+        decl: Box<DirectDeclarator>,
+        params: Option<ParamList>,
         body: Box<Stmt>
     },
     VarDecl {
@@ -65,6 +134,41 @@ pub enum Decl {
         /// ```
         decl_list: Vec<InitDeclarator>
     }
+}
+
+impl AstNodeDump for Decl {
+    fn dump(&self, tb: &mut TreeBuilder) -> () {
+        match self {
+            Decl::RecordDecl(decls) => {
+                tb.open("RecordDecl".into());
+                decls
+                    .iter()
+                    .for_each(|decl| decl.dump(tb));
+                tb.close();
+            },
+            Decl::EnumDecl(vec) => todo!(),
+            Decl::FuncDecl { spec, decl, body, params } => {
+                tb.open("FuncDecl".into());
+
+                if let Some(params) = params {
+                    params.dump(tb);
+                }
+
+                body.tag.dump(tb);
+                tb.close();
+            },
+            Decl::VarDecl { spec, decl_list } => {
+                tb.open("VarDecl".into()).close();
+            },
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum DeclSpecifier {
+    TypeSpecifier(TypeSpecifier),
+    TypeQualifier(Token),
+    StorageClass(Token)
 }
 
 #[derive(Debug, Clone)]
@@ -86,6 +190,15 @@ pub struct Declarator {
 pub enum DirectDeclarator {
     Identifier(Token),
     Paren(Declarator)
+}
+
+impl std::fmt::Display for DirectDeclarator {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DirectDeclarator::Identifier((tok, _)) => write!(f, "{:?}", tok),
+            DirectDeclarator::Paren(declarator) => todo!(),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -113,6 +226,12 @@ pub enum DeclaratorSuffix {
 #[derive(Debug, Clone)]
 pub struct FieldDecl {
     pub decl: FieldDeclarator
+}
+
+impl AstNodeDump for FieldDecl {
+    fn dump(&self, tb: &mut TreeBuilder) -> () {
+        tb.append_leaf("FieldDecl".into());
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -149,10 +268,22 @@ pub enum ParamList {
     /// ```c
     /// int foo(bar, baz) { /* ... */ }
     /// ```
-    #[cfg(feature = "kr_func_decl")]
     Identifier(Vec<Token>),
     /// Typed parameters list
     Type(Vec<ParamDecl>)
+}
+
+impl AstNodeDump for ParamList {
+    fn dump(&self, tb: &mut TreeBuilder) -> () {
+        match self {
+            Self::Identifier(_) => todo!(),
+            Self::Type(decls) => {
+                decls
+                    .iter()
+                    .for_each(|decl| decl.dump(tb));
+            }
+        }
+    }
 }
 
 /// Parameter declaration
@@ -160,6 +291,12 @@ pub enum ParamList {
 pub struct ParamDecl {
     pub spec: Vec<DeclSpecifier>,
     pub decl: Box<Declarator>
+}
+
+impl AstNodeDump for ParamDecl {
+    fn dump(&self, tb: &mut TreeBuilder) -> () {
+        tb.append_leaf("ParamDecl".into());
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -182,6 +319,12 @@ pub enum TypeSpecifier {
 pub struct Expr {
     pub tag: ExprTag,
     // todo: spans and stuff
+}
+
+impl AstNodeDump for Expr {
+    fn dump(&self, tb: &mut TreeBuilder) -> () {
+        tb.append_leaf("Expr".into());
+    }
 }
 
 #[derive(Debug, Clone)]

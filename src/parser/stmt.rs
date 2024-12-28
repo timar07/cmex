@@ -33,18 +33,18 @@ macro_rules! paren_wrapped {
 type PR<T> = Result<T, ParseError>;
 
 impl<'a> Parser<'a> {
-    pub fn parse(&mut self) {
-        self.translation_unit();
+    pub fn parse(&mut self) -> PR<TranslationUnit> {
+        self.translation_unit()
     }
 
-    fn translation_unit(&mut self) -> PR<Vec<Decl>> {
+    fn translation_unit(&mut self) -> PR<TranslationUnit> {
         let mut decls = Vec::new();
 
         while self.iter.peek().is_some() {
-            decls.push(dbg!(self.external_declaration())?);
+            decls.push(self.external_declaration()?);
         }
 
-        todo!();
+        Ok(TranslationUnit(decls))
     }
 
     /// External declaration is a top level declaration (e.g. functions)
@@ -63,11 +63,6 @@ impl<'a> Parser<'a> {
 
                 // A function definition
                 if matches!(self.iter.peek().val(), Some(LeftCurly)) {
-                    // Function has a array suffix e.g. `int foo[100]() { ... }`
-                    if let Some(DeclaratorSuffix::Array(_)) = decl.0.suffix {
-                        return Err(ParseError::UnexpectedDeclarationSuffix);
-                    }
-
                     // There was a declarations before. So you can't
                     // write `int foo = 5, bar() { return 0 }` because
                     // function is a top-level declaration in grammar
@@ -77,12 +72,7 @@ impl<'a> Parser<'a> {
                         ))
                     }
 
-                    decl_list.push(Decl::FuncDecl {
-                        spec,
-                        decl: *decl.0.inner,
-                        body: Box::new(self.compound_statement()?)
-                    });
-
+                    decl_list.push(self.function_definition(spec, decl)?);
                     break;
                 }
 
@@ -102,6 +92,30 @@ impl<'a> Parser<'a> {
         }
 
         Ok(decl_list)
+    }
+
+    fn function_definition(
+        &mut self,
+        spec: Vec<DeclSpecifier>,
+        decl: InitDeclarator
+    ) -> PR<Decl> {
+        match decl.0.suffix {
+            Some(DeclaratorSuffix::Func(suffix)) => {
+                Ok(Decl::FuncDecl {
+                    spec,
+                    params: suffix,
+                    decl: decl.0.inner,
+                    body: Box::new(self.compound_statement()?)
+                })
+            },
+            // Function has a array suffix e.g. `int foo[100]() { ... }`
+            Some(DeclaratorSuffix::Array(_)) => {
+                return Err(ParseError::UnexpectedDeclarationSuffix);
+            },
+            _ => {
+                return Err(ParseError::Expected("parameter list".into()))
+            }
+        }
     }
 
     pub fn statement(&mut self) -> PR<Stmt> {
@@ -374,14 +388,26 @@ impl<'a> Parser<'a> {
         })
     }
 
+    // TODO: refactor, this looks terrible
     fn maybe_parse_declaration_secifier(&mut self) -> PR<Option<DeclSpecifier>> {
         Ok(self.maybe_parse_type_specifier()?
             .and_then(|spec| Some(DeclSpecifier::TypeSpecifier(spec)))
             .or_else(|| {
                 self.maybe_parse_type_qualifier()
                     .and_then(|qual| Some(DeclSpecifier::TypeQualifier(qual)))
+                    .or_else(|| {
+                        self.maybe_parse_storage_class_specifier()
+                    })
             })
         )
+    }
+
+    fn maybe_parse_storage_class_specifier(&mut self) -> Option<DeclSpecifier> {
+        if self.is_storage_class_specifier() {
+            return Some(DeclSpecifier::StorageClass(self.iter.next().unwrap()))
+        }
+
+        None
     }
 
     fn is_storage_class_specifier(&mut self) -> bool {
