@@ -61,7 +61,13 @@ impl AstNodeDump for StmtTag {
     fn dump(&self, tb: &mut TreeBuilder) -> () {
         match self {
             StmtTag::ExprStmt(expr) => {
-                tb.append_leaf("ExprStmt".into());
+                tb.open("ExprStmt".into());
+
+                if let Some(expr) = expr {
+                    expr.dump(tb);
+                }
+
+                tb.close();
             },
             StmtTag::CompoundStmt(stmts) => {
                 tb.open("CompoundStmt".into());
@@ -118,7 +124,11 @@ impl AstNodeDump for StmtTag {
                 stmt.tag.dump(tb);
                 tb.close();
             },
-            StmtTag::LabelStmt(_, stmt) => todo!(),
+            StmtTag::LabelStmt(_, stmt) => {
+                tb.open("LabelStmt".into());
+                stmt.tag.dump(tb);
+                tb.close();
+            },
             StmtTag::DefaultStmt(stmt) => {
                 tb.open("DefaultStmt".into());
                 stmt.tag.dump(tb);
@@ -383,7 +393,9 @@ pub struct Expr {
 
 impl AstNodeDump for Expr {
     fn dump(&self, tb: &mut TreeBuilder) -> () {
-        tb.append_leaf("Expr".into());
+        tb.open("Expr".into());
+        self.tag.dump(tb);
+        tb.close();
     }
 }
 
@@ -431,5 +443,49 @@ pub enum ExprTag {
         cond: Box<Expr>,
         then: Box<Expr>,
         otherwise: Box<Expr>
+    }
+}
+
+impl AstNodeDump for ExprTag {
+    fn dump(&self, tb: &mut TreeBuilder) -> () {
+        match self {
+            ExprTag::Primary(_) => {
+                tb.append_leaf("PrimaryExpr".into());
+            },
+            ExprTag::BinExpr { op, lhs, rhs } => {
+                tb.append_leaf(format!("BinaryOperator `{:?}`", op.0));
+            },
+            ExprTag::UnExpr { op, rhs } => {
+                tb.append_leaf(format!("UnaryOperator `{:?}`", op.0));
+            },
+            ExprTag::Call { calle, args } => {
+                tb.open("CallExpr".into());
+                args.iter().for_each(|arg| arg.dump(tb));
+                tb.close();
+            },
+            ExprTag::MemberAccess { expr, member } => {
+                tb.append_leaf("MemberExpr".into());
+            },
+            ExprTag::SizeofType { r#type } => {
+                tb.append_leaf("SizeofType".into());
+            },
+            ExprTag::SizeofExpr { expr } => {
+                tb.open("SizeofExpr".into());
+                expr.dump(tb);
+                tb.close();
+            },
+            ExprTag::CastExpr { r#type, expr } => {
+                tb.open("CastExpr".into());
+                expr.dump(tb);
+                tb.close();
+            },
+            ExprTag::Conditional { cond, then, otherwise } => {
+                tb.open("ConditionalOperator".into());
+                cond.dump(tb);
+                then.dump(tb);
+                otherwise.dump(tb);
+                tb.close();
+            },
+        }
     }
 }
