@@ -61,7 +61,7 @@ impl AstNodeDump for StmtTag {
     fn dump(&self, tb: &mut TreeBuilder) -> () {
         match self {
             StmtTag::ExprStmt(expr) => {
-                tb.open("ExprStmt".into()).close();
+                tb.append_leaf("ExprStmt".into());
             },
             StmtTag::CompoundStmt(stmts) => {
                 tb.open("CompoundStmt".into());
@@ -69,7 +69,7 @@ impl AstNodeDump for StmtTag {
                 tb.close();
             },
             StmtTag::DeclStmt(decl) => {
-                tb.open("DeclStmt".into()).close();
+                tb.append_leaf("DeclStmt".into());
             },
             StmtTag::WhileStmt { cond, stmt } => {
                 tb.open("WhileStmt".into());
@@ -77,9 +77,35 @@ impl AstNodeDump for StmtTag {
                 stmt.tag.dump(tb);
                 tb.close();
             },
-            StmtTag::DoStmt { cond, stmt } => todo!(),
-            StmtTag::ForStmt(expr, expr1, expr2, stmt) => todo!(),
-            StmtTag::IfStmt(expr, stmt, stmt1) => todo!(),
+            StmtTag::DoStmt { cond, stmt } => {
+                tb.open("DoStmt".into());
+                cond.dump(tb);
+                stmt.tag.dump(tb);
+                tb.close();
+            },
+            StmtTag::ForStmt(expr, expr1, expr2, stmt) => {
+                tb.open("ForStmt".into());
+
+                for expr in [expr, expr1, expr2].iter() {
+                    if let Some(expr) = expr {
+                        expr.dump(tb);
+                    }
+                }
+
+                stmt.tag.dump(tb);
+                tb.close();
+            },
+            StmtTag::IfStmt(expr, if_true, otherwise) => {
+                tb.open("IfStmt".into());
+                expr.dump(tb);
+                if_true.tag.dump(tb);
+
+                if let Some(stmt) = otherwise {
+                    stmt.tag.dump(tb);
+                }
+
+                tb.close();
+            },
             StmtTag::SwitchStmt(expr, stmt) => {
                 tb.open("SwitchStmt".into());
                 expr.dump(tb);
@@ -193,14 +219,16 @@ pub struct Declarator {
 #[derive(Debug, Clone)]
 pub enum DirectDeclarator {
     Identifier(Token),
-    Paren(Declarator)
+    Paren(Declarator),
+    Abstract
 }
 
 impl std::fmt::Display for DirectDeclarator {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            DirectDeclarator::Identifier((tok, _)) => write!(f, "{:?}", tok),
-            DirectDeclarator::Paren(declarator) => todo!(),
+            Self::Identifier((tok, _)) => write!(f, "{:?}", tok),
+            Self::Paren(declarator) => todo!(),
+            Self::Abstract => write!(f, "")
         }
     }
 }
@@ -333,6 +361,21 @@ pub enum TypeSpecifier {
 }
 
 #[derive(Debug, Clone)]
+pub struct TypeName {
+    /// Type specifiers
+    /// ```c
+    /// int foo(volatile int*)
+    /// /*      ^~~~~~~~ specifier */
+    /// ```
+    /// An abstract declarator of type
+    /// ```c
+    ///   (int[]*) malloc(sizeof(int*));
+    /// /* ^~~~~~ abstract declarator */
+    /// ```
+    pub decl: Declarator
+}
+
+#[derive(Debug, Clone)]
 pub struct Expr {
     pub tag: ExprTag,
     // todo: spans and stuff
@@ -375,13 +418,13 @@ pub enum ExprTag {
     SizeofType {
         /// sizeof (int)
         ///         ^~~ type
-        r#type: Token
+        r#type: Box<TypeName>
     },
     SizeofExpr {
         expr: Box<Expr>
     },
     CastExpr {
-        r#type: Token,
+        r#type: Box<TypeName>,
         expr: Box<Expr>
     },
     Conditional {

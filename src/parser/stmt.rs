@@ -493,7 +493,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn is_type_specifier(&mut self) -> bool {
+    pub(crate) fn is_type_specifier(&mut self) -> bool {
         match self.iter.peek().val() {
             Some(
                 Void
@@ -682,33 +682,31 @@ impl<'a> Parser<'a> {
             self.pointer();
         }
 
-        self.direct_declarator()
+        Ok(Declarator {
+            inner: Box::new(self.direct_declarator()?),
+            suffix: self.maybe_parse_declarator_suffix()?
+        })
     }
 
-    fn direct_declarator(&mut self) -> PR<Declarator> {
-        let dir_decl = match self.iter.peek().val() {
+    fn direct_declarator(&mut self) -> PR<DirectDeclarator> {
+        match self.iter.peek().val() {
             Some(Identifier) => {
-                DirectDeclarator::Identifier(
+                Ok(DirectDeclarator::Identifier(
                     self.iter.next().unwrap()
-                )
+                ))
             },
             Some(LeftParen) => {
-                paren_wrapped!(self, {
+                Ok(paren_wrapped!(self, {
                     DirectDeclarator::Paren(
                         self.declarator()?
                     )
-                })
+                }))
             },
             Some(_) => return Err(ParseError::UnexpectedToken(
                 self.iter.peek().unwrap()
             )),
             _ => return Err(ParseError::UnexpectedEof)
-        };
-
-        Ok(Declarator {
-            inner: Box::new(dir_decl),
-            suffix: self.maybe_parse_declarator_suffix()?
-        })
+        }
     }
 
     fn maybe_parse_declarator_suffix(&mut self) -> PR<Option<DeclaratorSuffix>> {
@@ -836,45 +834,52 @@ impl<'a> Parser<'a> {
         id_list
     }
 
-    pub(crate) fn type_name(&mut self) -> Stmt {
-        self.specifier_qualifier_list();
-        self.abstract_declarator();
-        todo!()
+    pub(crate) fn type_name(&mut self) -> PR<TypeName> {
+        self.specifier_qualifier_list(); // TODO
+
+        Ok(TypeName {
+            decl: self.abstract_declarator()?
+        })
     }
 
-    fn abstract_declarator(&mut self) -> Stmt {
+    fn abstract_declarator(&mut self) -> PR<Declarator> {
         if matches!(self.iter.peek().val(), Some(Asterisk)) {
             self.pointer();
-            self.maybe_parse_direct_abstract_declarator();
+            Ok(Declarator {
+                inner: Box::new(
+                    self.maybe_parse_direct_abstract_declarator()?
+                        .unwrap_or(DirectDeclarator::Abstract)
+                ),
+                suffix: self.maybe_parse_abstract_declarator_suffix()?
+            })
         } else {
-            self.direct_abstract_declarator();
+            Ok(Declarator {
+                inner: Box::new(self.direct_abstract_declarator()?),
+                suffix: Some(self.abstract_declarator_suffix()?)
+            })
         }
-
-        todo!();
     }
 
-    fn maybe_parse_direct_abstract_declarator(&mut self) -> Option<Stmt> {
+    fn maybe_parse_direct_abstract_declarator(
+        &mut self
+    ) -> PR<Option<DirectDeclarator>> {
         if self.is_direct_abstract_declarator() {
-            Some(self.direct_abstract_declarator())
+            Ok(Some(self.direct_abstract_declarator()?))
         } else {
-            None
+            Ok(None)
         }
     }
 
-    fn direct_abstract_declarator(&mut self) -> Stmt {
+    fn direct_abstract_declarator(&mut self) -> PR<DirectDeclarator> {
         if matches!(self.iter.peek().val(), Some(LeftParen)) {
             paren_wrapped!(self, {
-                self.abstract_declarator();
-            });
+                Ok(DirectDeclarator::Paren(
+                    self.abstract_declarator()?
+                ))
+            })
         } else {
-            self.abstract_declarator_suffix();
+            Ok(DirectDeclarator::Abstract)
         }
-
-        while self.is_abstract_declarator_suffix() {
-            self.abstract_declarator_suffix();
-        }
-
-        todo!()
     }
 
     fn is_direct_abstract_declarator(&mut self) -> bool {
@@ -884,40 +889,44 @@ impl<'a> Parser<'a> {
         ))
     }
 
-    fn maybe_parse_abstract_declarator_suffix(&mut self) -> Option<Stmt> {
+    fn maybe_parse_abstract_declarator_suffix(
+        &mut self
+    ) -> PR<Option<DeclaratorSuffix>> {
         if self.is_abstract_declarator_suffix() {
-            Some(self.abstract_declarator_suffix())
+            Ok(Some(self.abstract_declarator_suffix()?))
         } else {
-            None
+            Ok(None)
         }
     }
 
-    fn abstract_declarator_suffix(&mut self) -> Stmt {
+    fn abstract_declarator_suffix(&mut self) -> PR<DeclaratorSuffix> {
         match self.iter.peek().val() {
             Some(LeftBrace) => {
                 self.iter.next();
 
                 if check_tok!(self, RightBrace) {
-                    // ...
+                    return Ok(DeclaratorSuffix::Array(None))
                 }
 
-                self.constant_expression();
+                let expr = self.constant_expression();
                 require_tok!(self, RightBrace);
+
+                Ok(DeclaratorSuffix::Array(Some(expr)))
             },
             Some(LeftParen) => {
                 self.iter.next();
 
                 if check_tok!(self, RightParen) {
-                    // ...
+                    return Ok(DeclaratorSuffix::Func(None));
                 }
 
-                self.parameter_type_list();
+                let plist = self.parameter_type_list()?;
                 require_tok!(self, RightParen);
+
+                Ok(DeclaratorSuffix::Func(Some(plist)))
             },
             _ => panic!()
         }
-
-        todo!()
     }
 
     fn is_abstract_declarator_suffix(&mut self) -> bool {
