@@ -53,6 +53,13 @@ impl<'a> Parser<'a> {
         let mut decl_list = Vec::with_capacity(1);
 
         if let Some(spec) = self.maybe_parse_declaration_specifiers()? {
+            if check_tok!(self, Semicolon) {
+                if let Some(decl) = self.type_definition(spec.clone())? {
+                    decl_list.push(decl);
+                    return Ok(decl_list);
+                }
+            }
+
             while !matches!(self.iter.peek().val(), Some(Semicolon) | None) {
                 let decl = self.init_declarator()?;
 
@@ -73,13 +80,11 @@ impl<'a> Parser<'a> {
                     }
 
                     decl_list.push(self.function_definition(spec, decl)?);
-                    break;
+                    return Ok(decl_list);
                 }
 
                 // Declarations listed `int foo = 5, bar = 7, ...`
-                if check_tok!(self, Comma) {
-                    self.iter.next();
-                } else {
+                if !check_tok!(self, Comma) {
                     break;
                 }
             }
@@ -91,7 +96,27 @@ impl<'a> Parser<'a> {
             )?)
         }
 
+        require_tok!(self, Semicolon);
         Ok(decl_list)
+    }
+
+    fn type_definition(
+        &mut self,
+        spec: Vec<DeclSpecifier>
+    ) -> PR<Option<Decl>> {
+        if let Some(DeclSpecifier::TypeSpecifier(t)) = spec.last() {
+            match t {
+                TypeSpecifier::Enum(e) => {
+                    Ok(Some(Decl::EnumDecl(e.to_vec())))
+                },
+                TypeSpecifier::Record(r) => {
+                    Ok(Some(Decl::RecordDecl(r.to_vec())))
+                },
+                _ => Ok(None)
+            }
+        } else {
+            Ok(None)
+        }
     }
 
     fn function_definition(
@@ -354,7 +379,6 @@ impl<'a> Parser<'a> {
         init_decl: InitDeclarator
     ) -> PR<Decl> {
         let decl_list = self.init_declarator_list(init_decl)?;
-        require_tok!(self, Semicolon);
 
         Ok(Decl::VarDecl {
             spec,
@@ -451,14 +475,10 @@ impl<'a> Parser<'a> {
                 ))
             },
             Some(Struct | Union) => {
-                Ok(TypeSpecifier::TypeDecl(
-                    self.struct_or_union_specifier()?
-                ))
+                self.struct_or_union_specifier()
             },
             Some(Enum) => {
-                Ok(TypeSpecifier::TypeDecl(
-                    self.enum_specifier()?
-                ))
+                self.enum_specifier()
             },
             Some(Identifier) if self.is_type_specifier() => {
                 Ok(TypeSpecifier::TypeName(
@@ -517,7 +537,7 @@ impl<'a> Parser<'a> {
         ))
     }
 
-    fn struct_or_union_specifier(&mut self) -> PR<Decl> {
+    fn struct_or_union_specifier(&mut self) -> PR<TypeSpecifier> {
         require_tok!(self, Struct | Union);
 
         let maybe_id = match_tok!(self, Identifier);
@@ -528,10 +548,10 @@ impl<'a> Parser<'a> {
                 return Err(ParseError::DeclarationHasNoIdentifier);
             }
 
-            return Ok(Decl::RecordDecl(vec![]))
+            return Ok(TypeSpecifier::Record(vec![]))
         }
 
-        Ok(Decl::RecordDecl(
+        Ok(TypeSpecifier::Record(
             curly_wrapped!(self, {
                 self.struct_declaration_list()?
             })
@@ -613,7 +633,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn enum_specifier(&mut self) -> PR<Decl> {
+    fn enum_specifier(&mut self) -> PR<TypeSpecifier> {
         require_tok!(self, Enum);
 
         let maybe_id = match_tok!(self, Identifier);
@@ -623,10 +643,10 @@ impl<'a> Parser<'a> {
                 return Err(ParseError::DeclarationHasNoInitializer);
             }
 
-            return Ok(Decl::EnumDecl(vec![]));
+            return Ok(TypeSpecifier::Enum(vec![]));
         }
 
-        Ok(Decl::EnumDecl(
+        Ok(TypeSpecifier::Enum(
             curly_wrapped!(self, {
                 self.enumerator_list()
             })
@@ -814,8 +834,10 @@ impl<'a> Parser<'a> {
         id_list
     }
 
-    fn type_name(&mut self) -> Stmt {
-        todo!();
+    pub(crate) fn type_name(&mut self) -> Stmt {
+        self.specifier_qualifier_list();
+        self.abstract_declarator();
+        todo!()
     }
 
     fn abstract_declarator(&mut self) -> Stmt {

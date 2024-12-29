@@ -73,7 +73,7 @@ impl AstNodeDump for StmtTag {
             },
             StmtTag::WhileStmt { cond, stmt } => {
                 tb.open("WhileStmt".into());
-                tb.append_leaf("<Expr>".into());
+                cond.dump(tb);
                 stmt.tag.dump(tb);
                 tb.close();
             },
@@ -146,7 +146,11 @@ impl AstNodeDump for Decl {
                     .for_each(|decl| decl.dump(tb));
                 tb.close();
             },
-            Decl::EnumDecl(vec) => todo!(),
+            Decl::EnumDecl(decls) => {
+                tb.open("EnumDecl".into());
+                decls.iter().for_each(|d| d.dump(tb));
+                tb.close();
+            },
             Decl::FuncDecl { spec, decl, body, params } => {
                 tb.open("FuncDecl".into());
 
@@ -261,6 +265,18 @@ pub struct EnumConstantDecl {
     pub cexpr: Option<Expr>
 }
 
+impl AstNodeDump for EnumConstantDecl {
+    fn dump(&self, tb: &mut TreeBuilder) -> () {
+        tb.open("EnumConstantDecl".into());
+
+        if let Some(expr) = self.cexpr.clone() {
+            expr.dump(tb);
+        }
+
+        tb.close();
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum ParamList {
     /// In ANSI C it's possible to describe parameters
@@ -312,7 +328,8 @@ pub enum TypeSpecifier {
     ///     struct { int a; } foo = { 1 };
     ///  /* ^~~~~~~~~~~~~~~~~ definition */
     /// ```
-    TypeDecl(Decl)
+    Record(Vec<FieldDecl>),
+    Enum(Vec<EnumConstantDecl>)
 }
 
 #[derive(Debug, Clone)]
