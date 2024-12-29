@@ -144,12 +144,15 @@ impl<'a> Parser<'a> {
     }
 
     pub fn statement(&mut self) -> PR<Stmt> {
+        // Declarations after statements is a C99 feature, but anyway it's
+        // supported here.
         if let Some(spec) = self.maybe_parse_declaration_specifiers()? {
             let init_decl = self.init_declarator()?;
+            let decl = self.declaration(spec, init_decl)?;
+            require_tok!(self, Semicolon);
+
             return Ok(Stmt {
-                tag: StmtTag::DeclStmt(
-                    self.declaration(spec, init_decl)?
-                )
+                tag: StmtTag::DeclStmt(decl)
             });
         }
 
@@ -201,7 +204,6 @@ impl<'a> Parser<'a> {
             None
         };
 
-        self.iter.peek();
 
         require_tok!(self, Semicolon);
         expr
