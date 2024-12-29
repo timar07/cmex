@@ -239,18 +239,22 @@ impl<'a> Parser<'a> {
     }
 
     fn cast(&mut self) -> Expr {
-        if matches!(self.iter.peek().val(), Some(LeftParen))
-            && matches!(self.iter.lookahead(2).val(), Some(Identifier))
-        {
-            self.iter.next();
-            let type_name = require_tok!(self, Identifier); // TODO: Parse type name
-            require_tok!(self, RightParen);
+        if check_tok!(self, LeftParen) {
+            if self.is_type_specifier() {
+                let type_name = self.type_name().unwrap();
+                require_tok!(self, RightParen);
 
-            return Expr {
-                tag: ExprTag::CastExpr {
-                    r#type: type_name,
-                    expr: Box::new(self.cast())
+                return Expr {
+                    tag: ExprTag::CastExpr {
+                        r#type: Box::new(type_name),
+                        expr: Box::new(self.cast())
+                    }
                 }
+            } else {
+                let expr = self.expression();
+                require_tok!(self, RightParen);
+
+                return expr;
             }
         }
 
@@ -278,7 +282,7 @@ impl<'a> Parser<'a> {
                 if check_tok!(self, LeftParen) {
                     let sizeof_expr = Expr {
                         tag: ExprTag::SizeofType {
-                            r#type: require_tok!(self, Identifier) // TODO: Parse type name
+                            r#type: Box::new(self.type_name().unwrap())
                         }
                     };
                     require_tok!(self, RightParen);
@@ -358,7 +362,6 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_args(&mut self) -> Vec<Expr> {
-        dbg!(self.iter.peek());
         let mut args = Vec::new();
         args.push(self.assignment());
 
