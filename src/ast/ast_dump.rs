@@ -17,7 +17,6 @@ impl AstDumper {
 
 impl std::fmt::Display for AstDumper {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        dbg!(self.tree_builder.build());
         write!(f, "{}", self.tree_builder.build().unwrap())
     }
 }
@@ -115,6 +114,8 @@ impl TreePrinter {
     }
 
     fn print_entry(entry: &TreeItem, indent: String, branch: &str) -> String {
+        let shift_width = indent.len() + branch.len();
+
         format!(
             "{indent}{branch}{}\n{}",
             entry.header,
@@ -126,12 +127,7 @@ impl TreePrinter {
                         Self::print_entry(
                             &c.clone(),
                             format!(
-                                "{indent}{} ",
-                                if branch == "`-" && entry.is_empty() {
-                                    " "
-                                } else {
-                                    ""
-                                },
+                                "{indent: <shift_width$}",
                             ),
                             "`-"
                         )
@@ -139,7 +135,7 @@ impl TreePrinter {
                         Self::print_entry(
                             &c.clone(),
                             format!(
-                                "{indent} |",
+                                "{indent: <shift_width$}|",
                             ),
                             "-"
                         )
