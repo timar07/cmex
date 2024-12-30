@@ -153,7 +153,7 @@ pub enum Decl {
     RecordDecl(Vec<FieldDecl>),
     EnumDecl(Vec<EnumConstantDecl>),
     FuncDecl {
-        spec: Vec<DeclSpecifier>,
+        spec: Option<Vec<DeclSpecifier>>,
         decl: Box<DirectDeclarator>,
         params: Option<ParamList>,
         body: Box<Stmt>
@@ -198,7 +198,11 @@ impl AstNodeDump for Decl {
                 tb.close();
             },
             Decl::VarDecl { spec, decl_list } => {
-                tb.open("VarDecl".into()).close();
+                decl_list.iter().for_each(|decl| {
+                    tb.open("VarDecl".into());
+                    decl.dump(tb);
+                    tb.close();
+                });
             },
         }
     }
@@ -217,8 +221,27 @@ pub enum Initializer {
     List(Vec<Initializer>)
 }
 
+impl AstNodeDump for Initializer {
+    fn dump(&self, tb: &mut TreeBuilder) -> () {
+        match self {
+            Self::Assign(expr) => expr.dump(tb),
+            Self::List(init_list) => {
+                init_list.iter().for_each(|init| init.dump(tb));
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct InitDeclarator(pub Declarator, pub Option<Initializer>);
+
+impl AstNodeDump for InitDeclarator {
+    fn dump(&self, tb: &mut TreeBuilder) -> () {
+        if let Some(init) = &self.1 {
+            init.dump(tb);
+        }
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct Declarator {
@@ -403,9 +426,7 @@ pub struct Expr {
 
 impl AstNodeDump for Expr {
     fn dump(&self, tb: &mut TreeBuilder) -> () {
-        tb.open("Expr".into());
         self.tag.dump(tb);
-        tb.close();
     }
 }
 
