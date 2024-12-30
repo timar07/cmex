@@ -562,17 +562,17 @@ impl<'a> Parser<'a> {
 
     fn struct_decl_list(&mut self) -> PR<Vec<FieldDecl>> {
         let mut struct_decl_list = Vec::new();
-        struct_decl_list.push(self.struct_decl()?);
+        struct_decl_list.append(&mut self.struct_decl()?);
 
-        while let Some(struct_decl) = self.maybe_struct_decl()? {
-            struct_decl_list.push(struct_decl);
+        while let Some(mut struct_decl) = self.maybe_struct_decl()? {
+            struct_decl_list.append(&mut struct_decl);
         }
 
 
         Ok(struct_decl_list)
     }
 
-    fn maybe_struct_decl(&mut self) -> PR<Option<FieldDecl>> {
+    fn maybe_struct_decl(&mut self) -> PR<Option<Vec<FieldDecl>>> {
         if self.is_struct_decl() {
             Ok(Some(self.struct_decl()?))
         } else {
@@ -580,11 +580,15 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn struct_decl(&mut self) -> PR<FieldDecl> {
+    fn struct_decl(&mut self) -> PR<Vec<FieldDecl>> {
         self.specifier_qualifier_list();
-        let decl = self.struct_declarator()?; // TODO: struct_declarator_list
+        let decl_list = self.struct_declarator_list()?;
         require_tok!(self, Semicolon);
-        Ok(FieldDecl { decl })
+
+        Ok(decl_list
+            .iter()
+            .map(|decl| FieldDecl { decl: decl.clone() })
+            .collect())
     }
 
     fn is_struct_decl(&mut self) -> bool {
@@ -611,12 +615,15 @@ impl<'a> Parser<'a> {
         self.is_type_qualifier() || self.is_type_specifier()
     }
 
-    fn struct_declarator_list(&mut self) -> () {
-        self.struct_declarator();
+    fn struct_declarator_list(&mut self) -> PR<Vec<FieldDeclarator>> {
+        let mut decl_list = Vec::new();
+        decl_list.push(self.struct_declarator()?);
 
         while check_tok!(self, Comma) {
-            self.struct_declarator();
+            decl_list.push(self.struct_declarator()?);
         }
+
+        Ok(decl_list)
     }
 
     fn struct_declarator(&mut self) -> PR<FieldDeclarator> {
