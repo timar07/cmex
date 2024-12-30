@@ -28,9 +28,8 @@ where
     fn next(&mut self) -> Option<Self::Item> {
         self.peeked
             .clone()
-            .and_then(|item| {
+            .inspect(|_| {
                 self.peeked = None;
-                Some(item)
             })
             .or_else(|| self.dequeue())
     }
@@ -62,9 +61,8 @@ where
         self.queue
             .pop_back()
             .or_else(|| self.iter.next())
-            .and_then(|item| {
+            .inspect(|item| {
                 self.peeked = Some(item.clone());
-                Some(item)
             })
     }
 

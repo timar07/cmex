@@ -23,7 +23,7 @@ impl<'a> From<&'a str> for Lexer<'a> {
     }
 }
 
-impl<'a> Iterator for Lexer<'a> {
+impl Iterator for Lexer<'_> {
     type Item = Result<TokenTag, LexError>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -31,7 +31,7 @@ impl<'a> Iterator for Lexer<'a> {
     }
 }
 
-impl<'a> Positioned for Lexer<'a> {
+impl Positioned for Lexer<'_> {
     fn get_pos(&self) -> usize { self.src.pos }
 }
 
@@ -46,7 +46,7 @@ impl<'a> Lexemes<'a> {
     }
 }
 
-impl<'a> Iterator for Lexemes<'a> {
+impl Iterator for Lexemes<'_> {
     type Item = String;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -475,6 +475,7 @@ impl<'src, 'a> NumberLiteralCollector<'src, 'a> {
         self.src.take_while(|c| c.is_ascii_hexdigit());
     }
 
+    #[allow(clippy::manual_is_ascii_check)]
     fn consume_dec_digits(&mut self) {
         self.src.take_while(|c| matches!(c, '0'..='9'));
     }

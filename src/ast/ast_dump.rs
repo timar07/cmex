@@ -1,5 +1,5 @@
-///! Implements AST dumping in clang compiler style
-///! style i.e. `clang -Xclang -ast-dump <...>`
+/// Implements AST dumping in clang compiler style
+/// style i.e. `clang -Xclang -ast-dump <...>`
 pub struct AstDumper {
     pub tree_builder: TreeBuilder
 }
@@ -21,10 +21,10 @@ impl std::fmt::Display for AstDumper {
     }
 }
 
-///! Helper trait that defines interface for AST node
-///! dumping.
+/// Helper trait that defines interface for AST node
+/// dumping.
 pub trait AstNodeDump {
-    fn dump(&self, tb: &mut TreeBuilder) -> ();
+    fn dump(&self, tb: &mut TreeBuilder) ;
 }
 
 pub struct TreeBuilder {
@@ -41,7 +41,7 @@ impl TreeBuilder {
     }
 
     pub fn build(&self) -> Option<TreeItem> {
-        Some(self.last.clone()?)
+        self.last.clone()
     }
 
     pub fn append_leaf(&mut self, header: String) -> &mut Self {

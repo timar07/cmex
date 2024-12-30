@@ -53,7 +53,7 @@ impl<'a> Cursor<'a> {
     }
 
     pub fn lookahead(&mut self, n: usize) -> Option<char> {
-        self.iter.clone().skip(n - 1).next()
+        self.iter.clone().nth(n - 1) // TODO: Implement Lookahead<T> instead?
     }
 
     pub fn take_while<P>(&mut self, mut predicate: P) -> String

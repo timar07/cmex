@@ -1,3 +1,4 @@
+mod symtable;
 mod stmt;
 mod expr;
 mod lookahead;
@@ -27,7 +28,7 @@ impl<'a> Parser<'a> {
     }
 }
 
-impl<'a> Iterator for Parser<'a> {
+impl Iterator for Parser<'_> {
     type Item = Stmt;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -51,7 +52,7 @@ impl<'a> Tokens<'a> {
     }
 }
 
-impl<'a> Iterator for Tokens<'_> {
+impl Iterator for Tokens<'_> {
     type Item = (TokenTag, Span);
 
     fn next(&mut self) -> Option<Self::Item> {

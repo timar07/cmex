@@ -33,7 +33,7 @@ macro_rules! paren_wrapped {
 
 type PR<T> = Result<T, ParseError>;
 
-impl<'a> Parser<'a> {
+impl Parser<'_> {
     pub fn parse(&mut self) -> PR<TranslationUnit> {
         self.translation_unit()
     }
@@ -72,7 +72,7 @@ impl<'a> Parser<'a> {
                     self.decl(
                         spec
                             .clone()
-                            .map(|s| Ok(s))
+                            .map(Ok)
                             .unwrap_or(
                                 Err(ParseError::Expected(
                                     "declaration specifiers".into()
@@ -115,10 +115,10 @@ impl<'a> Parser<'a> {
         if let Some(DeclSpecifier::TypeSpecifier(t)) = spec.last() {
             match t {
                 TypeSpecifier::Enum(e) => {
-                    Ok(Some(Decl::EnumDecl(e.to_vec())))
+                    Ok(Some(Decl::Enum(e.to_vec())))
                 },
                 TypeSpecifier::Record(r) => {
-                    Ok(Some(Decl::RecordDecl(r.to_vec())))
+                    Ok(Some(Decl::Record(r.to_vec())))
                 },
                 _ => Ok(None)
             }
@@ -134,7 +134,7 @@ impl<'a> Parser<'a> {
     ) -> PR<Decl> {
         match decl.0.suffix {
             Some(DeclaratorSuffix::Func(suffix)) => {
-                Ok(Decl::FuncDecl {
+                Ok(Decl::Func {
                     spec,
                     params: suffix,
                     decl: decl.0.inner,
@@ -143,10 +143,10 @@ impl<'a> Parser<'a> {
             },
             // Function has a array suffix e.g. `int foo[100]() { ... }`
             Some(DeclaratorSuffix::Array(_)) => {
-                return Err(ParseError::UnexpectedDeclarationSuffix);
+                Err(ParseError::UnexpectedDeclarationSuffix)
             },
             _ => {
-                return Err(ParseError::Expected("parameter list".into()))
+                Err(ParseError::Expected("parameter list".into()))
             }
         }
     }
@@ -160,33 +160,27 @@ impl<'a> Parser<'a> {
             require_tok!(self, Semicolon);
 
             return Ok(Stmt {
-                tag: StmtTag::DeclStmt(decl)
+                tag: StmtTag::Decl(decl)
             });
         }
 
         match self.iter.peek().val() {
-            Some(
-                While
-                | Do
-                | For
-            ) => self.iteration_statement(),
+            Some(While | Do | For) => self.iteration_statement(),
             Some(If | Switch) => self.selection_statement(),
-            Some(LeftCurly) => {
-                self.compound_statement()
-            },
             Some(Case | Default) => self.labeled_statement(),
+            Some(LeftCurly) => self.compound_statement(),
             Some(Identifier) => {
                 if let Some(Colon) = self.iter.lookahead(1).val() {
                     self.labeled_statement()
                 } else {
                     Ok(Stmt {
-                        tag: StmtTag::ExprStmt(self.expression_statement())
+                        tag: StmtTag::Expr(self.expression_statement())
                     })
                 }
             },
             Some(Goto | Continue | Break | Return) => self.jump_statement(),
             _ => Ok(Stmt {
-                tag: StmtTag::ExprStmt(self.expression_statement())
+                tag: StmtTag::Expr(self.expression_statement())
             }),
         }
     }
@@ -201,7 +195,7 @@ impl<'a> Parser<'a> {
         }
 
         Ok(Stmt {
-            tag: StmtTag::CompoundStmt(stmts)
+            tag: StmtTag::Compound(stmts)
         })
     }
 
@@ -222,7 +216,7 @@ impl<'a> Parser<'a> {
                 self.iter.next();
 
                 Stmt {
-                    tag: StmtTag::WhileStmt {
+                    tag: StmtTag::While {
                         cond: paren_wrapped!(self, {
                             self.expression()
                         }),
@@ -240,7 +234,7 @@ impl<'a> Parser<'a> {
                 require_tok!(self, Semicolon);
 
                 Stmt {
-                    tag: StmtTag::DoStmt {
+                    tag: StmtTag::Do {
                         cond,
                         stmt
                     }
@@ -261,7 +255,7 @@ impl<'a> Parser<'a> {
                 });
 
                 Stmt {
-                    tag: StmtTag::ForStmt(
+                    tag: StmtTag::For(
                         header.0,
                         header.1,
                         header.2,
@@ -288,13 +282,13 @@ impl<'a> Parser<'a> {
                 };
 
                 Ok(Stmt {
-                    tag: StmtTag::IfStmt(cond, if_stmt, else_stmt)
+                    tag: StmtTag::If(cond, if_stmt, else_stmt)
                 })
             },
             Some(Switch) => {
                 self.iter.next();
                 Ok(Stmt {
-                    tag: StmtTag::SwitchStmt(
+                    tag: StmtTag::Switch(
                         paren_wrapped!(self, {
                             self.expression()
                         }),
@@ -312,7 +306,7 @@ impl<'a> Parser<'a> {
                 let id = self.iter.next();
                 require_tok!(self, Colon);
                 Stmt {
-                    tag: StmtTag::LabelStmt(
+                    tag: StmtTag::Label(
                         id.unwrap(),
                         Box::new(self.statement()?)
                     )
@@ -323,7 +317,7 @@ impl<'a> Parser<'a> {
                 let expr = self.constant_expression();
                 require_tok!(self, Colon);
                 Stmt {
-                    tag: StmtTag::CaseStmt(
+                    tag: StmtTag::Case(
                         expr,
                         Box::new(self.statement()?)
                     )
@@ -333,7 +327,7 @@ impl<'a> Parser<'a> {
                 self.iter.next();
                 require_tok!(self, Colon);
                 Stmt {
-                    tag: StmtTag::DefaultStmt(
+                    tag: StmtTag::Default(
                         Box::new(self.statement()?)
                     )
                 }
@@ -349,21 +343,21 @@ impl<'a> Parser<'a> {
                 let id = require_tok!(self, Identifier);
                 require_tok!(self, Semicolon);
                 Ok(Stmt {
-                    tag: StmtTag::GotoStmt(id)
+                    tag: StmtTag::Goto(id)
                 })
             },
             Some(Continue) => {
                 self.iter.next();
                 require_tok!(self, Semicolon);
                 Ok(Stmt {
-                    tag: StmtTag::ContinueStmt
+                    tag: StmtTag::Continue
                 })
             },
             Some(Break) => {
                 self.iter.next();
                 require_tok!(self, Semicolon);
                 Ok(Stmt {
-                    tag: StmtTag::BreakStmt
+                    tag: StmtTag::Break
                 })
             },
             Some(Return) => {
@@ -375,7 +369,7 @@ impl<'a> Parser<'a> {
 
                 require_tok!(self, Semicolon);
                 Ok(Stmt {
-                    tag: StmtTag::ReturnStmt
+                    tag: StmtTag::Return
                 })
             },
             _ => unreachable!()
@@ -389,7 +383,7 @@ impl<'a> Parser<'a> {
     ) -> PR<Decl> {
         let decl_list = self.init_declarator_list(init_decl)?;
 
-        Ok(Decl::VarDecl {
+        Ok(Decl::Var {
             spec,
             decl_list
         })
@@ -424,10 +418,10 @@ impl<'a> Parser<'a> {
     // TODO: refactor, this looks terrible
     fn maybe_decl_specifier(&mut self) -> PR<Option<DeclSpecifier>> {
         Ok(self.maybe_type_specifier()?
-            .and_then(|spec| Some(DeclSpecifier::TypeSpecifier(spec)))
+            .map(DeclSpecifier::TypeSpecifier)
             .or_else(|| {
                 self.maybe_type_qualifier()
-                    .and_then(|qual| Some(DeclSpecifier::TypeQualifier(qual)))
+                    .map(DeclSpecifier::TypeQualifier)
                     .or_else(|| {
                         self.maybe_storage_class_specifier()
                     })
@@ -514,7 +508,7 @@ impl<'a> Parser<'a> {
                 | Unsigned
             ) => true,
             Some(Struct | Union | Enum) => {
-                return matches!(
+                matches!(
                     self.iter.lookahead(1).val(), // no need to lookahead more
                     Some(Identifier | LeftCurly)
                 )
@@ -613,7 +607,7 @@ impl<'a> Parser<'a> {
     }
 
     fn specifier_qualifier(&mut self) -> PR<Option<()>> {
-        if !self.maybe_type_qualifier().is_some() {
+        if self.maybe_type_qualifier().is_none() {
             self.maybe_type_specifier()?;
         }
 
@@ -724,7 +718,7 @@ impl<'a> Parser<'a> {
                 }))
             },
             Some(_) => Ok(DirectDeclarator::Abstract),
-            _ => return Err(ParseError::UnexpectedEof)
+            _ => Err(ParseError::UnexpectedEof)
         }
     }
 
@@ -773,7 +767,7 @@ impl<'a> Parser<'a> {
         matches!(self.iter.peek().val(), Some(LeftBrace | LeftParen))
     }
 
-    fn pointer(&mut self) -> () {
+    fn pointer(&mut self)  {
         require_tok!(self, Asterisk);
 
         if matches!(self.iter.peek().val(), Some(Const | Volatile)) {

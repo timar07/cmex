@@ -26,41 +26,41 @@ pub struct Stmt {
 
 #[derive(Debug, Clone)]
 pub enum StmtTag {
-    ExprStmt(Option<Expr>),
-    CompoundStmt(Vec<Stmt>),
-    DeclStmt(Decl),
+    Expr(Option<Expr>),
+    Compound(Vec<Stmt>),
+    Decl(Decl),
     /// while (cond) stmt
-    WhileStmt {
+    While {
         cond: Expr,
         stmt: Box<Stmt>
     },
     /// do stmt while (cond);
-    DoStmt {
+    Do {
         cond: Expr,
         stmt: Box<Stmt>
     },
     /// for (expr, expr, expr) stmt
-    ForStmt(Option<Expr>, Option<Expr>, Option<Expr>, Box<Stmt>),
+    For(Option<Expr>, Option<Expr>, Option<Expr>, Box<Stmt>),
     /// if (expr) stmt else stmt
-    IfStmt(Expr, Box<Stmt>, Option<Box<Stmt>>),
+    If(Expr, Box<Stmt>, Option<Box<Stmt>>),
     /// switch (expr) stmt
-    SwitchStmt(Expr, Box<Stmt>),
+    Switch(Expr, Box<Stmt>),
     /// case expr: stmt
-    CaseStmt(Expr, Box<Stmt>),
+    Case(Expr, Box<Stmt>),
     /// id: stmt
-    LabelStmt(Token, Box<Stmt>),
+    Label(Token, Box<Stmt>),
     /// default: stmt
-    DefaultStmt(Box<Stmt>),
-    BreakStmt,
-    ContinueStmt,
-    ReturnStmt,
-    GotoStmt(Token)
+    Default(Box<Stmt>),
+    Break,
+    Continue,
+    Return,
+    Goto(Token)
 }
 
 impl AstNodeDump for StmtTag {
-    fn dump(&self, tb: &mut TreeBuilder) -> () {
+    fn dump(&self, tb: &mut TreeBuilder) {
         match self {
-            StmtTag::ExprStmt(expr) => {
+            StmtTag::Expr(expr) => {
                 tb.open("ExprStmt".into());
 
                 if let Some(expr) = expr {
@@ -69,39 +69,37 @@ impl AstNodeDump for StmtTag {
 
                 tb.close();
             },
-            StmtTag::CompoundStmt(stmts) => {
+            StmtTag::Compound(stmts) => {
                 tb.open("CompoundStmt".into());
                 stmts.iter().for_each(|stmt| stmt.tag.dump(tb));
                 tb.close();
             },
-            StmtTag::DeclStmt(decl) => {
+            StmtTag::Decl(decl) => {
                 tb.append_leaf("DeclStmt".into());
             },
-            StmtTag::WhileStmt { cond, stmt } => {
+            StmtTag::While { cond, stmt } => {
                 tb.open("WhileStmt".into());
                 cond.dump(tb);
                 stmt.tag.dump(tb);
                 tb.close();
             },
-            StmtTag::DoStmt { cond, stmt } => {
+            StmtTag::Do { cond, stmt } => {
                 tb.open("DoStmt".into());
                 cond.dump(tb);
                 stmt.tag.dump(tb);
                 tb.close();
             },
-            StmtTag::ForStmt(expr, expr1, expr2, stmt) => {
+            StmtTag::For(expr, expr1, expr2, stmt) => {
                 tb.open("ForStmt".into());
 
-                for expr in [expr, expr1, expr2].iter() {
-                    if let Some(expr) = expr {
+                for expr in [expr, expr1, expr2].iter().copied().flatten() {
                         expr.dump(tb);
-                    }
                 }
 
                 stmt.tag.dump(tb);
                 tb.close();
             },
-            StmtTag::IfStmt(expr, if_true, otherwise) => {
+            StmtTag::If(expr, if_true, otherwise) => {
                 tb.open("IfStmt".into());
                 expr.dump(tb);
                 if_true.tag.dump(tb);
@@ -112,53 +110,69 @@ impl AstNodeDump for StmtTag {
 
                 tb.close();
             },
-            StmtTag::SwitchStmt(expr, stmt) => {
+            StmtTag::Switch(expr, stmt) => {
                 tb.open("SwitchStmt".into());
                 expr.dump(tb);
                 stmt.tag.dump(tb);
                 tb.close();
             },
-            StmtTag::CaseStmt(expr, stmt) => {
+            StmtTag::Case(expr, stmt) => {
                 tb.open("CaseStmt".into());
                 expr.dump(tb);
                 stmt.tag.dump(tb);
                 tb.close();
             },
-            StmtTag::LabelStmt(_, stmt) => {
+            StmtTag::Label(_, stmt) => {
                 tb.open("LabelStmt".into());
                 stmt.tag.dump(tb);
                 tb.close();
             },
-            StmtTag::DefaultStmt(stmt) => {
+            StmtTag::Default(stmt) => {
                 tb.open("DefaultStmt".into());
                 stmt.tag.dump(tb);
                 tb.close();
             },
-            StmtTag::BreakStmt => {
+            StmtTag::Break => {
                 tb.append_leaf("BreakStmt".into());
             }
-            StmtTag::ContinueStmt => {
+            StmtTag::Continue => {
                 tb.append_leaf("ContinueStmt".into());
             },
-            StmtTag::ReturnStmt => {
+            StmtTag::Return => {
                 tb.append_leaf("ReturnStmt".into());
             },
-            StmtTag::GotoStmt(_) => todo!(),
+            StmtTag::Goto(_) => todo!(),
         };
     }
 }
 
 #[derive(Debug, Clone)]
 pub enum Decl {
-    RecordDecl(Vec<FieldDecl>),
-    EnumDecl(Vec<EnumConstantDecl>),
-    FuncDecl {
+    Record(Vec<FieldDecl>),
+    Enum(Vec<EnumConstantDecl>),
+    Func {
+        /// ```c
+        ///    static int foo() { /* ... */ }
+        /// /* ^~~~~~~~~~ spec */
+        /// ```
         spec: Option<Vec<DeclSpecifier>>,
+        /// ```c
+        /// int foo() { /* ... */ }
+        ///  /* ^~~~~ decl */
+        /// ```
         decl: Box<DirectDeclarator>,
+        ///```c
+        /// int foo() { /* ... */ }
+        ///     /* ^~ params */
+        /// ```
         params: Option<ParamList>,
+        ///```c
+        /// int foo() { /* ... */ }
+        ///        /* ^~~~~~~~ body */
+        /// ```
         body: Box<Stmt>
     },
-    VarDecl {
+    Var {
         /// ```c
         ///    register int a, b, c
         /// /* ^~~~~~~~~~~~ spec */
@@ -173,21 +187,21 @@ pub enum Decl {
 }
 
 impl AstNodeDump for Decl {
-    fn dump(&self, tb: &mut TreeBuilder) -> () {
+    fn dump(&self, tb: &mut TreeBuilder) {
         match self {
-            Decl::RecordDecl(decls) => {
+            Decl::Record(decls) => {
                 tb.open("RecordDecl".into());
                 decls
                     .iter()
                     .for_each(|decl| decl.dump(tb));
                 tb.close();
             },
-            Decl::EnumDecl(decls) => {
+            Decl::Enum(decls) => {
                 tb.open("EnumDecl".into());
                 decls.iter().for_each(|d| d.dump(tb));
                 tb.close();
             },
-            Decl::FuncDecl { spec, decl, body, params } => {
+            Decl::Func { spec, decl, body, params } => {
                 tb.open("FuncDecl".into());
 
                 if let Some(params) = params {
@@ -197,7 +211,7 @@ impl AstNodeDump for Decl {
                 body.tag.dump(tb);
                 tb.close();
             },
-            Decl::VarDecl { spec, decl_list } => {
+            Decl::Var { spec, decl_list } => {
                 decl_list.iter().for_each(|decl| {
                     tb.open("VarDecl".into());
                     decl.dump(tb);
@@ -222,7 +236,7 @@ pub enum Initializer {
 }
 
 impl AstNodeDump for Initializer {
-    fn dump(&self, tb: &mut TreeBuilder) -> () {
+    fn dump(&self, tb: &mut TreeBuilder) {
         match self {
             Self::Assign(expr) => expr.dump(tb),
             Self::List(init_list) => {
@@ -236,7 +250,7 @@ impl AstNodeDump for Initializer {
 pub struct InitDeclarator(pub Declarator, pub Option<Initializer>);
 
 impl AstNodeDump for InitDeclarator {
-    fn dump(&self, tb: &mut TreeBuilder) -> () {
+    fn dump(&self, tb: &mut TreeBuilder) {
         if let Some(init) = &self.1 {
             init.dump(tb);
         }
@@ -304,7 +318,7 @@ pub struct FieldDecl {
 }
 
 impl AstNodeDump for FieldDecl {
-    fn dump(&self, tb: &mut TreeBuilder) -> () {
+    fn dump(&self, tb: &mut TreeBuilder) {
         tb.append_leaf("FieldDecl".into());
     }
 }
@@ -337,7 +351,7 @@ pub struct EnumConstantDecl {
 }
 
 impl AstNodeDump for EnumConstantDecl {
-    fn dump(&self, tb: &mut TreeBuilder) -> () {
+    fn dump(&self, tb: &mut TreeBuilder) {
         tb.open("EnumConstantDecl".into());
 
         if let Some(expr) = self.cexpr.clone() {
@@ -361,7 +375,7 @@ pub enum ParamList {
 }
 
 impl AstNodeDump for ParamList {
-    fn dump(&self, tb: &mut TreeBuilder) -> () {
+    fn dump(&self, tb: &mut TreeBuilder) {
         match self {
             Self::Identifier(_) => todo!(),
             Self::Type(decls) => {
@@ -381,7 +395,7 @@ pub struct ParamDecl {
 }
 
 impl AstNodeDump for ParamDecl {
-    fn dump(&self, tb: &mut TreeBuilder) -> () {
+    fn dump(&self, tb: &mut TreeBuilder) {
         tb.append_leaf("ParamDecl".into());
     }
 }
@@ -425,7 +439,7 @@ pub struct Expr {
 }
 
 impl AstNodeDump for Expr {
-    fn dump(&self, tb: &mut TreeBuilder) -> () {
+    fn dump(&self, tb: &mut TreeBuilder) {
         self.tag.dump(tb);
     }
 }
@@ -478,7 +492,7 @@ pub enum ExprTag {
 }
 
 impl AstNodeDump for ExprTag {
-    fn dump(&self, tb: &mut TreeBuilder) -> () {
+    fn dump(&self, tb: &mut TreeBuilder) {
         match self {
             ExprTag::Primary(_) => {
                 tb.append_leaf("PrimaryExpr".into());

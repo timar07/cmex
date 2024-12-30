@@ -8,7 +8,7 @@ use crate::{check_tok, match_tok, require_tok};
 
 use super::Parser;
 
-impl<'a> Parser<'a> {
+impl Parser<'_> {
     pub fn constant_expression(&mut self) -> Expr {
         self.conditional()
     }
@@ -74,7 +74,7 @@ impl<'a> Parser<'a> {
             }
         }
 
-        return cond;
+        cond
     }
 
     fn logical_or(&mut self) -> Expr {
@@ -257,7 +257,7 @@ impl<'a> Parser<'a> {
             }
         }
 
-        return self.unary();
+        self.unary()
     }
 
     fn unary(&mut self) -> Expr {
