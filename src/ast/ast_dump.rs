@@ -94,10 +94,6 @@ impl TreeItem {
             children: Vec::new()
         }
     }
-
-    pub fn is_empty(&self) -> bool {
-        self.children.len() == 1
-    }
 }
 
 impl std::fmt::Display for TreeItem {

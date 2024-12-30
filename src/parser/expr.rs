@@ -4,7 +4,6 @@
 
 use crate::ast::{Expr, ExprTag};
 use crate::lexer::{TokenTag::*, Unspanable};
-use crate::lexer::Token;
 use crate::{check_tok, match_tok, require_tok};
 
 use super::Parser;

@@ -1,6 +1,7 @@
 use std::str::{CharIndices, Chars};
 
 /// Iterator over the string used due the lexing phase.
+#[derive(Clone)]
 pub struct Cursor<'src> {
     src: CharIndices<'src>,
     iter: Chars<'src>,
@@ -30,12 +31,12 @@ impl<'a> Cursor<'a> {
     }
 
     pub fn slice(&self, start: usize, end: usize) -> String {
-        dbg!(self.src
+        self.src
             .clone()
             .skip(start)
             .take(end - start)
             .map(|(_, c)| c)
-            .collect::<String>())
+            .collect::<String>()
     }
 
     pub fn match_ch(&mut self, ch: char) -> bool {

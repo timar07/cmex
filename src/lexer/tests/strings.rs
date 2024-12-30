@@ -20,11 +20,7 @@ mod tests {
 
     #[test]
     fn escape_sequences() {
-        let lexer = Lexer::from("\
-            \"\\b\\f\\n\\r\\t\\v\\\\\\'\\\"\\?\"
-        ");
-
-        println!("\"\\b\\f\\n\\r\\t\\v\\\\\\'\\\"\\?\"");
+        let lexer = Lexer::from(r#""\b\f\n\r\t\v\\\'\"\?""#);
 
         assert!(
             dbg!(lexer.collect::<Vec<Result<TokenTag, LexError>>>())

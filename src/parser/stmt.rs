@@ -581,7 +581,7 @@ impl<'a> Parser<'a> {
     }
 
     fn struct_decl(&mut self) -> PR<Vec<FieldDecl>> {
-        self.specifier_qualifier_list();
+        self.specifier_qualifier_list()?;
         let decl_list = self.struct_declarator_list()?;
         require_tok!(self, Semicolon);
 
@@ -595,12 +595,14 @@ impl<'a> Parser<'a> {
         self.is_specifier_qualifier()
     }
 
-    fn specifier_qualifier_list(&mut self) {
-        self.specifier_qualifier();
+    fn specifier_qualifier_list(&mut self) -> PR<()> {
+        self.specifier_qualifier()?;
 
         while self.is_specifier_qualifier() {
-            self.specifier_qualifier();
+            self.specifier_qualifier()?;
         }
+
+        Ok(())
     }
 
     fn specifier_qualifier(&mut self) -> PR<Option<()>> {
@@ -829,6 +831,7 @@ impl<'a> Parser<'a> {
         })
     }
 
+    #[allow(unused)]
     fn identifier_list(&mut self) -> Vec<Token> {
         let mut id_list = Vec::new();
         id_list.push(require_tok!(self, Identifier));
@@ -845,7 +848,7 @@ impl<'a> Parser<'a> {
     }
 
     pub(crate) fn type_name(&mut self) -> PR<TypeName> {
-        self.specifier_qualifier_list(); // TODO
+        self.specifier_qualifier_list()?; // TODO
 
         Ok(TypeName {
             decl: self.abstract_declarator()?

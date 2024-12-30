@@ -1,7 +1,8 @@
 use std::collections::VecDeque;
 
-/// Since we need to parse a LL(k) grammar,
+/// Since we parse a LL(k) grammar,
 /// we would need more than one peekable token
+#[derive(Clone)]
 pub(super) struct Lookahead<T: Iterator> {
     iter: T,
     peeked: Option<T::Item>,
@@ -40,6 +41,10 @@ where
     T::Item: Clone
 {
     pub fn lookahead(&mut self, k: usize) -> Option<T::Item> {
+        if k == 0 {
+            return self.peek();
+        }
+
         for _ in 0..k-1 {
             self.enqueue();
         }

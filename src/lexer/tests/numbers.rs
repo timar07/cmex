@@ -181,7 +181,7 @@ mod tests {
 
     #[test]
     fn comments() {
-        let lexer = Lexer::from("\
+        let lexer = Lexer::from(r#"\
             /* this is a comment */
             int f() {
                 return 1; /* always one */
@@ -196,7 +196,7 @@ mod tests {
             int a() {
                 return 12321;
             }
-        ");
+        "#);
 
         assert_eq!(
             lexer.collect::<Vec<Result<TokenTag, LexError>>>()
@@ -205,7 +205,7 @@ mod tests {
                 .collect::<Vec<TokenTag>>(),
             vec![
                 Int,
-                Identifier("f".into()),
+                Identifier,
                 LeftParen,
                 RightParen,
                 LeftCurly,
@@ -217,9 +217,8 @@ mod tests {
                 },
                 Semicolon,
                 RightCurly,
-
                 Int,
-                Identifier("a".into()),
+                Identifier,
                 LeftParen,
                 RightParen,
                 LeftCurly,
@@ -238,12 +237,12 @@ mod tests {
 
     #[test]
     fn hello_world() {
-        let lexer = Lexer::from("\
+        let lexer = Lexer::from(r#"\
             int main() {
-                printf(\"Hello, world!\");
+                printf("Hello, world!");
                 return 0;
             }
-        ");
+        "#);
 
         assert_eq!(
             lexer.collect::<Vec<Result<TokenTag, LexError>>>()
@@ -252,11 +251,11 @@ mod tests {
                 .collect::<Vec<TokenTag>>(),
             vec![
                 Int,
-                Identifier("main".into()),
+                Identifier,
                 LeftParen,
                 RightParen,
                 LeftCurly,
-                Identifier("printf".into()),
+                Identifier,
                 LeftParen,
                 StringLiteral,
                 RightParen,

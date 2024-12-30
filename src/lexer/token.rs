@@ -96,6 +96,7 @@ pub enum TokenTag {
 }
 
 impl TokenTag {
+    #[allow(unused)]
     pub fn is_keyword(&self) -> bool {
         matches!(
             self,
@@ -191,6 +192,7 @@ impl std::fmt::Display for Span {
     }
 }
 
+#[derive(Clone)]
 pub struct Spanned<I> {
     pub iter: I,
 }

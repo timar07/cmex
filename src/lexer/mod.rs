@@ -10,6 +10,7 @@ pub use token::*;
 use cursor::Cursor;
 use errors::LexError::*;
 
+#[derive(Clone)]
 pub struct Lexer<'src> {
     src: Cursor<'src>
 }

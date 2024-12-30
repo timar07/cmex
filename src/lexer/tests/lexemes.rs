@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use crate::lexer::{Lexemes, Lexer};
+    use crate::lexer::Lexer;
 
     #[test]
     fn lexemes() {
@@ -13,7 +13,7 @@ mod tests {
             static void identifier
         ");
 
-        let lexemes = Lexemes::new(lexer.spanned());
+        let lexemes = lexer.spanned().lexemes();
 
         assert_eq!(
             lexemes.collect::<Vec<String>>(),

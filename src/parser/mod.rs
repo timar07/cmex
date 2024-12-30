@@ -17,6 +17,14 @@ impl<'a> Parser<'a> {
             iter: Lookahead::from(Tokens::new(iter.spanned()))
         }
     }
+
+    pub fn get_pos(&mut self) -> usize {
+        if let Some((_, span)) = self.iter.peek() {
+            span.1
+        } else {
+            0
+        }
+    }
 }
 
 impl<'a> Iterator for Parser<'a> {
@@ -24,7 +32,7 @@ impl<'a> Iterator for Parser<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.iter.peek().is_some() {
-            Some(self.statement())
+            Some(self.statement().unwrap())
         } else {
             None
         }
@@ -32,6 +40,7 @@ impl<'a> Iterator for Parser<'a> {
 }
 
 /// Wrapper above the [Lexer] for convenient error handling
+#[derive(Clone)]
 struct Tokens<'a> {
     iter: Spanned<Lexer<'a>>
 }
@@ -63,6 +72,7 @@ pub enum ParseError {
     Expected(String),
     DeclarationHasNoIdentifier,
     DeclarationHasNoInitializer,
+    UnexpectedDeclarationSuffix,
     UnexpectedToken(Token),
     UnexpectedEof
 }
@@ -93,7 +103,12 @@ macro_rules! require_tok {
     ($p:expr, $pat:pat) => {
         match $p.iter.peek() {
             Some(($pat, _)) => $p.iter.next().unwrap(),
-            _ => panic!("expected {}", stringify!($pat))
+            _ => panic!(
+                "expected {} at {}, got {:?}",
+                stringify!($pat),
+                $p.get_pos(),
+                $p.iter.peek().val()
+            )
         }
     };
 }
