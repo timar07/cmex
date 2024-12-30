@@ -51,49 +51,56 @@ impl<'a> Parser<'a> {
     /// or a regular declaration
     fn external_decl(&mut self) -> PR<Vec<Decl>> {
         let mut decl_list = Vec::with_capacity(1);
+        let spec = self.maybe_decl_specifiers()?;
 
-        if let Some(spec) = self.maybe_decl_specifiers()? {
+        if let Some(spec) = spec.clone() {
             if check_tok!(self, Semicolon) {
                 if let Some(decl) = self.type_definition(spec.clone())? {
                     decl_list.push(decl);
                     return Ok(decl_list);
                 }
             }
+        }
 
-            while !matches!(self.iter.peek().val(), Some(Semicolon) | None) {
-                let decl = self.init_declarator()?;
-
-                // Declator has an initializer e.g. `int foo = bar, ...`
-                if decl.1.is_some() {
-                    decl_list.push(self.decl(spec.clone(), decl.clone())?);
-                }
-
-                // A function definition
-                if matches!(self.iter.peek().val(), Some(LeftCurly)) {
-                    // There was a declarations before. So you can't
-                    // write `int foo = 5, bar() { return 0 }` because
-                    // function is a top-level declaration in grammar
-                    if !decl_list.is_empty() {
-                        return Err(ParseError::Expected(
-                            "`;` after top level declaration".into()
-                        ))
-                    }
-
-                    decl_list.push(self.function_definition(spec, decl)?);
-                    return Ok(decl_list);
-                }
-
-                // Declarations listed `int foo = 5, bar = 7, ...`
-                if !check_tok!(self, Comma) {
-                    break;
-                }
-            }
-        } else {
+        while !matches!(self.iter.peek().val(), Some(Semicolon) | None) {
             let decl = self.init_declarator()?;
-            decl_list.push(self.decl(
-                vec![],
-                decl
-            )?)
+
+            // Declator has an initializer e.g. `int foo = bar, ...`
+            if decl.1.is_some() {
+                decl_list.push(
+                    self.decl(
+                        spec
+                            .clone()
+                            .map(|s| Ok(s))
+                            .unwrap_or(
+                                Err(ParseError::Expected(
+                                    "declaration specifiers".into()
+                                ))
+                            )?,
+                        decl.clone()
+                    )?
+                );
+            }
+
+            // A function definition
+            if matches!(self.iter.peek().val(), Some(LeftCurly)) {
+                // There was a declarations before. So you can't
+                // write `int foo = 5, bar() { return 0 }` because
+                // function is a top-level declaration in grammar
+                if !decl_list.is_empty() {
+                    return Err(ParseError::Expected(
+                        "`;` after top level declaration".into()
+                    ))
+                }
+
+                decl_list.push(self.function_definition(spec, decl)?);
+                return Ok(decl_list);
+            }
+
+            // Declarations listed `int foo = 5, bar = 7, ...`
+            if !check_tok!(self, Comma) {
+                break;
+            }
         }
 
         require_tok!(self, Semicolon);
@@ -121,7 +128,7 @@ impl<'a> Parser<'a> {
 
     fn function_definition(
         &mut self,
-        spec: Vec<DeclSpecifier>,
+        spec: Option<Vec<DeclSpecifier>>,
         decl: InitDeclarator
     ) -> PR<Decl> {
         match decl.0.suffix {
@@ -203,7 +210,6 @@ impl<'a> Parser<'a> {
         } else {
             None
         };
-
 
         require_tok!(self, Semicolon);
         expr
