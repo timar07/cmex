@@ -689,9 +689,14 @@ impl<'a> Parser<'a> {
             self.pointer();
         }
 
+        let inner = self.direct_declarator()?;
         Ok(Declarator {
-            inner: Box::new(self.direct_declarator()?),
-            suffix: self.maybe_declarator_suffix()?
+            suffix: if inner.is_abstract() {
+                self.maybe_abstract_declarator_suffix()?
+            } else {
+                self.maybe_declarator_suffix()?
+            },
+            inner: Box::new(inner)
         })
     }
 
@@ -709,9 +714,7 @@ impl<'a> Parser<'a> {
                     )
                 }))
             },
-            Some(_) => return Err(ParseError::UnexpectedToken(
-                self.iter.peek().unwrap()
-            )),
+            Some(_) => Ok(DirectDeclarator::Abstract),
             _ => return Err(ParseError::UnexpectedEof)
         }
     }

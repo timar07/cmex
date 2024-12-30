@@ -233,6 +233,16 @@ pub enum DirectDeclarator {
     Abstract
 }
 
+impl DirectDeclarator {
+    pub fn is_abstract(&self) -> bool {
+        match self {
+            Self::Abstract => true,
+            Self::Identifier(_) => false,
+            Self::Paren(decl) => decl.inner.is_abstract(),
+        }
+    }
+}
+
 impl std::fmt::Display for DirectDeclarator {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
