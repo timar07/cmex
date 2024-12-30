@@ -41,7 +41,7 @@ impl<'a> Parser<'a> {
         let mut decls = Vec::new();
 
         while self.iter.peek().is_some() {
-            decls.push(self.external_declaration()?);
+            decls.push(self.external_decl()?);
         }
 
         Ok(TranslationUnit(decls))
@@ -49,10 +49,10 @@ impl<'a> Parser<'a> {
 
     /// External declaration is a top level declaration (e.g. functions)
     /// or a regular declaration
-    fn external_declaration(&mut self) -> PR<Vec<Decl>> {
+    fn external_decl(&mut self) -> PR<Vec<Decl>> {
         let mut decl_list = Vec::with_capacity(1);
 
-        if let Some(spec) = self.maybe_parse_declaration_specifiers()? {
+        if let Some(spec) = self.maybe_decl_specifiers()? {
             if check_tok!(self, Semicolon) {
                 if let Some(decl) = self.type_definition(spec.clone())? {
                     decl_list.push(decl);
@@ -65,7 +65,7 @@ impl<'a> Parser<'a> {
 
                 // Declator has an initializer e.g. `int foo = bar, ...`
                 if decl.1.is_some() {
-                    decl_list.push(self.declaration(spec.clone(), decl.clone())?);
+                    decl_list.push(self.decl(spec.clone(), decl.clone())?);
                 }
 
                 // A function definition
@@ -90,7 +90,7 @@ impl<'a> Parser<'a> {
             }
         } else {
             let decl = self.init_declarator()?;
-            decl_list.push(self.declaration(
+            decl_list.push(self.decl(
                 vec![],
                 decl
             )?)
@@ -146,9 +146,9 @@ impl<'a> Parser<'a> {
     pub fn statement(&mut self) -> PR<Stmt> {
         // Declarations after statements is a C99 feature, but anyway it's
         // supported here.
-        if let Some(spec) = self.maybe_parse_declaration_specifiers()? {
+        if let Some(spec) = self.maybe_decl_specifiers()? {
             let init_decl = self.init_declarator()?;
-            let decl = self.declaration(spec, init_decl)?;
+            let decl = self.decl(spec, init_decl)?;
             require_tok!(self, Semicolon);
 
             return Ok(Stmt {
@@ -375,7 +375,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn declaration(
+    fn decl(
         &mut self,
         spec: Vec<DeclSpecifier>,
         init_decl: InitDeclarator
@@ -388,22 +388,22 @@ impl<'a> Parser<'a> {
         })
     }
 
-    fn declaration_specifiers(&mut self) -> PR<Vec<DeclSpecifier>> {
+    fn decl_specifier(&mut self) -> PR<Vec<DeclSpecifier>> {
         let mut specs = Vec::new();
 
-        while let Some(spec) = self.maybe_parse_declaration_secifier()? {
+        while let Some(spec) = self.maybe_decl_specifier()? {
             specs.push(spec)
         }
 
         Ok(specs)
     }
 
-    fn maybe_parse_declaration_specifiers(
+    fn maybe_decl_specifiers(
         &mut self
     ) -> PR<Option<Vec<DeclSpecifier>>> {
         let mut spec_list = Vec::with_capacity(0);
 
-        while let Some(spec) = self.maybe_parse_declaration_secifier()? {
+        while let Some(spec) = self.maybe_decl_specifier()? {
             spec_list.push(spec);
         }
 
@@ -415,20 +415,20 @@ impl<'a> Parser<'a> {
     }
 
     // TODO: refactor, this looks terrible
-    fn maybe_parse_declaration_secifier(&mut self) -> PR<Option<DeclSpecifier>> {
-        Ok(self.maybe_parse_type_specifier()?
+    fn maybe_decl_specifier(&mut self) -> PR<Option<DeclSpecifier>> {
+        Ok(self.maybe_type_specifier()?
             .and_then(|spec| Some(DeclSpecifier::TypeSpecifier(spec)))
             .or_else(|| {
-                self.maybe_parse_type_qualifier()
+                self.maybe_type_qualifier()
                     .and_then(|qual| Some(DeclSpecifier::TypeQualifier(qual)))
                     .or_else(|| {
-                        self.maybe_parse_storage_class_specifier()
+                        self.maybe_storage_class_specifier()
                     })
             })
         )
     }
 
-    fn maybe_parse_storage_class_specifier(&mut self) -> Option<DeclSpecifier> {
+    fn maybe_storage_class_specifier(&mut self) -> Option<DeclSpecifier> {
         if self.is_storage_class_specifier() {
             return Some(DeclSpecifier::StorageClass(self.iter.next().unwrap()))
         }
@@ -449,7 +449,7 @@ impl<'a> Parser<'a> {
         })
     }
 
-    fn maybe_parse_type_specifier(&mut self) -> PR<Option<TypeSpecifier>> {
+    fn maybe_type_specifier(&mut self) -> PR<Option<TypeSpecifier>> {
         if self.is_type_specifier() {
             return Ok(Some(self.type_speficier()?));
         }
@@ -555,16 +555,16 @@ impl<'a> Parser<'a> {
 
         Ok(TypeSpecifier::Record(
             curly_wrapped!(self, {
-                self.struct_declaration_list()?
+                self.struct_decl_list()?
             })
         ))
     }
 
-    fn struct_declaration_list(&mut self) -> PR<Vec<FieldDecl>> {
+    fn struct_decl_list(&mut self) -> PR<Vec<FieldDecl>> {
         let mut struct_decl_list = Vec::new();
-        struct_decl_list.push(self.struct_declaration()?);
+        struct_decl_list.push(self.struct_decl()?);
 
-        while let Some(struct_decl) = self.maybe_parse_struct_declaration()? {
+        while let Some(struct_decl) = self.maybe_struct_decl()? {
             struct_decl_list.push(struct_decl);
         }
 
@@ -572,22 +572,22 @@ impl<'a> Parser<'a> {
         Ok(struct_decl_list)
     }
 
-    fn maybe_parse_struct_declaration(&mut self) -> PR<Option<FieldDecl>> {
-        if self.is_struct_declaration() {
-            Ok(Some(self.struct_declaration()?))
+    fn maybe_struct_decl(&mut self) -> PR<Option<FieldDecl>> {
+        if self.is_struct_decl() {
+            Ok(Some(self.struct_decl()?))
         } else {
             Ok(None)
         }
     }
 
-    fn struct_declaration(&mut self) -> PR<FieldDecl> {
+    fn struct_decl(&mut self) -> PR<FieldDecl> {
         self.specifier_qualifier_list();
         let decl = self.struct_declarator()?; // TODO: struct_declarator_list
         require_tok!(self, Semicolon);
         Ok(FieldDecl { decl })
     }
 
-    fn is_struct_declaration(&mut self) -> bool {
+    fn is_struct_decl(&mut self) -> bool {
         self.is_specifier_qualifier()
     }
 
@@ -600,8 +600,8 @@ impl<'a> Parser<'a> {
     }
 
     fn specifier_qualifier(&mut self) -> PR<Option<()>> {
-        if !self.maybe_parse_type_qualifier().is_some() {
-            self.maybe_parse_type_specifier()?;
+        if !self.maybe_type_qualifier().is_some() {
+            self.maybe_type_specifier()?;
         }
 
         Ok(None)
@@ -684,7 +684,7 @@ impl<'a> Parser<'a> {
 
         Ok(Declarator {
             inner: Box::new(self.direct_declarator()?),
-            suffix: self.maybe_parse_declarator_suffix()?
+            suffix: self.maybe_declarator_suffix()?
         })
     }
 
@@ -709,7 +709,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn maybe_parse_declarator_suffix(&mut self) -> PR<Option<DeclaratorSuffix>> {
+    fn maybe_declarator_suffix(&mut self) -> PR<Option<DeclaratorSuffix>> {
         if self.is_declarator_suffix() {
             Ok(Some(self.declarator_suffix()?))
         } else {
@@ -769,14 +769,14 @@ impl<'a> Parser<'a> {
     fn type_qualifier_list(&mut self) -> Vec<Token> {
         let mut qualifiers = Vec::new();
 
-        while let Some(tok) = self.maybe_parse_type_qualifier() {
+        while let Some(tok) = self.maybe_type_qualifier() {
             qualifiers.push(tok);
         }
 
         qualifiers
     }
 
-    fn maybe_parse_type_qualifier(&mut self) -> Option<Token> {
+    fn maybe_type_qualifier(&mut self) -> Option<Token> {
         if self.is_type_qualifier() {
             return self.iter.next();
         }
@@ -803,18 +803,18 @@ impl<'a> Parser<'a> {
 
     fn parameter_list(&mut self) -> PR<Vec<ParamDecl>> {
         let mut param_list = Vec::new();
-        param_list.push(self.parameter_declaration()?);
+        param_list.push(self.parameter_decl()?);
 
         while check_tok!(self, Comma) {
-            param_list.push(self.parameter_declaration()?);
+            param_list.push(self.parameter_decl()?);
         }
 
         Ok(param_list)
     }
 
-    fn parameter_declaration(&mut self) -> PR<ParamDecl> {
+    fn parameter_decl(&mut self) -> PR<ParamDecl> {
         Ok(ParamDecl {
-            spec: self.declaration_specifiers()?,
+            spec: self.decl_specifier()?,
             decl: Box::new(self.declarator()?)
         })
     }
@@ -847,10 +847,10 @@ impl<'a> Parser<'a> {
             self.pointer();
             Ok(Declarator {
                 inner: Box::new(
-                    self.maybe_parse_direct_abstract_declarator()?
+                    self.maybe_direct_abstract_declarator()?
                         .unwrap_or(DirectDeclarator::Abstract)
                 ),
-                suffix: self.maybe_parse_abstract_declarator_suffix()?
+                suffix: self.maybe_abstract_declarator_suffix()?
             })
         } else {
             Ok(Declarator {
@@ -860,7 +860,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn maybe_parse_direct_abstract_declarator(
+    fn maybe_direct_abstract_declarator(
         &mut self
     ) -> PR<Option<DirectDeclarator>> {
         if self.is_direct_abstract_declarator() {
@@ -889,7 +889,7 @@ impl<'a> Parser<'a> {
         ))
     }
 
-    fn maybe_parse_abstract_declarator_suffix(
+    fn maybe_abstract_declarator_suffix(
         &mut self
     ) -> PR<Option<DeclaratorSuffix>> {
         if self.is_abstract_declarator_suffix() {
