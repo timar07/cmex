@@ -7,15 +7,20 @@ mod tests;
 use crate::ast::Stmt;
 use crate::lexer::{Lexer, Span, Spanned, Token, TokenTag};
 use lookahead::Lookahead;
+use symtable::SymTable;
+
+pub(crate) type PR<T> = Result<T, ParseError>;
 
 pub struct Parser<'a> {
-    iter: Lookahead<Tokens<'a>>
+    iter: Lookahead<Tokens<'a>>,
+    symbols: SymTable
 }
 
 impl<'a> Parser<'a> {
     pub fn new(iter: Lexer<'a>) -> Self {
         Self {
-            iter: Lookahead::from(Tokens::new(iter.spanned()))
+            iter: Lookahead::from(Tokens::new(iter.spanned())),
+            symbols: SymTable::new()
         }
     }
 
@@ -68,14 +73,35 @@ impl Iterator for Tokens<'_> {
     }
 }
 
+type ParseError = (ParseErrorTag, Span);
+
 #[derive(Debug)]
-pub enum ParseError {
+pub enum ParseErrorTag {
     Expected(String),
     DeclarationHasNoIdentifier,
     DeclarationHasNoInitializer,
     UnexpectedDeclarationSuffix,
     UnexpectedToken(Token),
     UnexpectedEof
+}
+
+impl std::fmt::Display for ParseErrorTag {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Expected(s) => write!(f, "expected {s}"),
+            Self::DeclarationHasNoIdentifier => {
+                write!(f, "declaration has no identifier")
+            },
+            Self::DeclarationHasNoInitializer => {
+                write!(f, "declaration has no initializer")
+            },
+            Self::UnexpectedDeclarationSuffix => {
+                write!(f, "unexpected declaration suffix")
+            },
+            Self::UnexpectedToken(_) => todo!(),
+            Self::UnexpectedEof => write!(f, "unexpected end of file"),
+        }
+    }
 }
 
 /// Check if the next token matches $pat, returns it if it does
@@ -103,13 +129,18 @@ macro_rules! check_tok {
 macro_rules! require_tok {
     ($p:expr, $pat:pat) => {
         match $p.iter.peek() {
-            Some(($pat, _)) => $p.iter.next().unwrap(),
-            _ => panic!(
-                "expected {} at {}, got {:?}",
-                stringify!($pat),
-                $p.get_pos(),
-                $p.iter.peek().val()
-            )
+            Some(($pat, _)) => Ok($p.iter.next().unwrap()),
+            _ => Err((
+                ParseErrorTag::Expected(
+                    format!(
+                        "{} at {}, got {:?}",
+                        stringify!($pat),
+                        $p.get_pos(),
+                        $p.iter.peek().val()
+                    )
+                ),
+                Span::from($p.get_pos())
+            ))
         }
     };
 }
