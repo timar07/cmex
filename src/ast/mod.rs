@@ -1,7 +1,7 @@
 pub mod ast_dump;
 
 use ast_dump::{AstNodeDump, TreeBuilder};
-use crate::lexer::Token;
+use crate::lexer::{MaybeSpannable, Span, Spannable, Token};
 
 pub struct TranslationUnit(pub Vec<Vec<Decl>>);
 
@@ -55,6 +55,34 @@ pub enum StmtTag {
     Continue,
     Return,
     Goto(Token)
+}
+
+impl Spannable for StmtTag {
+    fn span(&self) -> Span {
+        match self {
+            StmtTag::Expr(expr) => expr.clone().unwrap().span(),
+            StmtTag::Compound(vec) => {
+                vec
+                    .iter()
+                    .map(|stmt| stmt.tag.span())
+                    .reduce(Span::join)
+                    .unwrap()
+            },
+            StmtTag::Decl(decl) => todo!(),
+            StmtTag::While { cond, stmt } => todo!(),
+            StmtTag::Do { cond, stmt } => todo!(),
+            StmtTag::For(expr, expr1, expr2, stmt) => todo!(),
+            StmtTag::If(expr, stmt, stmt1) => todo!(),
+            StmtTag::Switch(expr, stmt) => todo!(),
+            StmtTag::Case(expr, stmt) => todo!(),
+            StmtTag::Label(_, stmt) => todo!(),
+            StmtTag::Default(stmt) => todo!(),
+            StmtTag::Break => todo!(),
+            StmtTag::Continue => todo!(),
+            StmtTag::Return => todo!(),
+            StmtTag::Goto(_) => todo!(),
+        }
+    }
 }
 
 impl AstNodeDump for StmtTag {
@@ -186,6 +214,47 @@ pub enum Decl {
     }
 }
 
+impl Spannable for Decl {
+    fn span(&self) -> Span {
+        match self {
+            Decl::Record(vec) => {
+                vec
+                    .iter()
+                    .map(|field| field.span())
+                    .reduce(Span::join)
+                    .unwrap()
+            },
+            Decl::Enum(vec) => {
+                vec
+                    .iter()
+                    .map(|decl| decl.span())
+                    .reduce(Span::join)
+                    .unwrap()
+            },
+            Decl::Func { spec, decl, params, body } => {
+                Span::join(
+                    spec
+                        .clone()
+                        .map(|specs| {
+                            specs
+                                .iter()
+                                .map(|spec| spec.span())
+                                .reduce(Span::join)
+                                .unwrap()
+                        })
+                        .unwrap_or_else(|| {
+                            decl
+                                .span()
+                                .unwrap()
+                        }),
+                    body.tag.span()
+                )
+            },
+            Decl::Var { spec, decl_list } => todo!(),
+        }
+    }
+}
+
 impl AstNodeDump for Decl {
     fn dump(&self, tb: &mut TreeBuilder) {
         match self {
@@ -229,10 +298,37 @@ pub enum DeclSpecifier {
     StorageClass(Token)
 }
 
+impl Spannable for DeclSpecifier {
+    fn span(&self) -> Span {
+        match self {
+            DeclSpecifier::TypeSpecifier(spec) => {
+                spec.span()
+            },
+            DeclSpecifier::TypeQualifier((_, span)) => *span,
+            DeclSpecifier::StorageClass((_, span)) => *span,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum Initializer {
     Assign(Expr),
     List(Vec<Initializer>)
+}
+
+impl Spannable for Initializer {
+    fn span(&self) -> Span {
+        match self {
+            Self::Assign(expr) => expr.span(),
+            Self::List(list) => {
+                list
+                    .iter()
+                    .map(|init| init.span())
+                    .reduce(|a, b| Span::join(a, b))
+                    .unwrap()
+            }
+        }
+    }
 }
 
 impl AstNodeDump for Initializer {
@@ -249,6 +345,18 @@ impl AstNodeDump for Initializer {
 #[derive(Debug, Clone)]
 pub struct InitDeclarator(pub Declarator, pub Option<Initializer>);
 
+impl Spannable for InitDeclarator {
+    fn span(&self) -> Span {
+        Span::join(
+            self.0.span(),
+            self.1
+                .clone()
+                .map(|init| init.span())
+                .unwrap_or(self.0.span())
+        )
+    }
+}
+
 impl AstNodeDump for InitDeclarator {
     fn dump(&self, tb: &mut TreeBuilder) {
         if let Some(init) = &self.1 {
@@ -261,6 +369,20 @@ impl AstNodeDump for InitDeclarator {
 pub struct Declarator {
     pub inner: Box<DirectDeclarator>,
     pub suffix: Option<DeclaratorSuffix>
+}
+
+impl Spannable for Declarator {
+    fn span(&self) -> Span {
+        let inner_span = self.inner.span().unwrap();
+
+        Span::join(
+            inner_span,
+            self.suffix
+                .clone()
+                .map(|suffix| suffix.span().unwrap_or(inner_span))
+                .unwrap_or(inner_span)
+        )
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -276,6 +398,16 @@ impl DirectDeclarator {
             Self::Abstract => true,
             Self::Identifier(_) => false,
             Self::Paren(decl) => decl.inner.is_abstract(),
+        }
+    }
+}
+
+impl MaybeSpannable for DirectDeclarator {
+    fn span(&self) -> Option<Span> {
+        match self {
+            DirectDeclarator::Identifier((_, span)) => Some(*span),
+            DirectDeclarator::Paren(decl) => Some(decl.span()),
+            DirectDeclarator::Abstract => None,
         }
     }
 }
@@ -304,6 +436,19 @@ pub enum DeclaratorSuffix {
     Func(Option<ParamList>)
 }
 
+impl MaybeSpannable for DeclaratorSuffix {
+    fn span(&self) -> Option<Span> {
+        match self {
+            DeclaratorSuffix::Array(expr) => {
+                expr.clone().map(|e| e.span())
+            },
+            DeclaratorSuffix::Func(param_list) => {
+                param_list.clone().map(|list| list.span())
+            },
+        }
+    }
+}
+
 /// Field declaration in some record.
 /// For example:
 /// ```c
@@ -315,6 +460,12 @@ pub enum DeclaratorSuffix {
 #[derive(Debug, Clone)]
 pub struct FieldDecl {
     pub decl: FieldDeclarator
+}
+
+impl Spannable for FieldDecl {
+    fn span(&self) -> Span {
+        self.decl.span()
+    }
 }
 
 impl AstNodeDump for FieldDecl {
@@ -336,6 +487,20 @@ pub struct FieldDeclarator {
     pub width: Option<Expr>
 }
 
+impl Spannable for FieldDeclarator {
+    fn span(&self) -> Span {
+        let decl_span = self.decl.span();
+
+        Span::join(
+            decl_span,
+            self.width
+                .clone()
+                .map(|expr| expr.span())
+                .unwrap_or(decl_span)
+        )
+    }
+}
+
 /// Enum variant
 #[derive(Debug, Clone)]
 pub struct EnumConstantDecl {
@@ -348,6 +513,18 @@ pub struct EnumConstantDecl {
     /// }
     /// ```
     pub cexpr: Option<Expr>
+}
+
+impl Spannable for EnumConstantDecl {
+    fn span(&self) -> Span {
+        Span::join(
+            self.id.1,
+            self.cexpr
+                .clone()
+                .map(|expr| expr.span())
+                .unwrap_or(self.id.1)
+        )
+    }
 }
 
 impl AstNodeDump for EnumConstantDecl {
@@ -374,6 +551,27 @@ pub enum ParamList {
     Type(Vec<ParamDecl>)
 }
 
+impl Spannable for ParamList {
+    fn span(&self) -> Span {
+        match self {
+            ParamList::Identifier(vec) => {
+                vec
+                    .iter()
+                    .map(|id| id.1)
+                    .reduce(Span::join)
+                    .unwrap()
+            },
+            ParamList::Type(vec) => {
+                vec
+                    .iter()
+                    .map(|param| param.span())
+                    .reduce(Span::join)
+                    .unwrap()
+            },
+        }
+    }
+}
+
 impl AstNodeDump for ParamList {
     fn dump(&self, tb: &mut TreeBuilder) {
         match self {
@@ -392,6 +590,21 @@ impl AstNodeDump for ParamList {
 pub struct ParamDecl {
     pub spec: Vec<DeclSpecifier>,
     pub decl: Box<Declarator>
+}
+
+impl Spannable for ParamDecl {
+    fn span(&self) -> Span {
+        let decl_span = self.decl.span();
+
+        Span::join(
+            self.spec
+                .iter()
+                .map(|s| s.span())
+                .reduce(Span::join)
+                .unwrap_or(decl_span),
+            decl_span
+        )
+    }
 }
 
 impl AstNodeDump for ParamDecl {
@@ -417,6 +630,28 @@ pub enum TypeSpecifier {
     Enum(Vec<EnumConstantDecl>)
 }
 
+impl Spannable for TypeSpecifier {
+    fn span(&self) -> Span {
+        match self {
+            TypeSpecifier::TypeName((_, span)) => *span,
+            TypeSpecifier::Record(vec) => {
+                vec
+                    .iter()
+                    .map(|field| field.span())
+                    .reduce(Span::join)
+                    .unwrap()
+            },
+            TypeSpecifier::Enum(vec) => {
+                vec
+                    .iter()
+                    .map(|decl| decl.span())
+                    .reduce(Span::join)
+                    .unwrap()
+            },
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct TypeName {
     /// Type specifiers
@@ -432,10 +667,21 @@ pub struct TypeName {
     pub decl: Declarator
 }
 
+impl Spannable for TypeName {
+    fn span(&self) -> Span {
+        self.decl.span()
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Expr {
     pub tag: ExprTag,
-    // todo: spans and stuff
+}
+
+impl Spannable for Expr {
+    fn span(&self) -> Span {
+        self.tag.span()
+    }
 }
 
 impl AstNodeDump for Expr {
@@ -488,6 +734,41 @@ pub enum ExprTag {
         cond: Box<Expr>,
         then: Box<Expr>,
         otherwise: Box<Expr>
+    }
+}
+
+impl Spannable for ExprTag {
+    fn span(&self) -> Span {
+        match self {
+            Self::Primary(tok) => tok.1,
+            Self::BinExpr { op, lhs, rhs } => {
+                Span::join(lhs.span(), rhs.span())
+            },
+            Self::UnExpr { op, rhs } => {
+                Span::join(op.1, rhs.span())
+            },
+            Self::Call { calle, args } => {
+                let calle_span = calle.span();
+
+                Span::join(
+                    calle_span,
+                    args
+                        .iter()
+                        .map(|expr| expr.span())
+                        .reduce(|a, b| Span::join(a, b))
+                        .unwrap_or(calle_span)
+                )
+            },
+            Self::MemberAccess { expr, member } => {
+                Span::join(expr.span(), member.1)
+            },
+            Self::SizeofType { r#type } => r#type.span(),
+            Self::SizeofExpr { expr } => expr.span(),
+            Self::CastExpr { r#type, expr } => expr.span(),
+            Self::Conditional { cond, then, otherwise } => {
+                Span::join(cond.span(), otherwise.span())
+            },
+        }
     }
 }
 

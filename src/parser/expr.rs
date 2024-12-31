@@ -3,34 +3,33 @@
 ///! <https://www.lysator.liu.se/c/ANSI-C-grammar-y.html>
 
 use crate::ast::{Expr, ExprTag};
-use crate::lexer::{TokenTag::*, Unspanable};
+use crate::lexer::{TokenTag::*, Unspan, Span};
 use crate::{check_tok, match_tok, require_tok};
-
-use super::Parser;
+use super::{ParseErrorTag, Parser, PR};
 
 impl Parser<'_> {
-    pub fn constant_expression(&mut self) -> Expr {
+    pub fn constant_expression(&mut self) -> PR<Expr> {
         self.conditional()
     }
 
-    pub fn expression(&mut self) -> Expr {
-        let mut expr = self.assignment();
+    pub fn expression(&mut self) -> PR<Expr> {
+        let mut expr = self.assignment()?;
 
         while let Some(op) = match_tok!(self, Comma) {
             expr = Expr {
                 tag: ExprTag::BinExpr {
                     op,
                     lhs: Box::new(expr),
-                    rhs: Box::new(self.assignment())
+                    rhs: Box::new(self.assignment()?)
                 }
             }
         }
 
-        expr
+        Ok(expr)
     }
 
-    pub(crate) fn assignment(&mut self) -> Expr {
-        let expr = self.conditional();
+    pub(crate) fn assignment(&mut self) -> PR<Expr> {
+        let expr = self.conditional()?;
 
         if let Some(op) = match_tok!(
             self,
@@ -46,212 +45,212 @@ impl Parser<'_> {
             | XorAssign
             | OrAssign
         ) {
-            return Expr {
+            return Ok(Expr {
                 tag: ExprTag::BinExpr {
                     op,
                     lhs: Box::new(expr),
-                    rhs: Box::new(self.assignment())
+                    rhs: Box::new(self.assignment()?)
                 }
-            }
+            })
         }
 
-        expr
+        Ok(expr)
     }
 
-    fn conditional(&mut self) -> Expr {
-        let cond = self.logical_or();
+    fn conditional(&mut self) -> PR<Expr> {
+        let cond = self.logical_or()?;
 
         if check_tok!(self, Quest) {
-            let then = self.expression();
-            require_tok!(self, Colon);
+            let then = self.expression()?;
+            require_tok!(self, Colon)?;
 
-            return Expr {
+            return Ok(Expr {
                 tag: ExprTag::Conditional {
                     cond: Box::new(cond),
                     then: Box::new(then),
-                    otherwise: Box::new(self.conditional())
+                    otherwise: Box::new(self.conditional()?)
                 }
-            }
+            })
         }
 
-        cond
+        Ok(cond)
     }
 
-    fn logical_or(&mut self) -> Expr {
-        let mut expr = self.logical_and();
+    fn logical_or(&mut self) -> PR<Expr> {
+        let mut expr = self.logical_and()?;
 
         while let Some(op) = match_tok!(self, Or) {
             expr = Expr {
                 tag: ExprTag::BinExpr {
                     op,
                     lhs: Box::new(expr),
-                    rhs: Box::new(self.logical_and())
+                    rhs: Box::new(self.logical_and()?)
                 }
             }
         }
 
-        expr
+        Ok(expr)
     }
 
-    fn logical_and(&mut self) -> Expr {
-        let mut expr = self.inclusive_or();
+    fn logical_and(&mut self) -> PR<Expr> {
+        let mut expr = self.inclusive_or()?;
 
         while let Some(op) = match_tok!(self, And) {
             expr = Expr {
                 tag: ExprTag::BinExpr {
                     op,
                     lhs: Box::new(expr),
-                    rhs: Box::new(self.inclusive_or())
+                    rhs: Box::new(self.inclusive_or()?)
                 }
             }
         }
 
-        expr
+        Ok(expr)
     }
 
-    fn inclusive_or(&mut self) -> Expr {
-        let mut expr = self.exclusive_or();
+    fn inclusive_or(&mut self) -> PR<Expr> {
+        let mut expr = self.exclusive_or()?;
 
         while let Some(op) = match_tok!(self, Bar) {
             expr = Expr {
                 tag: ExprTag::BinExpr {
                     op,
                     lhs: Box::new(expr),
-                    rhs: Box::new(self.exclusive_or())
+                    rhs: Box::new(self.exclusive_or()?)
                 }
             }
         }
 
-        expr
+        Ok(expr)
     }
 
-    fn exclusive_or(&mut self) -> Expr {
-        let mut expr = self.equality();
+    fn exclusive_or(&mut self) -> PR<Expr> {
+        let mut expr = self.equality()?;
 
         while let Some(op) = match_tok!(self, Circ) {
             expr = Expr {
                 tag: ExprTag::BinExpr {
                     op,
                     lhs: Box::new(expr),
-                    rhs: Box::new(self.and())
+                    rhs: Box::new(self.and()?)
                 }
             }
         }
 
-        expr
+        Ok(expr)
     }
 
-    fn and(&mut self) -> Expr {
-        let mut expr = self.equality();
+    fn and(&mut self) -> PR<Expr> {
+        let mut expr = self.equality()?;
 
         while let Some(op) = match_tok!(self, Ampersand) {
             expr = Expr {
                 tag: ExprTag::BinExpr {
                     op,
                     lhs: Box::new(expr),
-                    rhs: Box::new(self.equality())
+                    rhs: Box::new(self.equality()?)
                 }
             }
         }
 
-        expr
+        Ok(expr)
     }
 
-    fn equality(&mut self) -> Expr {
-        let mut expr = self.relational();
+    fn equality(&mut self) -> PR<Expr> {
+        let mut expr = self.relational()?;
 
         while let Some(op) = match_tok!(self, Eq | Neq) {
             expr = Expr {
                 tag: ExprTag::BinExpr {
                     op,
                     lhs: Box::new(expr),
-                    rhs: Box::new(self.relational())
+                    rhs: Box::new(self.relational()?)
                 }
             }
         }
 
-        expr
+        Ok(expr)
     }
 
-    fn relational(&mut self) -> Expr {
-        let mut expr = self.shift();
+    fn relational(&mut self) -> PR<Expr> {
+        let mut expr = self.shift()?;
 
         while let Some(op) = match_tok!(self, Lt | Le | Gt | Ge) {
             expr = Expr {
                 tag: ExprTag::BinExpr {
                     op,
                     lhs: Box::new(expr),
-                    rhs: Box::new(self.shift())
+                    rhs: Box::new(self.shift()?)
                 }
             }
         }
 
-        expr
+        Ok(expr)
     }
 
-    fn shift(&mut self) -> Expr {
-        let mut expr = self.additive();
+    fn shift(&mut self) -> PR<Expr> {
+        let mut expr = self.additive()?;
 
         while let Some(op) = match_tok!(self, Left | Right) {
             expr = Expr {
                 tag: ExprTag::BinExpr {
                     op,
                     lhs: Box::new(expr),
-                    rhs: Box::new(self.additive())
+                    rhs: Box::new(self.additive()?)
                 }
             }
         }
 
-        expr
+        Ok(expr)
     }
 
-    fn additive(&mut self) -> Expr {
+    fn additive(&mut self) -> PR<Expr> {
         let mut expr = self.multiplicative();
 
         while let Some(op) = match_tok!(self, Plus | Minus) {
-            expr = Expr {
+            expr = Ok(Expr {
                 tag: ExprTag::BinExpr {
                     op,
-                    lhs: Box::new(expr),
-                    rhs: Box::new(self.multiplicative())
+                    lhs: Box::new(expr?),
+                    rhs: Box::new(self.multiplicative()?)
                 }
-            };
+            });
         }
 
         expr
     }
 
-    fn multiplicative(&mut self) -> Expr {
-        let mut expr = self.cast();
+    fn multiplicative(&mut self) -> PR<Expr> {
+        let mut expr = self.cast()?;
 
         while let Some(op) = match_tok!(self, Asterisk | Slash | Mod) {
             expr = Expr {
                 tag: ExprTag::BinExpr {
                     op,
                     lhs: Box::new(expr),
-                    rhs: Box::new(self.cast())
+                    rhs: Box::new(self.cast()?)
                 }
             }
         }
 
-        expr
+        Ok(expr)
     }
 
-    fn cast(&mut self) -> Expr {
+    fn cast(&mut self) -> PR<Expr> {
         if check_tok!(self, LeftParen) {
             if self.is_type_specifier() {
                 let type_name = self.type_name().unwrap();
-                require_tok!(self, RightParen);
+                require_tok!(self, RightParen)?;
 
-                return Expr {
+                return Ok(Expr {
                     tag: ExprTag::CastExpr {
                         r#type: Box::new(type_name),
-                        expr: Box::new(self.cast())
+                        expr: Box::new(self.cast()?)
                     }
-                }
+                })
             } else {
                 let expr = self.expression();
-                require_tok!(self, RightParen);
+                require_tok!(self, RightParen)?;
 
                 return expr;
             }
@@ -260,7 +259,7 @@ impl Parser<'_> {
         self.unary()
     }
 
-    fn unary(&mut self) -> Expr {
+    fn unary(&mut self) -> PR<Expr> {
         match self.iter.peek().val() {
             Some(
                 Ampersand
@@ -270,12 +269,12 @@ impl Parser<'_> {
                 | Tilde
                 | Not
             ) => {
-                Expr {
+                Ok(Expr {
                     tag: ExprTag::UnExpr {
                         op: self.iter.next().unwrap(),
-                        rhs: Box::new(self.cast())
+                        rhs: Box::new(self.cast()?)
                     }
-                }
+                })
             },
             Some(Sizeof) => {
                 if check_tok!(self, LeftParen) {
@@ -284,21 +283,21 @@ impl Parser<'_> {
                             r#type: Box::new(self.type_name().unwrap())
                         }
                     };
-                    require_tok!(self, RightParen);
-                    sizeof_expr
+                    require_tok!(self, RightParen)?;
+                    Ok(sizeof_expr)
                 } else {
-                    Expr {
+                    Ok(Expr {
                         tag: ExprTag::SizeofExpr {
-                            expr: Box::new(self.unary())
+                            expr: Box::new(self.unary()?)
                         }
-                    }
+                    })
                 }
             },
             _ => self.postfix()
         }
     }
 
-    fn postfix(&mut self) -> Expr {
+    fn postfix(&mut self) -> PR<Expr> {
         let mut expr = self.primary();
 
         while let Some(tok) = match_tok!(
@@ -312,21 +311,21 @@ impl Parser<'_> {
             expr = match tok.0 {
                 // todo: somehow make this transformation with macros
                 LeftBrace => { // sugar
-                    self.expression();
-                    require_tok!(self, RightBrace);
+                    self.expression()?;
+                    require_tok!(self, RightBrace)?;
                     todo!()
                 },
-                LeftParen => self.parse_call(expr),
+                LeftParen => self.parse_call(expr?),
                 Dot => {
-                    Expr {
+                    Ok(Expr {
                         tag: ExprTag::MemberAccess {
-                            expr: Box::new(expr),
+                            expr: Box::new(expr?),
                             member: tok
                         }
-                    }
+                    })
                 },
                 ArrowRight => { // sugar
-                    require_tok!(self, Identifier);
+                    require_tok!(self, Identifier)?;
                     todo!()
                 },
                 Increment | Decrement => { // sugar
@@ -339,39 +338,39 @@ impl Parser<'_> {
         expr
     }
 
-    fn parse_call(&mut self, calle: Expr) -> Expr {
+    fn parse_call(&mut self, calle: Expr) -> PR<Expr> {
         if check_tok!(self, RightParen) { // Empty args
-            return Expr {
+            return Ok(Expr {
                 tag: ExprTag::Call {
                     calle: Box::new(calle),
                     args: Vec::with_capacity(0),
                 }
-            }
+            })
         }
 
         let expr = Expr {
             tag: ExprTag::Call {
                 calle: Box::new(calle),
-                args: self.parse_args(),
+                args: self.parse_args()?,
             }
         };
 
-        require_tok!(self, RightParen);
-        expr
+        require_tok!(self, RightParen)?;
+        Ok(expr)
     }
 
-    fn parse_args(&mut self) -> Vec<Expr> {
+    fn parse_args(&mut self) -> PR<Vec<Expr>> {
         let mut args = Vec::new();
-        args.push(self.assignment());
+        args.push(self.assignment()?);
 
         while check_tok!(self, Comma) {
-            args.push(self.assignment());
+            args.push(self.assignment()?);
         }
 
-        args
+        Ok(args)
     }
 
-    fn primary(&mut self) -> Expr {
+    fn primary(&mut self) -> PR<Expr> {
         match self.iter.peek().val() {
             Some(
                 Identifier
@@ -379,17 +378,23 @@ impl Parser<'_> {
                 | CharLiteral
                 | NumberLiteral { .. }
             ) => {
-                Expr {
+                Ok(Expr {
                     tag: ExprTag::Primary(self.iter.next().unwrap())
-                }
+                })
             },
             Some(LeftParen) => {
                 self.iter.next();
                 let expr = self.expression();
-                require_tok!(self, RightParen);
+                require_tok!(self, RightParen)?;
                 expr
             }
-            tok => panic!("unexpected token `{:?}`", tok)
+            Some(_) => Err((
+                ParseErrorTag::UnexpectedToken(
+                    self.iter.peek().unwrap()
+                ),
+                self.iter.peek().unwrap().1
+            )),
+            _ => panic!()
         }
     }
 }
