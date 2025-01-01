@@ -1,7 +1,10 @@
+mod tree_builder;
 pub mod ast_dump;
 
-use ast_dump::{AstNodeDump, TreeBuilder};
-use crate::lexer::{MaybeSpannable, Span, Spannable, Token};
+use tree_builder::TreeBuilder;
+use ast_dump::AstNodeDump;
+use cmex_span::{MaybeSpannable, Span, Spannable};
+use cmex_lexer::Token;
 
 pub struct TranslationUnit(pub Vec<Vec<Decl>>);
 

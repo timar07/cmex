@@ -2,8 +2,9 @@
 ///! For more information about grammar, see
 ///! <https://www.lysator.liu.se/c/ANSI-C-grammar-y.html>
 
-use crate::ast::{Expr, ExprTag};
-use crate::lexer::{TokenTag::*, Unspan, Span};
+use cmex_ast::{Expr, ExprTag};
+use cmex_span::{Span, Unspan};
+use cmex_lexer::TokenTag::*;
 use crate::{check_tok, match_tok, require_tok};
 use super::{ParseErrorTag, Parser, PR};
 

@@ -1,0 +1,18 @@
+[package]
+name = "cmex"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+cmex_ast = { path = "../compiler/cmex_ast"}
+cmex_errors = { path = "../compiler/cmex_errors"}
+cmex_lexer = { path = "../compiler/cmex_lexer"}
+cmex_parser = { path = "../compiler/cmex_parser"}
+
+[features]
+kr_func_decl = []
+
+
+[[bin]]
+name = "cmex"
+path = "./main.rs"

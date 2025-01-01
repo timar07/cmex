@@ -1,6 +1,6 @@
 use std::str::Chars;
 
-use crate::lexer::Span;
+use cmex_span::Span;
 
 #[derive(Default)]
 pub struct ErrorBuilder {

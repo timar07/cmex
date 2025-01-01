@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use crate::lexer::Span;
+use cmex_span::Span;
 
 type Idx = usize;
 

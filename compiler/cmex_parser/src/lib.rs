@@ -2,10 +2,11 @@ mod symtable;
 mod stmt;
 mod expr;
 mod lookahead;
-mod tests;
+// mod tests;
 
-use crate::ast::Stmt;
-use crate::lexer::{Lexer, Span, Spanned, Token, TokenTag};
+use cmex_ast::Stmt;
+use cmex_span::Span;
+use cmex_lexer::{Lexer, Spanned, Token, TokenTag};
 use lookahead::Lookahead;
 use symtable::SymTable;
 

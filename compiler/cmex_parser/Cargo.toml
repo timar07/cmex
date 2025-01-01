@@ -1,0 +1,13 @@
+[package]
+name = "cmex_parser"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+kr_func_decl = []
+
+[dependencies]
+cmex_errors = { path = "../cmex_errors" }
+cmex_span = { path = "../cmex_span" }
+cmex_ast = { path = "../cmex_ast" }
+cmex_lexer = { path = "../cmex_lexer" }

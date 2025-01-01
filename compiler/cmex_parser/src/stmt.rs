@@ -3,9 +3,9 @@
 ///! <https://www.lysator.liu.se/c/ANSI-C-grammar-y.html>
 ///! <https://github.com/antlr/grammars-v3/blob/master/ANSI-C/C.g>
 
-use crate::ast::*;
-use crate::lexer::{Span, Spannable, TokenTag::*};
-use crate::lexer::{Token, Unspan};
+use cmex_ast::*;
+use cmex_span::{Span, Spannable, Unspan};
+use cmex_lexer::{Token, TokenTag::*};
 use crate::{check_tok, match_tok, require_tok};
 use super::{ParseError, ParseErrorTag, Parser, PR};
 

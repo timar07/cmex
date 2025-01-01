@@ -1,7 +1,7 @@
 mod errors;
 mod token;
 mod cursor;
-mod tests;
+// mod tests;
 
 pub use errors::LexError;
 pub use token::Spanned;

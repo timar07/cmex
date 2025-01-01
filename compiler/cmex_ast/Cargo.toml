@@ -1,0 +1,8 @@
+[package]
+name = "cmex_ast"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+cmex_span = { path = "../cmex_span" }
+cmex_lexer = { path = "../cmex_lexer" }

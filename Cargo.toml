@@ -1,6 +1,11 @@
-[package]
-name = "cmex"
-version = "0.1.0"
-edition = "2021"
+[workspace]
+members = [
+    "src",
+    "compiler/cmex_ast",
+    "compiler/cmex_errors",
+    "compiler/cmex_lexer",
+    "compiler/cmex_parser",
+    "compiler/cmex_span"
+]
 
-[dependencies]
+resolver = "2"
