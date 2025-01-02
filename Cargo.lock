@@ -24,6 +24,7 @@ dependencies = [
 name = "cmex_errors"
 version = "0.1.0"
 dependencies = [
+ "cmex_source",
  "cmex_span",
 ]
 
@@ -42,8 +43,17 @@ dependencies = [
  "cmex_errors",
  "cmex_lexer",
  "cmex_span",
+ "cmex_symtable",
 ]
 
 [[package]]
+name = "cmex_source"
+version = "0.1.0"
+
+[[package]]
 name = "cmex_span"
+version = "0.1.0"
+
+[[package]]
+name = "cmex_symtable"
 version = "0.1.0"

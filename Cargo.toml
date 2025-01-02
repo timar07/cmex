@@ -6,6 +6,6 @@ members = [
     "compiler/cmex_lexer",
     "compiler/cmex_parser",
     "compiler/cmex_span"
-]
+, "compiler/cmex_source", "compiler/cmex_symtable"]
 
 resolver = "2"

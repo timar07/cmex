@@ -1,20 +1,19 @@
-mod symtable;
 mod stmt;
 mod expr;
 mod lookahead;
 // mod tests;
 
 use cmex_ast::Stmt;
+use cmex_symtable::SymTable;
 use cmex_span::Span;
 use cmex_lexer::{Lexer, Spanned, Token, TokenTag};
 use lookahead::Lookahead;
-use symtable::SymTable;
 
 pub(crate) type PR<T> = Result<T, ParseError>;
 
 pub struct Parser<'a> {
     iter: Lookahead<Tokens<'a>>,
-    symbols: SymTable
+    symbols: SymTable<String, Span>
 }
 
 impl<'a> Parser<'a> {
@@ -134,9 +133,8 @@ macro_rules! require_tok {
             _ => Err((
                 ParseErrorTag::Expected(
                     format!(
-                        "{} at {}, got {:?}",
+                        "{}, got {:?}",
                         stringify!($pat),
-                        $p.get_pos(),
                         $p.iter.peek().val()
                     )
                 ),
