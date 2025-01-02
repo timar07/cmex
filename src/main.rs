@@ -9,7 +9,6 @@ fn main() {
     let args: Vec<String> = env::args().collect();
     let file = fs::read_to_string(&args[1])
         .unwrap_or_else(|_| panic!("unable to read file `{}`", args[0]));
-    let src = file.chars();
     let lexer = Lexer::from(file.as_str());
     let mut parser = Parser::new(lexer);
 
@@ -24,9 +23,10 @@ fn main() {
                     eprintln!(
                         "{}",
                         ErrorBuilder::new()
+                            .filename(args[1].clone())
                             .tag("ParseError")
                             .info(format!("{}", err.0))
-                            .context(src.clone(), err.1)
+                            .context(file.as_str(), err.1)
                             .build()
                     )
                 });
