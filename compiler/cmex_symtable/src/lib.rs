@@ -1,14 +1,13 @@
-use std::collections::HashMap;
-use cmex_span::Span;
+use std::{collections::HashMap, hash::Hash};
 
 type Idx = usize;
 
-pub struct SymTable {
+pub struct SymTable<T, V> {
     index: Idx,
-    scopes: Vec<Scope>
+    scopes: Vec<Scope<T, V>>
 }
 
-impl SymTable {
+impl<T: Hash + Eq, V: Clone> SymTable<T, V> {
     pub fn new() -> Self {
         Self {
             index: 0,
@@ -16,16 +15,16 @@ impl SymTable {
         }
     }
 
-    pub fn define(&mut self, name: String, span: Span) {
+    pub fn define(&mut self, name: T, span: V) {
         self.current_mut().define(name, span);
     }
 
-    pub fn lookup(&self, name: &String) -> Option<Span> {
+    pub fn lookup(&self, name: &T) -> Option<V> {
         self.lookup_from(self.index, name)
     }
 
-    fn lookup_from(&self, index: Idx, name: &String) -> Option<Span> {
-        if let Some(span) = self.current().get(&name) {
+    fn lookup_from(&self, index: Idx, name: &T) -> Option<V> {
+        if let Some(span) = self.current().get(name) {
             return Some(span);
         }
 
@@ -41,25 +40,25 @@ impl SymTable {
     pub fn leave(&mut self) {
         self.index = self.current()
             .parent
-            .unwrap_or(0)
+            .unwrap_or_default()
     }
 
-    fn current_mut(&mut self) -> &mut Scope {
+    fn current_mut(&mut self) -> &mut Scope<T, V> {
         &mut self.scopes[self.index]
     }
 
-    fn current(&self) -> &Scope {
+    fn current(&self) -> &Scope<T, V> {
         &self.scopes[self.index]
     }
 }
 
-pub struct Scope {
+struct Scope<T, V> {
     index: Idx,
-    inner: HashMap<String, Span>,
+    inner: HashMap<T, V>,
     parent: Option<Idx>
 }
 
-impl Scope {
+impl<T: Hash + Eq, V: Clone> Scope<T, V> {
     pub fn new(index: Idx, parent: Option<Idx>) -> Self {
         Self {
             index,
@@ -68,12 +67,12 @@ impl Scope {
         }
     }
 
-    pub fn define(&mut self, name: String, span: Span) {
+    pub fn define(&mut self, name: T, span: V) {
         self.inner.insert(name, span);
     }
 
-    pub fn get(&self, name: &String) -> Option<Span> {
-        self.inner.get(name).copied()
+    pub fn get(&self, name: &T) -> Option<V> {
+        self.inner.get(name).cloned()
     }
 }
 
