@@ -278,10 +278,12 @@ impl Parser<'_> {
                 })
             },
             Some(Sizeof) => {
+                self.iter.next();
+
                 if check_tok!(self, LeftParen) {
                     let sizeof_expr = Expr {
                         tag: ExprTag::SizeofType {
-                            r#type: Box::new(self.type_name().unwrap())
+                            r#type: Box::new(self.type_name()?)
                         }
                     };
                     require_tok!(self, RightParen)?;

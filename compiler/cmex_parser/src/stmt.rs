@@ -892,56 +892,15 @@ impl Parser<'_> {
     pub(crate) fn type_name(&mut self) -> PR<TypeName> {
         self.specifier_qualifier_list()?; // TODO
 
-        Ok(TypeName {
-            decl: self.abstract_declarator()?
+        self.declarator().and_then(|decl| {
+            if !decl.inner.is_abstract() {
+                return Err((
+                    ParseErrorTag::Expected("abstract declarator".into()),
+                    decl.span(),
+                ));
+            }
+            Ok(TypeName { decl })
         })
-    }
-
-    fn abstract_declarator(&mut self) -> PR<Declarator> {
-        if matches!(self.iter.peek().val(), Some(Asterisk)) {
-            self.pointer()?;
-            Ok(Declarator {
-                inner: Box::new(
-                    self.maybe_direct_abstract_declarator()?
-                        .unwrap_or(DirectDeclarator::Abstract)
-                ),
-                suffix: self.maybe_abstract_declarator_suffix()?
-            })
-        } else {
-            Ok(Declarator {
-                inner: Box::new(self.direct_abstract_declarator()?),
-                suffix: Some(self.abstract_declarator_suffix()?)
-            })
-        }
-    }
-
-    fn maybe_direct_abstract_declarator(
-        &mut self
-    ) -> PR<Option<DirectDeclarator>> {
-        if self.is_direct_abstract_declarator() {
-            Ok(Some(self.direct_abstract_declarator()?))
-        } else {
-            Ok(None)
-        }
-    }
-
-    fn direct_abstract_declarator(&mut self) -> PR<DirectDeclarator> {
-        if matches!(self.iter.peek().val(), Some(LeftParen)) {
-            paren_wrapped!(self, {
-                Ok(DirectDeclarator::Paren(
-                    self.abstract_declarator()?
-                ))
-            })
-        } else {
-            Ok(DirectDeclarator::Abstract)
-        }
-    }
-
-    fn is_direct_abstract_declarator(&mut self) -> bool {
-        matches!(self.iter.peek().val(), Some(
-            LeftParen
-            | LeftBrace
-        ))
     }
 
     fn maybe_abstract_declarator_suffix(
