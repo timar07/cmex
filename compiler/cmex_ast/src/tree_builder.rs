@@ -1,3 +1,4 @@
+#[derive(Default)]
 pub struct TreeBuilder {
     last: Option<TreeItem>,
     level: usize
@@ -5,10 +6,7 @@ pub struct TreeBuilder {
 
 impl TreeBuilder {
     pub fn new() -> Self {
-        Self {
-            last: None,
-            level: 0,
-        }
+        Self::default()
     }
 
     pub fn build(&self) -> Option<TreeItem> {

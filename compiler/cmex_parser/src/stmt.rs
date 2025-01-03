@@ -1,7 +1,7 @@
-///! This file implements ANSI C language parser.
-///! For more information about grammar, see
-///! <https://www.lysator.liu.se/c/ANSI-C-grammar-y.html>
-///! <https://github.com/antlr/grammars-v3/blob/master/ANSI-C/C.g>
+/// This file implements ANSI C language parser.
+/// For more information about grammar, see
+/// <https://www.lysator.liu.se/c/ANSI-C-grammar-y.html>
+/// <https://github.com/antlr/grammars-v3/blob/master/ANSI-C/C.g>
 
 use cmex_ast::*;
 use cmex_span::{Span, Spannable, Unspan};

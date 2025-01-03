@@ -12,7 +12,7 @@ pub(super) struct Lookahead<T: Iterator> {
 impl <T: Iterator> From<T> for Lookahead<T> {
     fn from(iter: T) -> Self {
         Self {
-            iter: iter,
+            iter,
             peeked: None,
             queue: VecDeque::new()
         }

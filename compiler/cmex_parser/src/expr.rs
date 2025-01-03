@@ -1,6 +1,6 @@
-///! This file implements ANSI C language parser.
-///! For more information about grammar, see
-///! <https://www.lysator.liu.se/c/ANSI-C-grammar-y.html>
+/// This file implements ANSI C language parser.
+/// For more information about grammar, see
+/// <https://www.lysator.liu.se/c/ANSI-C-grammar-y.html>
 
 use cmex_ast::{Expr, ExprTag};
 use cmex_span::{Span, Unspan};

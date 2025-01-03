@@ -7,12 +7,15 @@ pub struct SymTable<T, V> {
     scopes: Vec<Scope<T, V>>
 }
 
+impl<T, V> Default for SymTable<T, V> {
+    fn default() -> Self {
+        Self { index: Default::default(), scopes: Default::default() }
+    }
+}
+
 impl<T: Hash + Eq, V: Clone> SymTable<T, V> {
     pub fn new() -> Self {
-        Self {
-            index: 0,
-            scopes: Vec::from([Scope::new(0, None)])
-        }
+        Self::default()
     }
 
     pub fn define(&mut self, name: T, span: V) {
@@ -52,7 +55,9 @@ impl<T: Hash + Eq, V: Clone> SymTable<T, V> {
     }
 }
 
+#[derive(Default)]
 struct Scope<T, V> {
+    #[allow(unused)]
     index: Idx,
     inner: HashMap<T, V>,
     parent: Option<Idx>
@@ -76,6 +81,7 @@ impl<T: Hash + Eq, V: Clone> Scope<T, V> {
     }
 }
 
+#[allow(unused)]
 enum SymbolError {
     AlreadyDefined
 }

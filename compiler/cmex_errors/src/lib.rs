@@ -37,12 +37,12 @@ impl ErrorBuilder {
                 panic!("unexisting source index {}", span.0)
             });
 
-        self.context = Some(format!(
-            "{}",
+        self.context = Some(
             source
                 .get_line_contents(line_index)
                 .unwrap()
-        ));
+                .to_string()
+        );
         self
     }
 
@@ -50,7 +50,7 @@ impl ErrorBuilder {
         format!(
             "{} \x1b[0;31m{}:\x1b[0m {}\n{}\n",
             self.fname.unwrap_or_default(),
-            self.tag.unwrap_or("Error".into()),
+            self.tag.unwrap_or("Error"),
             self.info.unwrap_or_default(),
             self.context.unwrap_or_default()
         )

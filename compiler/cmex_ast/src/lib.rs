@@ -63,27 +63,35 @@ pub enum StmtTag {
 impl Spannable for StmtTag {
     fn span(&self) -> Span {
         match self {
-            StmtTag::Expr(expr) => expr.clone().unwrap().span(),
-            StmtTag::Compound(vec) => {
+            Self::Expr(expr) => expr.clone().unwrap().span(),
+            Self::Compound(vec) => {
                 vec
                     .iter()
                     .map(|stmt| stmt.tag.span())
                     .reduce(Span::join)
                     .unwrap()
             },
-            StmtTag::Decl(decl) => todo!(),
-            StmtTag::While { cond, stmt } => todo!(),
-            StmtTag::Do { cond, stmt } => todo!(),
-            StmtTag::For(expr, expr1, expr2, stmt) => todo!(),
-            StmtTag::If(expr, stmt, stmt1) => todo!(),
-            StmtTag::Switch(expr, stmt) => todo!(),
-            StmtTag::Case(expr, stmt) => todo!(),
-            StmtTag::Label(_, stmt) => todo!(),
-            StmtTag::Default(stmt) => todo!(),
-            StmtTag::Break => todo!(),
-            StmtTag::Continue => todo!(),
-            StmtTag::Return => todo!(),
-            StmtTag::Goto(_) => todo!(),
+            Self::Decl(decl) => decl.span(),
+            Self::While { cond: _, stmt } => stmt.tag.span(),
+            Self::Do { cond: _, stmt } => stmt.tag.span(),
+            Self::For(_, _, _, stmt) => stmt.tag.span(),
+            Self::If(_, then, otherwise) => {
+                let span = then.tag.span();
+
+                if let Some(stmt) = otherwise {
+                    Span::join(span, stmt.tag.span())
+                } else {
+                    span
+                }
+            },
+            Self::Switch(_, stmt) => stmt.tag.span(),
+            Self::Case(_, stmt) => stmt.tag.span(),
+            Self::Label(_, stmt) => stmt.tag.span(),
+            Self::Default(stmt) => stmt.tag.span(),
+            Self::Break => todo!(),
+            Self::Continue => todo!(),
+            Self::Return => todo!(),
+            Self::Goto(_) => todo!(),
         }
     }
 }
@@ -105,7 +113,7 @@ impl AstNodeDump for StmtTag {
                 stmts.iter().for_each(|stmt| stmt.tag.dump(tb));
                 tb.close();
             },
-            StmtTag::Decl(decl) => {
+            StmtTag::Decl(_) => {
                 tb.append_leaf("DeclStmt".into());
             },
             StmtTag::While { cond, stmt } => {
@@ -234,7 +242,7 @@ impl Spannable for Decl {
                     .reduce(Span::join)
                     .unwrap()
             },
-            Decl::Func { spec, decl, params, body } => {
+            Decl::Func { spec, decl, params: _, body } => {
                 Span::join(
                     spec
                         .clone()
@@ -253,7 +261,13 @@ impl Spannable for Decl {
                     body.tag.span()
                 )
             },
-            Decl::Var { spec, decl_list } => todo!(),
+            Decl::Var { spec: _, decl_list } => {
+                decl_list
+                    .iter()
+                    .map(|decl| decl.span())
+                    .reduce(Span::join)
+                    .unwrap()
+            },
         }
     }
 }
@@ -273,7 +287,7 @@ impl AstNodeDump for Decl {
                 decls.iter().for_each(|d| d.dump(tb));
                 tb.close();
             },
-            Decl::Func { spec, decl, body, params } => {
+            Decl::Func { spec: _, decl: _, body, params } => {
                 tb.open("FuncDecl".into());
 
                 if let Some(params) = params {
@@ -283,7 +297,7 @@ impl AstNodeDump for Decl {
                 body.tag.dump(tb);
                 tb.close();
             },
-            Decl::Var { spec, decl_list } => {
+            Decl::Var { spec: _, decl_list } => {
                 decl_list.iter().for_each(|decl| {
                     tb.open("VarDecl".into());
                     decl.dump(tb);
@@ -327,7 +341,7 @@ impl Spannable for Initializer {
                 list
                     .iter()
                     .map(|init| init.span())
-                    .reduce(|a, b| Span::join(a, b))
+                    .reduce(Span::join)
                     .unwrap()
             }
         }
@@ -372,6 +386,20 @@ impl AstNodeDump for InitDeclarator {
 pub struct Declarator {
     pub inner: Box<DirectDeclarator>,
     pub suffix: Option<DeclaratorSuffix>
+}
+
+impl std::fmt::Display for Declarator {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}{}",
+            self.inner,
+            self.suffix
+                .as_ref()
+                .map(|suffix| format!("{}", suffix))
+                .unwrap_or_default()
+        )
+    }
 }
 
 impl Spannable for Declarator {
@@ -419,7 +447,7 @@ impl std::fmt::Display for DirectDeclarator {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Identifier((tok, _)) => write!(f, "{:?}", tok),
-            Self::Paren(declarator) => todo!(),
+            Self::Paren(decl) => write!(f, "{}", decl),
             Self::Abstract => write!(f, "")
         }
     }
@@ -437,6 +465,15 @@ pub enum DeclaratorSuffix {
     ///         /* ^~~~~~~ function declarator suffix */
     /// ```
     Func(Option<ParamList>)
+}
+
+impl std::fmt::Display for DeclaratorSuffix {
+    fn fmt(&self, _: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DeclaratorSuffix::Array(_) => todo!(),
+            DeclaratorSuffix::Func(_) => todo!(),
+        }
+    }
 }
 
 impl MaybeSpannable for DeclaratorSuffix {
@@ -744,7 +781,7 @@ impl Spannable for ExprTag {
     fn span(&self) -> Span {
         match self {
             Self::Primary(tok) => tok.1,
-            Self::BinExpr { op, lhs, rhs } => {
+            Self::BinExpr { op: _, lhs, rhs } => {
                 Span::join(lhs.span(), rhs.span())
             },
             Self::UnExpr { op, rhs } => {
@@ -758,7 +795,7 @@ impl Spannable for ExprTag {
                     args
                         .iter()
                         .map(|expr| expr.span())
-                        .reduce(|a, b| Span::join(a, b))
+                        .reduce(Span::join)
                         .unwrap_or(calle_span)
                 )
             },
@@ -767,8 +804,8 @@ impl Spannable for ExprTag {
             },
             Self::SizeofType { r#type } => r#type.span(),
             Self::SizeofExpr { expr } => expr.span(),
-            Self::CastExpr { r#type, expr } => expr.span(),
-            Self::Conditional { cond, then, otherwise } => {
+            Self::CastExpr { r#type: _, expr } => expr.span(),
+            Self::Conditional { cond, then: _, otherwise } => {
                 Span::join(cond.span(), otherwise.span())
             },
         }
@@ -782,20 +819,25 @@ impl AstNodeDump for ExprTag {
                 tb.append_leaf("PrimaryExpr".into());
             },
             ExprTag::BinExpr { op, lhs, rhs } => {
-                tb.append_leaf(format!("BinaryOperator `{:?}`", op.0));
+                tb.open(format!("BinaryOperator `{}`", op.0));
+                lhs.dump(tb);
+                rhs.dump(tb);
+                tb.close();
             },
             ExprTag::UnExpr { op, rhs } => {
-                tb.append_leaf(format!("UnaryOperator `{:?}`", op.0));
+                tb.open(format!("UnaryOperator `{}`", op.0));
+                rhs.dump(tb);
+                tb.close();
             },
-            ExprTag::Call { calle, args } => {
+            ExprTag::Call { calle: _, args } => {
                 tb.open("CallExpr".into());
                 args.iter().for_each(|arg| arg.dump(tb));
                 tb.close();
             },
-            ExprTag::MemberAccess { expr, member } => {
+            ExprTag::MemberAccess { expr: _, member: _ } => {
                 tb.append_leaf("MemberExpr".into());
             },
-            ExprTag::SizeofType { r#type } => {
+            ExprTag::SizeofType { r#type: _ } => {
                 tb.append_leaf("SizeofType".into());
             },
             ExprTag::SizeofExpr { expr } => {
@@ -803,7 +845,7 @@ impl AstNodeDump for ExprTag {
                 expr.dump(tb);
                 tb.close();
             },
-            ExprTag::CastExpr { r#type, expr } => {
+            ExprTag::CastExpr { r#type: _, expr } => {
                 tb.open("CastExpr".into());
                 expr.dump(tb);
                 tb.close();

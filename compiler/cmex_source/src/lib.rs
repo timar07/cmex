@@ -54,9 +54,9 @@ impl<'a> Source<'a> {
         let mut offset = 0;
         let mut byte_offset = 0;
 
-        let mut lines = src.lines();
+        let lines = src.lines();
 
-        while let Some(line) = lines.next() {
+        for line in lines {
             let width = line.chars().count();
             let byte_width = line.len();
 
