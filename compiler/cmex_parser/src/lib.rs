@@ -82,6 +82,7 @@ pub enum ParseErrorTag {
     DeclarationHasNoInitializer,
     UnexpectedDeclarationSuffix,
     UnexpectedToken(Token),
+    NameAlreadyDefined(String),
     UnexpectedEof
 }
 
@@ -98,7 +99,12 @@ impl std::fmt::Display for ParseErrorTag {
             Self::UnexpectedDeclarationSuffix => {
                 write!(f, "unexpected declaration suffix")
             },
-            Self::UnexpectedToken(_) => todo!(),
+            Self::UnexpectedToken((tok, _)) => {
+                write!(f, "unexpected token `{:?}`", tok)
+            },
+            Self::NameAlreadyDefined(name) => {
+                write!(f, "name `{}` is already defined", name)
+            }
             Self::UnexpectedEof => write!(f, "unexpected end of file"),
         }
     }
