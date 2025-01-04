@@ -9,7 +9,10 @@ pub struct SymTable<T, V> {
 
 impl<T, V> Default for SymTable<T, V> {
     fn default() -> Self {
-        Self { index: Default::default(), scopes: Default::default() }
+        Self {
+            index: Default::default(),
+            scopes: Default::default()
+        }
     }
 }
 
@@ -18,8 +21,8 @@ impl<T: Hash + Eq, V: Clone> SymTable<T, V> {
         Self::default()
     }
 
-    pub fn define(&mut self, name: T, span: V) {
-        self.current_mut().define(name, span);
+    pub fn define(&mut self, name: T, span: V) -> Result<(), SymbolError> {
+        self.current_mut().define(name, span)
     }
 
     pub fn lookup(&self, name: &T) -> Option<V> {
@@ -72,8 +75,9 @@ impl<T: Hash + Eq, V: Clone> Scope<T, V> {
         }
     }
 
-    pub fn define(&mut self, name: T, span: V) {
-        self.inner.insert(name, span);
+    pub fn define(&mut self, name: T, span: V) -> Result<(), SymbolError> {
+        self.inner.insert(name, span)
+            .map_or(Ok(()), |_| Err(SymbolError::AlreadyDefined))
     }
 
     pub fn get(&self, name: &T) -> Option<V> {
@@ -81,7 +85,6 @@ impl<T: Hash + Eq, V: Clone> Scope<T, V> {
     }
 }
 
-#[allow(unused)]
-enum SymbolError {
+pub enum SymbolError {
     AlreadyDefined
 }
