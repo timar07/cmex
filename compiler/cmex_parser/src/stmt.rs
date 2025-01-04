@@ -4,7 +4,7 @@
 /// <https://github.com/antlr/grammars-v3/blob/master/ANSI-C/C.g>
 
 use cmex_ast::*;
-use cmex_span::{Span, Spannable, Unspan};
+use cmex_span::{MaybeSpannable, Span, Spannable, Unspan};
 use cmex_lexer::{Token, TokenTag::*};
 use crate::{check_tok, match_tok, require_tok};
 use super::{ParseError, ParseErrorTag, Parser, PR};
@@ -66,16 +66,29 @@ impl Parser<'_> {
     /// or a regular declaration
     fn external_decl(&mut self) -> PR<Vec<Decl>> {
         let mut decl_list = Vec::with_capacity(1);
-        let spec = self.maybe_decl_specifiers()?;
 
-        if let Some(spec) = spec.clone() {
-            if check_tok!(self, Semicolon) {
-                if let Some(decl) = self.type_definition(spec.clone())? {
-                    decl_list.push(decl);
-                    return Ok(decl_list);
-                }
-            }
+        if let Some(tok) = match_tok!(self, Typedef) {
+            return self.maybe_decl_specifiers()?
+                .map(|specs| {
+                    if let Some(decl) = self.type_definition(specs.clone())? {
+                        decl_list.push(decl);
+                        return Ok(decl_list);
+                    } else {
+                        Err((
+                            ParseErrorTag::Expected("type definition".into()),
+                            specs.span().unwrap_or(tok.1)
+                        ))
+                    }
+                })
+                .unwrap_or_else(|| {
+                    Err((
+                        ParseErrorTag::Expected("declaration specifiers".into()),
+                        tok.1
+                    ))
+                });
         }
+
+        let spec = self.maybe_decl_specifiers()?;
 
         while !matches!(self.iter.peek().val(), Some(Semicolon) | None) {
             let decl = self.init_declarator()?;
@@ -107,11 +120,7 @@ impl Parser<'_> {
                 if !decl_list.is_empty() {
                     return Err((
                         ParseErrorTag::Expected("`;` after top level declaration".into()),
-                        decl_list
-                            .iter()
-                            .map(|decl| decl.span())
-                            .reduce(Span::join)
-                            .unwrap()
+                        decl_list.span().unwrap()
                     ))
                 }
 
@@ -135,8 +144,19 @@ impl Parser<'_> {
     ) -> PR<Option<Decl>> {
         if let Some(DeclSpecifier::TypeSpecifier(t)) = spec.last() {
             match t {
-                TypeSpecifier::Enum(e) => {
-                    Ok(Some(Decl::Enum(e.to_vec())))
+                TypeSpecifier::Enum(consts) => {
+                    for decl in consts {
+                        if let Identifier(name) = &decl.id.0 {
+                            self.symbols
+                                .define(name.clone(), decl.id.1)
+                                .map_err(|_| (
+                                    ParseErrorTag::NameAlreadyDefined(name.clone()),
+                                    decl.id.1
+                                ))?;
+                        }
+                    }
+
+                    Ok(Some(Decl::Enum(consts.to_vec())))
                 },
                 TypeSpecifier::Record(r) => {
                     Ok(Some(Decl::Record(r.to_vec())))
@@ -196,7 +216,7 @@ impl Parser<'_> {
             Some(If | Switch) => self.selection_statement(),
             Some(Case | Default) => self.labeled_statement(),
             Some(LeftCurly) => self.compound_statement(),
-            Some(Identifier) => {
+            Some(Identifier(_)) => {
                 if let Some(Colon) = self.iter.lookahead(1).val() {
                     self.labeled_statement()
                 } else {
@@ -332,7 +352,7 @@ impl Parser<'_> {
 
     fn labeled_statement(&mut self) -> PR<Stmt> {
         Ok(match self.iter.peek().val() {
-            Some(Identifier) => {
+            Some(Identifier(_)) => {
                 let id = self.iter.next();
                 require_tok!(self, Colon)?;
                 Stmt {
@@ -370,7 +390,7 @@ impl Parser<'_> {
         match self.iter.peek().val() {
             Some(Goto) => {
                 self.iter.next();
-                let id = require_tok!(self, Identifier)?;
+                let id = require_tok!(self, Identifier(_))?;
                 require_tok!(self, Semicolon)?;
                 Ok(Stmt {
                     tag: StmtTag::Goto(id)
@@ -470,8 +490,7 @@ impl Parser<'_> {
         self.iter.peek().is_some_and(|t| {
             matches!(
                 t.0,
-                Typedef
-                | Extern
+                Extern
                 | Static
                 | Auto
                 | Register
@@ -512,7 +531,7 @@ impl Parser<'_> {
             Some(Enum) => {
                 self.enum_specifier()
             },
-            Some(Identifier) if self.is_type_specifier() => {
+            Some(Identifier(_)) if self.is_type_specifier() => {
                 Ok(TypeSpecifier::TypeName(
                     self.iter
                         .next()
@@ -543,10 +562,10 @@ impl Parser<'_> {
             Some(Struct | Union | Enum) => {
                 matches!(
                     self.iter.lookahead(1).val(), // no need to lookahead more
-                    Some(Identifier | LeftCurly)
+                    Some(Identifier(_) | LeftCurly)
                 )
             },
-            Some(Identifier) => false, // TODO: check
+            Some(Identifier(_)) => false, // TODO: check
             _ => false
         }
     }
@@ -576,7 +595,7 @@ impl Parser<'_> {
     fn struct_or_union_specifier(&mut self) -> PR<TypeSpecifier> {
         require_tok!(self, Struct | Union)?;
 
-        let maybe_id = match_tok!(self, Identifier);
+        let maybe_id = match_tok!(self, Identifier(_));
 
         // Bodyless struct/union
         if !matches!(self.iter.peek().val(), Some(LeftCurly)) {
@@ -684,7 +703,7 @@ impl Parser<'_> {
     fn enum_specifier(&mut self) -> PR<TypeSpecifier> {
         require_tok!(self, Enum)?;
 
-        let maybe_id = match_tok!(self, Identifier);
+        let maybe_id = match_tok!(self, Identifier(_));
 
         if !matches!(self.iter.peek().val(), Some(LeftCurly)) {
             if maybe_id.is_none() {
@@ -716,7 +735,7 @@ impl Parser<'_> {
     }
 
     fn enumerator(&mut self) -> PR<EnumConstantDecl> {
-        let id = require_tok!(self, Identifier)?;
+        let id = require_tok!(self, Identifier(_))?;
         let cexpr = if check_tok!(self, Assign) {
             Some(self.constant_expression()?)
         } else {
@@ -744,7 +763,7 @@ impl Parser<'_> {
 
     fn direct_declarator(&mut self) -> PR<DirectDeclarator> {
         match self.iter.peek().val() {
-            Some(Identifier) => {
+            Some(Identifier(_)) => {
                 Ok(DirectDeclarator::Identifier(
                     self.iter.next().unwrap()
                 ))
@@ -876,10 +895,10 @@ impl Parser<'_> {
     #[allow(unused)]
     fn identifier_list(&mut self) -> PR<Vec<Token>> {
         let mut id_list = Vec::new();
-        id_list.push(require_tok!(self, Identifier)?);
+        id_list.push(require_tok!(self, Identifier(_))?);
 
         while check_tok!(self, Comma) {
-            if let Some(id) = match_tok!(self, Identifier) {
+            if let Some(id) = match_tok!(self, Identifier(_)) {
                 id_list.push(id);
             } else {
                 break;
@@ -975,4 +994,3 @@ impl Parser<'_> {
         Ok(Initializer::List(init_list))
     }
 }
-

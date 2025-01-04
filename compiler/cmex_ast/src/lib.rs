@@ -27,6 +27,12 @@ pub struct Stmt {
     pub tag: StmtTag
 }
 
+impl Spannable for Stmt {
+    fn span(&self) -> Span {
+        self.tag.span()
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum StmtTag {
     Expr(Option<Expr>),
@@ -64,13 +70,7 @@ impl Spannable for StmtTag {
     fn span(&self) -> Span {
         match self {
             Self::Expr(expr) => expr.clone().unwrap().span(),
-            Self::Compound(vec) => {
-                vec
-                    .iter()
-                    .map(|stmt| stmt.tag.span())
-                    .reduce(Span::join)
-                    .unwrap()
-            },
+            Self::Compound(vec) => vec.span().unwrap(),
             Self::Decl(decl) => decl.span(),
             Self::While { cond: _, stmt } => stmt.tag.span(),
             Self::Do { cond: _, stmt } => stmt.tag.span(),
@@ -229,29 +229,17 @@ impl Spannable for Decl {
     fn span(&self) -> Span {
         match self {
             Decl::Record(vec) => {
-                vec
-                    .iter()
-                    .map(|field| field.span())
-                    .reduce(Span::join)
-                    .unwrap()
+                vec.span().unwrap()
             },
             Decl::Enum(vec) => {
-                vec
-                    .iter()
-                    .map(|decl| decl.span())
-                    .reduce(Span::join)
-                    .unwrap()
+                vec.span().unwrap()
             },
             Decl::Func { spec, decl, params: _, body } => {
                 Span::join(
                     spec
                         .clone()
                         .map(|specs| {
-                            specs
-                                .iter()
-                                .map(|spec| spec.span())
-                                .reduce(Span::join)
-                                .unwrap()
+                            specs.span().unwrap()
                         })
                         .unwrap_or_else(|| {
                             decl
@@ -262,11 +250,7 @@ impl Spannable for Decl {
                 )
             },
             Decl::Var { spec: _, decl_list } => {
-                decl_list
-                    .iter()
-                    .map(|decl| decl.span())
-                    .reduce(Span::join)
-                    .unwrap()
+                decl_list.span().unwrap()
             },
         }
     }
@@ -338,11 +322,7 @@ impl Spannable for Initializer {
         match self {
             Self::Assign(expr) => expr.span(),
             Self::List(list) => {
-                list
-                    .iter()
-                    .map(|init| init.span())
-                    .reduce(Span::join)
-                    .unwrap()
+                list.span().unwrap()
             }
         }
     }
@@ -602,11 +582,7 @@ impl Spannable for ParamList {
                     .unwrap()
             },
             ParamList::Type(vec) => {
-                vec
-                    .iter()
-                    .map(|param| param.span())
-                    .reduce(Span::join)
-                    .unwrap()
+                vec.span().unwrap()
             },
         }
     }
@@ -637,11 +613,7 @@ impl Spannable for ParamDecl {
         let decl_span = self.decl.span();
 
         Span::join(
-            self.spec
-                .iter()
-                .map(|s| s.span())
-                .reduce(Span::join)
-                .unwrap_or(decl_span),
+            self.spec.span().unwrap_or(decl_span),
             decl_span
         )
     }
@@ -675,18 +647,10 @@ impl Spannable for TypeSpecifier {
         match self {
             TypeSpecifier::TypeName((_, span)) => *span,
             TypeSpecifier::Record(vec) => {
-                vec
-                    .iter()
-                    .map(|field| field.span())
-                    .reduce(Span::join)
-                    .unwrap()
+                vec.span().unwrap()
             },
             TypeSpecifier::Enum(vec) => {
-                vec
-                    .iter()
-                    .map(|decl| decl.span())
-                    .reduce(Span::join)
-                    .unwrap()
+                vec.span().unwrap()
             },
         }
     }
@@ -792,11 +756,7 @@ impl Spannable for ExprTag {
 
                 Span::join(
                     calle_span,
-                    args
-                        .iter()
-                        .map(|expr| expr.span())
-                        .reduce(Span::join)
-                        .unwrap_or(calle_span)
+                    args.span().unwrap_or(calle_span)
                 )
             },
             Self::MemberAccess { expr, member } => {
