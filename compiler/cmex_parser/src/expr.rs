@@ -328,7 +328,7 @@ impl Parser<'_> {
                     })
                 },
                 ArrowRight => { // sugar
-                    require_tok!(self, Identifier)?;
+                    require_tok!(self, Identifier(_))?;
                     todo!()
                 },
                 Increment | Decrement => { // sugar
@@ -376,7 +376,7 @@ impl Parser<'_> {
     fn primary(&mut self) -> PR<Expr> {
         match self.iter.peek().val() {
             Some(
-                Identifier
+                Identifier(_)
                 | StringLiteral
                 | CharLiteral
                 | NumberLiteral { .. }

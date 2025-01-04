@@ -277,7 +277,7 @@ impl Lexer<'_> {
             "void" => TokenTag::Void,
             "volatile" => TokenTag::Volatile,
             "while" => TokenTag::While,
-            _ => TokenTag::Identifier
+            _ => TokenTag::Identifier(ident)
         })
     }
 }
