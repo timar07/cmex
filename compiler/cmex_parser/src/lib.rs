@@ -78,6 +78,7 @@ type ParseError = (ParseErrorTag, Span);
 #[derive(Debug)]
 pub enum ParseErrorTag {
     Expected(String),
+    ExpectedGot(String, Option<TokenTag>),
     DeclarationHasNoIdentifier,
     DeclarationHasNoInitializer,
     UnexpectedDeclarationSuffix,
@@ -104,6 +105,16 @@ impl std::fmt::Display for ParseErrorTag {
             },
             Self::NameAlreadyDefined(name) => {
                 write!(f, "name `{}` is already defined", name)
+            },
+            Self::ExpectedGot(exp, tok) => {
+                write!(
+                    f,
+                    "expected {exp} got {}",
+                    tok
+                        .clone()
+                        .map(|tok| format!("`{tok}`"))
+                        .unwrap_or("end of file".into())
+                )
             }
             Self::UnexpectedEof => write!(f, "unexpected end of file"),
         }
@@ -137,12 +148,9 @@ macro_rules! require_tok {
         match $p.iter.peek() {
             Some(($pat, _)) => Ok($p.iter.next().unwrap()),
             _ => Err((
-                ParseErrorTag::Expected(
-                    format!(
-                        "{}, got {:?}",
-                        stringify!($pat),
-                        $p.iter.peek().val()
-                    )
+                ParseErrorTag::ExpectedGot(
+                    stringify!($pat).into(),
+                    $p.iter.peek().val()
                 ),
                 Span::from($p.get_pos())
             ))
