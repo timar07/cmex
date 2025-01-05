@@ -1,7 +1,7 @@
 mod stmt;
 mod expr;
 mod lookahead;
-// mod tests;
+mod tests;
 
 use cmex_ast::Stmt;
 use cmex_symtable::SymTable;

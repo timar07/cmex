@@ -1,7 +1,9 @@
 #[cfg(test)]
 mod tests {
-    use crate::lexer::{
-        token::TokenTag::{self, *}, LexError, Lexer
+    use crate::{
+        token::TokenTag::{self, *},
+        LexError,
+        Lexer
     };
 
     #[test]

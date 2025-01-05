@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use crate::lexer::{
+    use crate::{
         Lexer,
         token::{
             NumberLiteralKind,
@@ -205,7 +205,7 @@ mod tests {
                 .collect::<Vec<TokenTag>>(),
             vec![
                 Int,
-                Identifier,
+                Identifier("f".into()),
                 LeftParen,
                 RightParen,
                 LeftCurly,
@@ -218,7 +218,7 @@ mod tests {
                 Semicolon,
                 RightCurly,
                 Int,
-                Identifier,
+                Identifier("a".into()),
                 LeftParen,
                 RightParen,
                 LeftCurly,
@@ -251,11 +251,11 @@ mod tests {
                 .collect::<Vec<TokenTag>>(),
             vec![
                 Int,
-                Identifier,
+                Identifier("main".into()),
                 LeftParen,
                 RightParen,
                 LeftCurly,
-                Identifier,
+                Identifier("printf".into()),
                 LeftParen,
                 StringLiteral,
                 RightParen,
