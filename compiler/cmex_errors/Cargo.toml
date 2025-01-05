@@ -6,3 +6,4 @@ edition = "2021"
 [dependencies]
 cmex_span = { path = "../cmex_span" }
 cmex_source = { path = "../cmex_source" }
+colored = "=2.2.0"

@@ -1,5 +1,9 @@
+mod display;
+
 use cmex_source::Source;
 use cmex_span::Span;
+use colored::Colorize;
+use display::LineFormat;
 
 #[derive(Default)]
 pub struct ErrorBuilder {
@@ -31,28 +35,41 @@ impl ErrorBuilder {
 
     pub fn context(mut self, src: &str, span: Span) -> Self {
         let source = Source::from(src);
-        let line_index = source
+        let start = source
             .get_line_containing_index(span.0)
             .unwrap_or_else(|| {
                 panic!("unexisting source index {}", span.0)
             });
+        let end = source
+            .get_line_containing_index(span.1)
+            .unwrap_or(start);
 
-        self.context = Some(
-            source
-                .get_line_contents(line_index)
-                .unwrap()
-                .to_string()
-        );
+        let snippet = (start..=end)
+            .map(|index| {
+                LineFormat::new(
+                    index + 1,
+                    &source
+                        .get_line_contents(index)
+                        .unwrap(),
+                    None
+                ).to_string()
+            })
+            .collect();
+
+        self.context = Some(snippet);
         self
     }
 
     pub fn build(self) -> String {
         format!(
-            "{} \x1b[0;31m{}:\x1b[0m {}\n{}\n",
+            "{} {} {}\n{}\n",
             self.fname.unwrap_or_default(),
-            self.tag.unwrap_or("Error"),
+            format!("{}:", self.tag.unwrap_or("Error"))
+                .red()
+                .bold(),
             self.info.unwrap_or_default(),
             self.context.unwrap_or_default()
         )
     }
 }
+
