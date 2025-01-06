@@ -67,12 +67,17 @@ impl Parser<'_> {
     fn external_decl(&mut self) -> PR<Vec<Decl>> {
         let mut decl_list = Vec::with_capacity(1);
 
+        if matches!(self.iter.peek().val(), Some(MacroRules)) {
+            decl_list.push(self.macro_rules_definition()?);
+            return Ok(decl_list);
+        }
+
         if let Some(tok) = match_tok!(self, Typedef) {
             return self.maybe_decl_specifiers()?
                 .map(|specs| {
                     if let Some(decl) = self.type_definition(specs.clone())? {
                         decl_list.push(decl);
-                        return Ok(decl_list);
+                        Ok(decl_list)
                     } else {
                         Err((
                             ParseErrorTag::Expected("type definition".into()),

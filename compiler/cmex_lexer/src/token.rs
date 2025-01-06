@@ -91,13 +91,29 @@ pub enum TokenTag {
     While,
     Circ,
     Quest,
+    Dollar,
     XorAssign,
+
+    FatArrow,
+    MacroRules,
 
     /// Error recovery token
     Error
 }
 
 impl TokenTag {
+    pub fn is_delimiter(&self) -> bool {
+        matches!(
+            self,
+            TokenTag::LeftCurly
+            | TokenTag::RightCurly
+            | TokenTag::LeftBrace
+            | TokenTag::RightBrace
+            | TokenTag::LeftParen
+            | TokenTag::RightParen
+        )
+    }
+
     #[allow(unused)]
     pub fn is_keyword(&self) -> bool {
         matches!(
@@ -223,7 +239,10 @@ impl std::fmt::Display for TokenTag {
             Self::While => write!(f, "while"),
             Self::Circ => write!(f, "^"),
             Self::Quest => write!(f, "?"),
+            Self::Dollar => write!(f, "$"),
             Self::XorAssign => write!(f, "^="),
+            Self::FatArrow => write!(f, "=>"),
+            Self::MacroRules => write!(f, "macro_rules"),
             Self::Error => write!(f, "<error>"),
         }
     }

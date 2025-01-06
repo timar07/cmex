@@ -3,7 +3,7 @@ use std::collections::VecDeque;
 /// Since we parse a LL(k) grammar,
 /// we would need more than one peekable token
 #[derive(Clone)]
-pub(super) struct Lookahead<T: Iterator> {
+pub struct Lookahead<T: Iterator> {
     iter: T,
     peeked: Option<T::Item>,
     queue: VecDeque<T::Item>

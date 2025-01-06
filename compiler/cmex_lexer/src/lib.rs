@@ -214,6 +214,8 @@ impl Lexer<'_> {
             '=' => {
                 if self.src.match_ch('=') {
                     TokenTag::Eq
+                } else if self.src.match_ch('>') {
+                    TokenTag::FatArrow
                 } else {
                     TokenTag::Assign
                 }
@@ -236,6 +238,7 @@ impl Lexer<'_> {
             ']' => TokenTag::RightBrace,
             '~' => TokenTag::Tilde,
             '?' => TokenTag::Quest,
+            '$' => TokenTag::Dollar,
             c => return Some(Err(UnexpectedCharacter(c)))
         }))
     }
@@ -277,6 +280,7 @@ impl Lexer<'_> {
             "void" => TokenTag::Void,
             "volatile" => TokenTag::Volatile,
             "while" => TokenTag::While,
+            "macro_rules" => TokenTag::MacroRules,
             _ => TokenTag::Identifier(ident)
         })
     }

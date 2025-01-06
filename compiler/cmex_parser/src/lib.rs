@@ -1,5 +1,6 @@
 mod stmt;
 mod expr;
+mod macros;
 mod lookahead;
 mod tests;
 
@@ -7,7 +8,7 @@ use cmex_ast::Stmt;
 use cmex_symtable::SymTable;
 use cmex_span::Span;
 use cmex_lexer::{Lexer, Spanned, Token, TokenTag};
-use lookahead::Lookahead;
+pub use lookahead::Lookahead;
 
 pub(crate) type PR<T> = Result<T, ParseError>;
 
@@ -47,7 +48,7 @@ impl Iterator for Parser<'_> {
 
 /// Wrapper above the [Lexer] for convenient error handling
 #[derive(Clone)]
-struct Tokens<'a> {
+pub struct Tokens<'a> {
     iter: Spanned<Lexer<'a>>
 }
 

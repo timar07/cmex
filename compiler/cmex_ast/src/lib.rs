@@ -222,6 +222,8 @@ pub enum Decl {
         ///  /* ^~~~~~~ declarators list */
         /// ```
         decl_list: Vec<InitDeclarator>
+    },
+    Macro {
     }
 }
 
@@ -252,6 +254,7 @@ impl Spannable for Decl {
             Decl::Var { spec: _, decl_list } => {
                 decl_list.span().unwrap()
             },
+            Decl::Macro {  } => todo!()
         }
     }
 }
@@ -288,6 +291,9 @@ impl AstNodeDump for Decl {
                     tb.close();
                 });
             },
+            Decl::Macro {  } => {
+                tb.append_leaf("Macro".into());
+            }
         }
     }
 }
