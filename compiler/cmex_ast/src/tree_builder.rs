@@ -1,7 +1,7 @@
 #[derive(Default)]
 pub struct TreeBuilder {
     last: Option<TreeItem>,
-    level: usize
+    level: usize,
 }
 
 impl TreeBuilder {
@@ -19,11 +19,7 @@ impl TreeBuilder {
 
     pub fn open(&mut self, header: String) -> &mut Self {
         if let Some(last) = &mut self.last {
-            TreeBuilder::append_child(
-                last,
-                TreeItem::new(header),
-                self.level
-            );
+            TreeBuilder::append_child(last, TreeItem::new(header), self.level);
         } else {
             self.last = Some(TreeItem::new(header))
         }
@@ -41,11 +37,7 @@ impl TreeBuilder {
         if level == 1 {
             parent.children.push(entry);
         } else {
-            TreeBuilder::append_child(
-                parent.children.last_mut().unwrap(),
-                entry,
-                level - 1
-            );
+            TreeBuilder::append_child(parent.children.last_mut().unwrap(), entry, level - 1);
         }
     }
 }
@@ -53,14 +45,14 @@ impl TreeBuilder {
 #[derive(Clone, Debug)]
 pub struct TreeItem {
     pub header: String,
-    pub children: Vec<TreeItem>
+    pub children: Vec<TreeItem>,
 }
 
 impl TreeItem {
     pub fn new(header: String) -> Self {
         Self {
             header,
-            children: Vec::new()
+            children: Vec::new(),
         }
     }
 }
@@ -84,26 +76,15 @@ impl TreePrinter {
         format!(
             "{indent}{branch}{}\n{}",
             entry.header,
-            entry.children
+            entry
+                .children
                 .iter()
                 .enumerate()
                 .map(|(n, c)| {
                     if n == entry.children.len() - 1 {
-                        Self::print_entry(
-                            &c.clone(),
-                            format!(
-                                "{indent: <shift_width$}",
-                            ),
-                            "`-"
-                        )
+                        Self::print_entry(&c.clone(), format!("{indent: <shift_width$}",), "`-")
                     } else {
-                        Self::print_entry(
-                            &c.clone(),
-                            format!(
-                                "{indent: <shift_width$}|",
-                            ),
-                            "-"
-                        )
+                        Self::print_entry(&c.clone(), format!("{indent: <shift_width$}|",), "-")
                     }
                 })
                 .collect::<String>(),

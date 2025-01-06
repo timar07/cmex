@@ -10,7 +10,7 @@ pub struct ErrorBuilder {
     fname: Option<String>,
     tag: Option<&'static str>,
     info: Option<String>,
-    context: Option<String>
+    context: Option<String>,
 }
 
 impl ErrorBuilder {
@@ -37,22 +37,13 @@ impl ErrorBuilder {
         let source = Source::from(src);
         let start = source
             .get_line_containing_index(span.0)
-            .unwrap_or_else(|| {
-                panic!("unexisting source index {}", span.0)
-            });
-        let end = source
-            .get_line_containing_index(span.1)
-            .unwrap_or(start);
+            .unwrap_or_else(|| panic!("unexisting source index {}", span.0));
+        let end = source.get_line_containing_index(span.1).unwrap_or(start);
 
         let snippet = (start..=end)
             .map(|index| {
-                LineFormat::new(
-                    index + 1,
-                    &source
-                        .get_line_contents(index)
-                        .unwrap(),
-                    None
-                ).to_string()
+                LineFormat::new(index + 1, &source.get_line_contents(index).unwrap(), None)
+                    .to_string()
             })
             .collect();
 
@@ -64,12 +55,9 @@ impl ErrorBuilder {
         format!(
             "{} {} {}\n{}\n",
             self.fname.unwrap_or_default(),
-            format!("{}:", self.tag.unwrap_or("Error"))
-                .red()
-                .bold(),
+            format!("{}:", self.tag.unwrap_or("Error")).red().bold(),
             self.info.unwrap_or_default(),
             self.context.unwrap_or_default()
         )
     }
 }
-

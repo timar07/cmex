@@ -1,27 +1,27 @@
-mod stmt;
 mod expr;
-mod macros;
 mod lookahead;
+mod macros;
+mod stmt;
 mod tests;
 
 use cmex_ast::Stmt;
-use cmex_symtable::SymTable;
-use cmex_span::Span;
 use cmex_lexer::{Lexer, Spanned, Token, TokenTag};
+use cmex_span::Span;
+use cmex_symtable::SymTable;
 pub use lookahead::Lookahead;
 
 pub(crate) type PR<T> = Result<T, ParseError>;
 
 pub struct Parser<'a> {
     iter: Lookahead<Tokens<'a>>,
-    symbols: SymTable<String, Span>
+    symbols: SymTable<String, Span>,
 }
 
 impl<'a> Parser<'a> {
     pub fn new(iter: Lexer<'a>) -> Self {
         Self {
             iter: Lookahead::from(Tokens::new(iter.spanned())),
-            symbols: SymTable::new()
+            symbols: SymTable::new(),
         }
     }
 
@@ -49,7 +49,7 @@ impl Iterator for Parser<'_> {
 /// Wrapper above the [Lexer] for convenient error handling
 #[derive(Clone)]
 pub struct Tokens<'a> {
-    iter: Spanned<Lexer<'a>>
+    iter: Spanned<Lexer<'a>>,
 }
 
 impl<'a> Tokens<'a> {
@@ -62,15 +62,13 @@ impl Iterator for Tokens<'_> {
     type Item = (TokenTag, Span);
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.iter
-            .next()
-            .map(|(i, span)| match i {
-                Ok(i) => (i, span),
-                Err(e) => {
-                    println!("{e}");
-                    (TokenTag::Error, span)
-                }
-            })
+        self.iter.next().map(|(i, span)| match i {
+            Ok(i) => (i, span),
+            Err(e) => {
+                println!("{e}");
+                (TokenTag::Error, span)
+            }
+        })
     }
 }
 
@@ -85,7 +83,7 @@ pub enum ParseErrorTag {
     UnexpectedDeclarationSuffix,
     UnexpectedToken(Token),
     NameAlreadyDefined(String),
-    UnexpectedEof
+    UnexpectedEof,
 }
 
 impl std::fmt::Display for ParseErrorTag {
@@ -94,25 +92,24 @@ impl std::fmt::Display for ParseErrorTag {
             Self::Expected(s) => write!(f, "expected {s}"),
             Self::DeclarationHasNoIdentifier => {
                 write!(f, "declaration has no identifier")
-            },
+            }
             Self::DeclarationHasNoInitializer => {
                 write!(f, "declaration has no initializer")
-            },
+            }
             Self::UnexpectedDeclarationSuffix => {
                 write!(f, "unexpected declaration suffix")
-            },
+            }
             Self::UnexpectedToken((tok, _)) => {
                 write!(f, "unexpected token `{:?}`", tok)
-            },
+            }
             Self::NameAlreadyDefined(name) => {
                 write!(f, "name `{}` is already defined", name)
-            },
+            }
             Self::ExpectedGot(exp, tok) => {
                 write!(
                     f,
                     "expected {exp} got {}",
-                    tok
-                        .clone()
+                    tok.clone()
                         .map(|tok| format!("`{tok}`"))
                         .unwrap_or("end of file".into())
                 )
@@ -149,12 +146,9 @@ macro_rules! require_tok {
         match $p.iter.peek() {
             Some(($pat, _)) => Ok($p.iter.next().unwrap()),
             _ => Err((
-                ParseErrorTag::ExpectedGot(
-                    stringify!($pat).into(),
-                    $p.iter.peek().val()
-                ),
-                Span::from($p.get_pos())
-            ))
+                ParseErrorTag::ExpectedGot(stringify!($pat).into(), $p.iter.peek().val()),
+                Span::from($p.get_pos()),
+            )),
         }
     };
 }

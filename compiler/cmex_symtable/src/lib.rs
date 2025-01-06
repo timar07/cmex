@@ -4,14 +4,14 @@ type Idx = usize;
 
 pub struct SymTable<T, V> {
     index: Idx,
-    scopes: Vec<Scope<T, V>>
+    scopes: Vec<Scope<T, V>>,
 }
 
 impl<T, V> Default for SymTable<T, V> {
     fn default() -> Self {
         Self {
             index: Default::default(),
-            scopes: Default::default()
+            scopes: Default::default(),
         }
     }
 }
@@ -38,15 +38,12 @@ impl<T: Hash + Eq, V: Clone> SymTable<T, V> {
     }
 
     pub fn enter(&mut self) {
-        self.scopes.push(
-            Scope::new(self.scopes.len(), Some(self.index))
-        );
+        self.scopes
+            .push(Scope::new(self.scopes.len(), Some(self.index)));
     }
 
     pub fn leave(&mut self) {
-        self.index = self.current()
-            .parent
-            .unwrap_or_default()
+        self.index = self.current().parent.unwrap_or_default()
     }
 
     fn current_mut(&mut self) -> &mut Scope<T, V> {
@@ -63,7 +60,7 @@ struct Scope<T, V> {
     #[allow(unused)]
     index: Idx,
     inner: HashMap<T, V>,
-    parent: Option<Idx>
+    parent: Option<Idx>,
 }
 
 impl<T: Hash + Eq, V: Clone> Scope<T, V> {
@@ -71,12 +68,13 @@ impl<T: Hash + Eq, V: Clone> Scope<T, V> {
         Self {
             index,
             parent,
-            inner: HashMap::default()
+            inner: HashMap::default(),
         }
     }
 
     pub fn define(&mut self, name: T, span: V) -> Result<(), SymbolError> {
-        self.inner.insert(name, span)
+        self.inner
+            .insert(name, span)
             .map_or(Ok(()), |_| Err(SymbolError::AlreadyDefined))
     }
 
@@ -86,5 +84,5 @@ impl<T: Hash + Eq, V: Clone> Scope<T, V> {
 }
 
 pub enum SymbolError {
-    AlreadyDefined
+    AlreadyDefined,
 }

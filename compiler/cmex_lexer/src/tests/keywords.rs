@@ -2,13 +2,13 @@
 mod tests {
     use crate::{
         token::TokenTag::{self, *},
-        LexError,
-        Lexer
+        Lexer,
     };
 
     #[test]
     fn keywords() {
-        let lexer = Lexer::from("\
+        let lexer = Lexer::from(
+            "\
             auto break case char const \
             continue default do double \
             else enum extern float for \
@@ -17,22 +17,15 @@ mod tests {
             static struct switch typedef \
             union unsigned void volatile \
             while
-        ");
+        ",
+        );
 
         assert_eq!(
-            lexer.collect::<Vec<Result<TokenTag, LexError>>>()
-                .into_iter()
-                .flatten()
-                .collect::<Vec<TokenTag>>(),
+            lexer.flatten().collect::<Vec<TokenTag>>(),
             vec![
-                Auto, Break, Case, Char, Const,
-                Continue, Default, Do, Double,
-                Else, Enum, Extern, Float, For,
-                Goto, If, Int, Long, Register,
-                Return, Short, Signed, Sizeof,
-                Static, Struct, Switch, Typedef,
-                Union, Unsigned, Void, Volatile,
-                While
+                Auto, Break, Case, Char, Const, Continue, Default, Do, Double, Else, Enum, Extern,
+                Float, For, Goto, If, Int, Long, Register, Return, Short, Signed, Sizeof, Static,
+                Struct, Switch, Typedef, Union, Unsigned, Void, Volatile, While
             ]
         )
     }

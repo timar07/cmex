@@ -6,22 +6,22 @@ use std::collections::VecDeque;
 pub struct Lookahead<T: Iterator> {
     iter: T,
     peeked: Option<T::Item>,
-    queue: VecDeque<T::Item>
+    queue: VecDeque<T::Item>,
 }
 
-impl <T: Iterator> From<T> for Lookahead<T> {
+impl<T: Iterator> From<T> for Lookahead<T> {
     fn from(iter: T) -> Self {
         Self {
             iter,
             peeked: None,
-            queue: VecDeque::new()
+            queue: VecDeque::new(),
         }
     }
 }
 
 impl<T: Iterator> Iterator for Lookahead<T>
 where
-    T::Item: Clone
+    T::Item: Clone,
 {
     type Item = T::Item;
 
@@ -37,14 +37,14 @@ where
 
 impl<T: Iterator> Lookahead<T>
 where
-    T::Item: Clone
+    T::Item: Clone,
 {
     pub fn lookahead(&mut self, k: usize) -> Option<T::Item> {
         if k == 0 {
             return self.peek();
         }
 
-        for _ in 0..k-1 {
+        for _ in 0..k - 1 {
             self.enqueue();
         }
 
@@ -52,9 +52,7 @@ where
     }
 
     pub fn peek(&mut self) -> Option<T::Item> {
-        self.peeked
-            .clone()
-            .or_else(|| self.next())
+        self.peeked.clone().or_else(|| self.next())
     }
 
     fn dequeue(&mut self) -> Option<T::Item> {

@@ -39,6 +39,11 @@ dependencies = [
 [[package]]
 name = "cmex_macros"
 version = "0.1.0"
+dependencies = [
+ "cmex_lexer",
+ "cmex_parser",
+ "cmex_span",
+]
 
 [[package]]
 name = "cmex_parser"

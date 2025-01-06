@@ -1,19 +1,12 @@
-/// This file implements Rust-like macros.
-/// For information about grammar, see:
-/// <https://doc.rust-lang.org/reference/macros-by-example.html#r-macro.decl.syntax>
+//! This file implements Rust-like macros.
+//! For information about grammar, see:
+//! <https://doc.rust-lang.org/reference/macros-by-example.html#r-macro.decl.syntax>
 
-use std::ops::Deref;
+use crate::{check_tok, match_tok, require_tok, ParseErrorTag, Parser, PR};
 use cmex_ast::Decl;
 use cmex_lexer::TokenTag::*;
 use cmex_span::{Span, Unspan};
-use crate::{
-    ParseErrorTag,
-    Parser,
-    PR,
-    check_tok,
-    require_tok,
-    match_tok
-};
+use std::ops::Deref;
 
 impl Parser<'_> {
     pub fn macro_rules_definition(&mut self) -> PR<Decl> {
@@ -23,7 +16,7 @@ impl Parser<'_> {
 
         self.macro_rules_def()?;
 
-        Ok(Decl::Macro {  })
+        Ok(Decl::Macro {})
     }
 
     fn macro_rules_def(&mut self) -> PR<()> {
@@ -32,12 +25,14 @@ impl Parser<'_> {
                 self.iter.next();
                 self.macro_rules()?;
                 require_tok!(self, RightCurly)?;
-            },
-            Some(_) => return Err((
-                ParseErrorTag::Expected("macro rules definition".into()),
-                self.iter.peek().unwrap().1
-            )),
-            _ => panic!()
+            }
+            Some(_) => {
+                return Err((
+                    ParseErrorTag::Expected("macro rules definition".into()),
+                    self.iter.peek().unwrap().1,
+                ))
+            }
+            _ => panic!(),
         }
 
         Ok(())
@@ -64,8 +59,8 @@ impl Parser<'_> {
                     self.macro_match()?;
                     require_tok!(self, RightParen)?;
                 }
-            },
-            _ => todo!()
+            }
+            _ => todo!(),
         }
         Ok(())
     }
@@ -76,11 +71,10 @@ impl Parser<'_> {
                 self.iter.next();
 
                 match self.iter.next().val() {
-                    Some(t @ Identifier(_))
-                    | Some(t) if t.is_keyword() => {
+                    Some(t @ Identifier(_)) | Some(t) if t.is_keyword() => {
                         require_tok!(self, Colon)?;
                         self.macro_frag_spec()?;
-                    },
+                    }
                     _ => {
                         require_tok!(self, LeftParen)?;
                         if !check_tok!(self, RightParen) {
@@ -89,34 +83,29 @@ impl Parser<'_> {
                         }
 
                         if let Some(rep_op) = self.maybe_rep_op() {
-                            return Ok(())
+                            return Ok(());
                         }
 
-                        self.iter.peek()
-                            .ok_or_else(|| {
-                                (
-                                    ParseErrorTag::Expected(
-                                        "separator".into()
-                                    ),
-                                    self.iter.peek()
-                                        .unwrap()
-                                        .1
-                                )
-                            })?;
+                        self.iter.peek().ok_or_else(|| {
+                            (
+                                ParseErrorTag::Expected("separator".into()),
+                                self.iter.peek().unwrap().1,
+                            )
+                        })?;
                     }
                 }
-            },
+            }
             Some(RightParen) => {
                 dbg!("asdf");
                 self.iter.next();
             }
             Some(t) if t.is_delimiter() => {
                 self.macro_matcher()?;
-            },
+            }
             Some(t) => {
                 todo!()
-            },
-            _ => panic!()
+            }
+            _ => panic!(),
         }
 
         Ok(())
@@ -135,23 +124,17 @@ impl Parser<'_> {
     fn macro_frag_spec(&mut self) -> PR<()> {
         if let Some(Identifier(spec)) = self.iter.peek().val() {
             match spec.deref() {
-                "block"
-                | "ident"
-                | "item"
-                | "literal"
-                | "ty" => {
-                    Ok(())
-                },
+                "block" | "ident" | "item" | "literal" | "ty" => Ok(()),
                 "pat" => todo!(),
                 _ => Err((
-                ParseErrorTag::Expected("fragment specifier".into()),
-                self.iter.peek().unwrap().1
-            ))
+                    ParseErrorTag::Expected("fragment specifier".into()),
+                    self.iter.peek().unwrap().1,
+                )),
             }
         } else {
             Err((
                 ParseErrorTag::Expected("fragment specifier".into()),
-                self.iter.peek().unwrap().1
+                self.iter.peek().unwrap().1,
             ))
         }
     }
@@ -168,8 +151,8 @@ impl Parser<'_> {
                 while !check_tok!(self, RightCurly) {
                     self.token_tree()?;
                 }
-            },
-            _ => panic!()
+            }
+            _ => panic!(),
         }
 
         Ok(())
@@ -177,13 +160,7 @@ impl Parser<'_> {
 
     fn token_tree(&mut self) -> PR<()> {
         match self.iter.peek().val() {
-            Some(
-                LeftCurly
-                | LeftParen
-                | LeftBrace
-            ) => {
-                self.delim_token_tree()
-            },
+            Some(LeftCurly | LeftParen | LeftBrace) => self.delim_token_tree(),
             Some(tok) => {
                 self.iter.next();
                 Ok(())

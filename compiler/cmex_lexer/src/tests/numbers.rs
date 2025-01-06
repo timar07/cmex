@@ -1,45 +1,47 @@
 #[cfg(test)]
 mod tests {
     use crate::{
-        Lexer,
         token::{
-            NumberLiteralKind,
-            NumberLiteralPrefix,
-            NumberLiteralSuffix,
-            TokenTag::{self, *}
+            NumberLiteralKind, NumberLiteralPrefix, NumberLiteralSuffix,
+            TokenTag::{self, *},
         },
-        LexError::{self, *}
+        LexError::{self, *},
+        Lexer,
     };
 
     #[test]
     fn decimal_integers() {
-        let lexer = Lexer::from("\
+        let lexer = Lexer::from(
+            "\
             123
-        ");
+        ",
+        );
 
         assert_eq!(
-            lexer.collect::<Vec<Result<TokenTag, LexError>>>()
+            lexer
+                .collect::<Vec<Result<TokenTag, LexError>>>()
                 .into_iter()
                 .flatten()
                 .collect::<Vec<TokenTag>>(),
-            vec![
-                NumberLiteral {
-                    prefix: None,
-                    suffix: None,
-                    kind: NumberLiteralKind::Int
-                },
-            ]
+            vec![NumberLiteral {
+                prefix: None,
+                suffix: None,
+                kind: NumberLiteralKind::Int
+            },]
         );
     }
 
     #[test]
     fn floats() {
-        let lexer = Lexer::from("
+        let lexer = Lexer::from(
+            "
             3.141592 1.4142l 1.4142f
-        ");
+        ",
+        );
 
         assert_eq!(
-            lexer.collect::<Vec<Result<TokenTag, LexError>>>()
+            lexer
+                .collect::<Vec<Result<TokenTag, LexError>>>()
                 .into_iter()
                 .flatten()
                 .collect::<Vec<TokenTag>>(),
@@ -65,10 +67,12 @@ mod tests {
 
     #[test]
     fn hex_and_oct_integers() {
-        let lexer = Lexer::from("
+        let lexer = Lexer::from(
+            "
             0x234 0x234ul
             0xefg
-        ");
+        ",
+        );
 
         assert_eq!(
             lexer.collect::<Vec<Result<TokenTag, LexError>>>(),
@@ -90,12 +94,14 @@ mod tests {
 
     #[test]
     fn exponents() {
-        let lexer = Lexer::from("
+        let lexer = Lexer::from(
+            "
             123e3 123e-3
             123e3l 123e-3l
             1.6e19f 1.6e-19f
             123e- 1.6e19lf
-        ");
+        ",
+        );
 
         assert_eq!(
             lexer.collect::<Vec<Result<TokenTag, LexError>>>(),
@@ -138,7 +144,8 @@ mod tests {
 
     #[test]
     fn valid_suffixes() {
-        let lexer = Lexer::from("
+        let lexer = Lexer::from(
+            "
             123l 123L
             123ll 123LL
             123u 123U
@@ -146,10 +153,12 @@ mod tests {
             123Ul 123UL 123lU 123LU
             123ull 123uLL 123llu 123LLu
             123Ull 123ULL 123llU 123LLU
-        ");
+        ",
+        );
 
         assert_eq!(
-            lexer.collect::<Vec<Result<TokenTag, LexError>>>()
+            lexer
+                .collect::<Vec<Result<TokenTag, LexError>>>()
                 .iter()
                 .all(|t| t.is_ok()),
             true
@@ -158,7 +167,8 @@ mod tests {
 
     #[test]
     fn invalid_suffixes() {
-        let lexer = Lexer::from("
+        let lexer = Lexer::from(
+            "
             123lL 123lL
             123ulu 123uLu 123lul 123lUl
             123Ulu 123uLU 123Lul 123LUl
@@ -169,10 +179,12 @@ mod tests {
             123UlL 123ULl 123LlU 123lLU
 
             0xefg 0b1012 0o178
-        ");
+        ",
+        );
 
         assert_eq!(
-            lexer.collect::<Vec<Result<TokenTag, LexError>>>()
+            lexer
+                .collect::<Vec<Result<TokenTag, LexError>>>()
                 .iter()
                 .all(|t| t.is_err()),
             true
@@ -181,7 +193,8 @@ mod tests {
 
     #[test]
     fn comments() {
-        let lexer = Lexer::from(r#"\
+        let lexer = Lexer::from(
+            r#"\
             /* this is a comment */
             int f() {
                 return 1; /* always one */
@@ -196,10 +209,12 @@ mod tests {
             int a() {
                 return 12321;
             }
-        "#);
+        "#,
+        );
 
         assert_eq!(
-            lexer.collect::<Vec<Result<TokenTag, LexError>>>()
+            lexer
+                .collect::<Vec<Result<TokenTag, LexError>>>()
                 .into_iter()
                 .flatten()
                 .collect::<Vec<TokenTag>>(),
@@ -232,20 +247,22 @@ mod tests {
                 RightCurly
             ]
         );
-
     }
 
     #[test]
     fn hello_world() {
-        let lexer = Lexer::from(r#"\
+        let lexer = Lexer::from(
+            r#"\
             int main() {
                 printf("Hello, world!");
                 return 0;
             }
-        "#);
+        "#,
+        );
 
         assert_eq!(
-            lexer.collect::<Vec<Result<TokenTag, LexError>>>()
+            lexer
+                .collect::<Vec<Result<TokenTag, LexError>>>()
                 .into_iter()
                 .flatten()
                 .collect::<Vec<TokenTag>>(),
@@ -274,29 +291,69 @@ mod tests {
 
     #[test]
     fn one_or_two_character_tokens() {
-        let lexer = Lexer::from("\
+        let lexer = Lexer::from(
+            "\
             ... . > >> >>= >= < << <<= <=
             + += ++ - -= -- -> * *=
             / /= % %= & &= && ^ ^=
             | |= || = == ! != ; { } , :
             ( ) [ ] ~ ?
-        ");
+        ",
+        );
 
         assert_eq!(
-            lexer.collect::<Vec<Result<TokenTag, LexError>>>()
+            lexer
+                .collect::<Vec<Result<TokenTag, LexError>>>()
                 .into_iter()
                 .flatten()
                 .collect::<Vec<TokenTag>>(),
             vec![
-                Ellipsis, Dot, Gt, Right, RightAssign,
-                Ge, Lt, Left, LeftAssign, Le, Plus,
-                AddAssign, Increment, Minus, SubAssign,
-                Decrement, ArrowRight, Asterisk, MulAssign,
-                Slash, DivAssign, Mod, ModAssign, Ampersand,
-                AndAssign, And, Circ, XorAssign, Bar, OrAssign,
-                Or, Assign, Eq, Not, Neq, Semicolon, LeftCurly,
-                RightCurly, Comma, Colon, LeftParen, RightParen,
-                LeftBrace, RightBrace, Tilde, Quest
+                Ellipsis,
+                Dot,
+                Gt,
+                Right,
+                RightAssign,
+                Ge,
+                Lt,
+                Left,
+                LeftAssign,
+                Le,
+                Plus,
+                AddAssign,
+                Increment,
+                Minus,
+                SubAssign,
+                Decrement,
+                ArrowRight,
+                Asterisk,
+                MulAssign,
+                Slash,
+                DivAssign,
+                Mod,
+                ModAssign,
+                Ampersand,
+                AndAssign,
+                And,
+                Circ,
+                XorAssign,
+                Bar,
+                OrAssign,
+                Or,
+                Assign,
+                Eq,
+                Not,
+                Neq,
+                Semicolon,
+                LeftCurly,
+                RightCurly,
+                Comma,
+                Colon,
+                LeftParen,
+                RightParen,
+                LeftBrace,
+                RightBrace,
+                Tilde,
+                Quest
             ]
         )
     }

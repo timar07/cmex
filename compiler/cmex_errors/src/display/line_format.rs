@@ -3,7 +3,7 @@ use colored::Colorize;
 pub struct LineFormat<'a> {
     number: usize,
     line: &'a String,
-    extra: Option<String>
+    extra: Option<String>,
 }
 
 impl<'a> LineFormat<'a> {
@@ -11,18 +11,14 @@ impl<'a> LineFormat<'a> {
         Self {
             number,
             line,
-            extra
+            extra,
         }
     }
 }
 
 impl std::fmt::Display for LineFormat<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let snippet_prefix = format!(
-            "    {} {} ",
-            self.number,
-            "|"
-        );
+        let snippet_prefix = format!("    {} {} ", self.number, "|");
 
         write!(
             f,
@@ -31,11 +27,7 @@ impl std::fmt::Display for LineFormat<'_> {
             self.line,
             self.extra
                 .as_ref()
-                .map(|extra| format!(
-                    "\n{}{}",
-                    " ".repeat(snippet_prefix.len()),
-                    extra
-                ))
+                .map(|extra| format!("\n{}{}", " ".repeat(snippet_prefix.len()), extra))
                 .unwrap_or("\n".into())
         )
     }

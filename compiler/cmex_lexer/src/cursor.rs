@@ -6,7 +6,7 @@ pub struct Cursor<'src> {
     src: CharIndices<'src>,
     iter: Chars<'src>,
     current: Option<char>,
-    pub pos: usize
+    pub pos: usize,
 }
 
 impl<'a> Cursor<'a> {
@@ -15,7 +15,7 @@ impl<'a> Cursor<'a> {
             src: src.char_indices(),
             iter: src.chars(),
             current: None,
-            pos: 0
+            pos: 0,
         }
     }
 
@@ -58,11 +58,11 @@ impl<'a> Cursor<'a> {
 
     pub fn take_while<P>(&mut self, mut predicate: P) -> String
     where
-        P: FnMut(char) -> bool
+        P: FnMut(char) -> bool,
     {
         let mut lexeme = String::new();
 
-        while let Some(c) = self.peek(){
+        while let Some(c) = self.peek() {
             if !predicate(c) {
                 break;
             }

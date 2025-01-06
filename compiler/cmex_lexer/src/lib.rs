@@ -1,7 +1,7 @@
-mod errors;
-mod token;
 mod cursor;
+mod errors;
 mod tests;
+mod token;
 
 pub use errors::LexError;
 pub use token::Spanned;
@@ -12,13 +12,13 @@ use errors::LexError::*;
 
 #[derive(Clone)]
 pub struct Lexer<'src> {
-    src: Cursor<'src>
+    src: Cursor<'src>,
 }
 
 impl<'a> From<&'a str> for Lexer<'a> {
     fn from(s: &'a str) -> Self {
         Self {
-            src: Cursor::new(s)
+            src: Cursor::new(s),
         }
     }
 }
@@ -32,12 +32,14 @@ impl Iterator for Lexer<'_> {
 }
 
 impl Positioned for Lexer<'_> {
-    fn get_pos(&self) -> usize { self.src.pos }
+    fn get_pos(&self) -> usize {
+        self.src.pos
+    }
 }
 
 /// Iterator over tokens' lexemes
 pub struct Lexemes<'a> {
-    iter: Spanned<Lexer<'a>>
+    iter: Spanned<Lexer<'a>>,
 }
 
 impl<'a> Lexemes<'a> {
@@ -52,12 +54,7 @@ impl Iterator for Lexemes<'_> {
     fn next(&mut self) -> Option<Self::Item> {
         self.iter
             .next()
-            .map(|(_, span)| {
-                self.iter.iter.src
-                    .slice(span.0, span.1)
-                    .trim()
-                    .to_owned()
-            })
+            .map(|(_, span)| self.iter.iter.src.slice(span.0, span.1).trim().to_owned())
     }
 }
 
@@ -85,16 +82,14 @@ impl Lexer<'_> {
             c if c.is_ascii_whitespace() => {
                 self.src.next();
                 self.lex_token()
-            },
-            c if c.is_ascii_alphabetic() => {
-                Some(self.parse_keyword_or_ident())
-            },
+            }
+            c if c.is_ascii_alphabetic() => Some(self.parse_keyword_or_ident()),
             '\"' => Some(StringLiteralCollector::new(&mut self.src).collect()),
             '\'' => Some(CharLiteralCollector::new(&mut self.src).collect()),
             '/' if self.src.lookahead(1) == Some('*') => {
                 self.skip_comment();
                 self.lex_token()
-            },
+            }
             '0'..='9' => Some(NumberLiteralCollector::new(&mut self.src).collect()),
             _ => self.parse_single_char(),
         }
@@ -118,7 +113,7 @@ impl Lexer<'_> {
                 } else {
                     TokenTag::Dot
                 }
-            },
+            }
             '>' => {
                 if self.src.match_ch('>') {
                     if self.src.match_ch('=') {
@@ -131,7 +126,7 @@ impl Lexer<'_> {
                 } else {
                     TokenTag::Gt
                 }
-            },
+            }
             '<' => {
                 if self.src.match_ch('<') {
                     if self.src.match_ch('=') {
@@ -144,7 +139,7 @@ impl Lexer<'_> {
                 } else {
                     TokenTag::Lt
                 }
-            },
+            }
             '+' => {
                 if self.src.match_ch('=') {
                     TokenTag::AddAssign
@@ -153,7 +148,7 @@ impl Lexer<'_> {
                 } else {
                     TokenTag::Plus
                 }
-            },
+            }
             '-' => {
                 if self.src.match_ch('=') {
                     TokenTag::SubAssign
@@ -164,28 +159,28 @@ impl Lexer<'_> {
                 } else {
                     TokenTag::Minus
                 }
-            },
+            }
             '*' => {
                 if self.src.match_ch('=') {
                     TokenTag::MulAssign
                 } else {
                     TokenTag::Asterisk
                 }
-            },
+            }
             '/' => {
                 if self.src.match_ch('=') {
                     TokenTag::DivAssign
                 } else {
                     TokenTag::Slash
                 }
-            },
+            }
             '%' => {
                 if self.src.match_ch('=') {
                     TokenTag::ModAssign
                 } else {
                     TokenTag::Mod
                 }
-            },
+            }
             '&' => {
                 if self.src.match_ch('=') {
                     TokenTag::AndAssign
@@ -194,14 +189,14 @@ impl Lexer<'_> {
                 } else {
                     TokenTag::Ampersand
                 }
-            },
+            }
             '^' => {
                 if self.src.match_ch('=') {
                     TokenTag::XorAssign
                 } else {
                     TokenTag::Circ
                 }
-            },
+            }
             '|' => {
                 if self.src.match_ch('=') {
                     TokenTag::OrAssign
@@ -210,7 +205,7 @@ impl Lexer<'_> {
                 } else {
                     TokenTag::Bar
                 }
-            },
+            }
             '=' => {
                 if self.src.match_ch('=') {
                     TokenTag::Eq
@@ -219,14 +214,14 @@ impl Lexer<'_> {
                 } else {
                     TokenTag::Assign
                 }
-            },
+            }
             '!' => {
                 if self.src.match_ch('=') {
                     TokenTag::Neq
                 } else {
                     TokenTag::Not
                 }
-            },
+            }
             ';' => TokenTag::Semicolon,
             '{' => TokenTag::LeftCurly,
             '}' => TokenTag::RightCurly,
@@ -239,12 +234,13 @@ impl Lexer<'_> {
             '~' => TokenTag::Tilde,
             '?' => TokenTag::Quest,
             '$' => TokenTag::Dollar,
-            c => return Some(Err(UnexpectedCharacter(c)))
+            c => return Some(Err(UnexpectedCharacter(c))),
         }))
     }
 
     fn parse_keyword_or_ident(&mut self) -> Result<TokenTag, LexError> {
-        let ident = self.src
+        let ident = self
+            .src
             .take_while(|c| c.is_ascii_alphanumeric() || c == '_');
 
         Ok(match ident.as_str() {
@@ -281,13 +277,13 @@ impl Lexer<'_> {
             "volatile" => TokenTag::Volatile,
             "while" => TokenTag::While,
             "macro_rules" => TokenTag::MacroRules,
-            _ => TokenTag::Identifier(ident)
+            _ => TokenTag::Identifier(ident),
         })
     }
 }
 
 struct NumberLiteralCollector<'src, 'a> {
-    src: &'a mut Cursor<'src>
+    src: &'a mut Cursor<'src>,
 }
 
 impl<'src, 'a> NumberLiteralCollector<'src, 'a> {
@@ -300,8 +296,8 @@ impl<'src, 'a> NumberLiteralCollector<'src, 'a> {
             '0' => {
                 self.src.next();
                 self.parse_prefix()
-            },
-            _ => None
+            }
+            _ => None,
         };
 
         match prefix {
@@ -322,48 +318,40 @@ impl<'src, 'a> NumberLiteralCollector<'src, 'a> {
                 } else {
                     NumberLiteralKind::Float
                 }
-            },
+            }
             Some('e' | 'E') => {
                 if prefix.is_some() {
-                    return Err(InvalidDigit('e'))
+                    return Err(InvalidDigit('e'));
                 }
 
                 self.consume_exponent()?;
                 NumberLiteralKind::Exponent
-            },
-            _ => NumberLiteralKind::Int
+            }
+            _ => NumberLiteralKind::Int,
         };
 
-        let suffix = self.parse_suffix(
-            match kind {
-                NumberLiteralKind::Exponent | NumberLiteralKind::Float => {
-                    Self::parse_float_suffix
-                },
-                NumberLiteralKind::Int => {
-                    Self::parse_integer_suffix
-                }
-            }
-        )?;
+        let suffix = self.parse_suffix(match kind {
+            NumberLiteralKind::Exponent | NumberLiteralKind::Float => Self::parse_float_suffix,
+            NumberLiteralKind::Int => Self::parse_integer_suffix,
+        })?;
 
         Ok(TokenTag::NumberLiteral {
             prefix,
             suffix,
-            kind
+            kind,
         })
     }
 
-    fn parse_suffix<F>(
-        &mut self,
-        strategy: F
-    ) -> Result<Option<NumberLiteralSuffix>, LexError>
+    fn parse_suffix<F>(&mut self, strategy: F) -> Result<Option<NumberLiteralSuffix>, LexError>
     where
-        F: Fn(&mut Cursor) -> Option<NumberLiteralSuffix>
+        F: Fn(&mut Cursor) -> Option<NumberLiteralSuffix>,
     {
         let suffix = self.src.take_while(|c| c.is_ascii_alphanumeric());
         let mut cursor = Cursor::new(&suffix);
         let result = strategy(&mut cursor);
 
-        if cursor.peek().is_some() { // characters left in suffix
+        if cursor.peek().is_some() {
+            // characters left in suffix
             Err(InvalidNumberLiteralSuffix(suffix))
         } else {
             Ok(result)
@@ -380,27 +368,29 @@ impl<'src, 'a> NumberLiteralCollector<'src, 'a> {
                         cursor.next();
 
                         match cursor.peek() {
-                            Some('l') => { // Ull or ull
+                            Some('l') => {
+                                // Ull or ull
                                 cursor.next();
                                 Some(NumberLiteralSuffix::UnsignedLongLong)
-                            },
-                            _ => Some(NumberLiteralSuffix::UnsignedLong) // Ul or ul
+                            }
+                            _ => Some(NumberLiteralSuffix::UnsignedLong), // Ul or ul
                         }
-                    },
+                    }
                     Some('L') => {
                         cursor.next();
 
                         match cursor.peek() {
-                            Some('L') => { // ULL or uLL
+                            Some('L') => {
+                                // ULL or uLL
                                 cursor.next();
                                 Some(NumberLiteralSuffix::UnsignedLong)
-                            },
-                            _ => Some(NumberLiteralSuffix::UnsignedLong) // UL or uL
+                            }
+                            _ => Some(NumberLiteralSuffix::UnsignedLong), // UL or uL
                         }
                     }
-                    _ => Some(NumberLiteralSuffix::Unsigned) // U or u
+                    _ => Some(NumberLiteralSuffix::Unsigned), // U or u
                 }
-            },
+            }
             Some('l') => {
                 cursor.next();
 
@@ -408,21 +398,23 @@ impl<'src, 'a> NumberLiteralCollector<'src, 'a> {
                     Some('l') => {
                         cursor.next();
 
-                        match cursor.peek() { // llU or llu
+                        match cursor.peek() {
+                            // llU or llu
                             Some('U' | 'u') => {
                                 cursor.next();
                                 Some(NumberLiteralSuffix::UnsignedLongLong)
-                            },
-                            _ => Some(NumberLiteralSuffix::LongLong) // ll
+                            }
+                            _ => Some(NumberLiteralSuffix::LongLong), // ll
                         }
-                    },
-                    Some('u' | 'U') => { // lu or lU
+                    }
+                    Some('u' | 'U') => {
+                        // lu or lU
                         cursor.next();
                         Some(NumberLiteralSuffix::UnsignedLong)
-                    },
-                    _ => Some(NumberLiteralSuffix::Long) // l
+                    }
+                    _ => Some(NumberLiteralSuffix::Long), // l
                 }
-            },
+            }
             Some('L') => {
                 cursor.next();
 
@@ -431,21 +423,23 @@ impl<'src, 'a> NumberLiteralCollector<'src, 'a> {
                         cursor.next();
 
                         match cursor.peek() {
-                            Some('u' | 'U') => { // LLu or LLU
+                            Some('u' | 'U') => {
+                                // LLu or LLU
                                 cursor.next();
                                 Some(NumberLiteralSuffix::UnsignedLongLong)
-                            },
-                            _ => Some(NumberLiteralSuffix::LongLong) // LL
+                            }
+                            _ => Some(NumberLiteralSuffix::LongLong), // LL
                         }
-                    },
-                    Some('u' | 'U') => { // Lu or LU
+                    }
+                    Some('u' | 'U') => {
+                        // Lu or LU
                         cursor.next();
                         Some(NumberLiteralSuffix::UnsignedLong)
-                    },
-                    _ => Some(NumberLiteralSuffix::Long) // L
+                    }
+                    _ => Some(NumberLiteralSuffix::Long), // L
                 }
-            },
-            _ => None
+            }
+            _ => None,
         }
     }
 
@@ -454,12 +448,12 @@ impl<'src, 'a> NumberLiteralCollector<'src, 'a> {
             Some('f' | 'F') => {
                 cursor.next();
                 Some(NumberLiteralSuffix::Float)
-            },
+            }
             Some('l' | 'L') => {
                 cursor.next();
                 Some(NumberLiteralSuffix::Long)
             }
-            _ => None
+            _ => None,
         }
     }
 
@@ -468,7 +462,7 @@ impl<'src, 'a> NumberLiteralCollector<'src, 'a> {
             'x' => Some(NumberLiteralPrefix::Hex),
             'o' => Some(NumberLiteralPrefix::Oct),
             'b' => Some(NumberLiteralPrefix::Bin),
-            _ => return None
+            _ => return None,
         };
 
         self.src.next();
@@ -498,7 +492,7 @@ impl<'src, 'a> NumberLiteralCollector<'src, 'a> {
         consume!(self, Some('+' | '-'));
 
         if !self.src.peek().is_some_and(|c| c.is_ascii_digit()) {
-            return Err(ExponentHasNoDigits)
+            return Err(ExponentHasNoDigits);
         }
 
         self.consume_dec_digits();
@@ -507,7 +501,7 @@ impl<'src, 'a> NumberLiteralCollector<'src, 'a> {
 }
 
 struct StringLiteralCollector<'src, 'a> {
-    src: &'a mut Cursor<'src>
+    src: &'a mut Cursor<'src>,
 }
 
 impl<'src, 'a> StringLiteralCollector<'src, 'a> {
@@ -522,13 +516,15 @@ impl<'src, 'a> StringLiteralCollector<'src, 'a> {
             match self.src.peek() {
                 Some('\\') => {
                     EscapeSequenceCollector::new(self.src).collect()?;
-                },
+                }
                 Some('"') => {
                     self.src.next();
                     break;
-                },
+                }
                 None => return Err(UnterminatedString),
-                _ => { self.src.next(); }
+                _ => {
+                    self.src.next();
+                }
             }
         }
 
@@ -537,7 +533,7 @@ impl<'src, 'a> StringLiteralCollector<'src, 'a> {
 }
 
 struct CharLiteralCollector<'src, 'a> {
-    src: &'a mut Cursor<'src>
+    src: &'a mut Cursor<'src>,
 }
 
 impl<'src, 'a> CharLiteralCollector<'src, 'a> {
@@ -551,12 +547,14 @@ impl<'src, 'a> CharLiteralCollector<'src, 'a> {
         match self.src.peek() {
             Some('\\') => {
                 EscapeSequenceCollector::new(self.src).collect()?;
-            },
+            }
             Some('\'') => {
                 self.src.next();
                 return Err(EmptyCharacterConstant);
-            },
-            _ => { self.src.next(); }
+            }
+            _ => {
+                self.src.next();
+            }
         };
 
         if !self.src.match_ch('\'') {
@@ -568,7 +566,7 @@ impl<'src, 'a> CharLiteralCollector<'src, 'a> {
 }
 
 struct EscapeSequenceCollector<'src, 'a> {
-    src: &'a mut Cursor<'src>
+    src: &'a mut Cursor<'src>,
 }
 
 impl<'src, 'a> EscapeSequenceCollector<'src, 'a> {
@@ -582,11 +580,9 @@ impl<'src, 'a> EscapeSequenceCollector<'src, 'a> {
         match self.src.next() {
             Some('0'..='7') => self.parse_octal_escape(),
             Some('x') => self.parse_hex_escape(),
-            Some('b' | 'v' | 't' | 'n' | 'f' | 'r' | '\"' | '\'' | '\\' | '?') => {
-                Ok(())
-            },
-            Some(c) => { Err(UnknownEscapeSequenceCharacter(c)) },
-            _ => Err(UnexpectedEof)
+            Some('b' | 'v' | 't' | 'n' | 'f' | 'r' | '\"' | '\'' | '\\' | '?') => Ok(()),
+            Some(c) => Err(UnknownEscapeSequenceCharacter(c)),
+            _ => Err(UnexpectedEof),
         }
     }
 

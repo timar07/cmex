@@ -15,21 +15,19 @@ fn main() {
     match &parser.parse() {
         Ok(ast) => {
             println!("{}", AstDumper::new(ast));
-        },
+        }
         Err(errors) => {
-            errors
-                .iter()
-                .for_each(|err| {
-                    eprintln!(
-                        "{}",
-                        ErrorBuilder::new()
-                            .filename(args[1].clone())
-                            .tag("ParseError")
-                            .info(format!("{}", err.0))
-                            .context(file.as_str(), err.1)
-                            .build()
-                    )
-                });
+            errors.iter().for_each(|err| {
+                eprintln!(
+                    "{}",
+                    ErrorBuilder::new()
+                        .filename(args[1].clone())
+                        .tag("ParseError")
+                        .info(format!("{}", err.0))
+                        .context(file.as_str(), err.1)
+                        .build()
+                )
+            });
         }
     }
 }

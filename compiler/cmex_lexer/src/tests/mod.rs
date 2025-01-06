@@ -1,4 +1,4 @@
-mod numbers;
 mod keywords;
-mod strings;
 mod lexemes;
+mod numbers;
+mod strings;

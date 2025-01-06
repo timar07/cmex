@@ -1,12 +1,12 @@
-/// This file implements ANSI C language parser.
-/// For more information about grammar, see
-/// <https://www.lysator.liu.se/c/ANSI-C-grammar-y.html>
+//! This file implements ANSI C language parser.
+//! For more information about grammar, see
+//! <https://www.lysator.liu.se/c/ANSI-C-grammar-y.html>
 
-use cmex_ast::{Expr, ExprTag};
-use cmex_span::{Span, Unspan};
-use cmex_lexer::TokenTag::*;
-use crate::{check_tok, match_tok, require_tok};
 use super::{ParseErrorTag, Parser, PR};
+use crate::{check_tok, match_tok, require_tok};
+use cmex_ast::{Expr, ExprTag};
+use cmex_lexer::TokenTag::*;
+use cmex_span::{Span, Unspan};
 
 impl Parser<'_> {
     pub fn constant_expression(&mut self) -> PR<Expr> {
@@ -21,8 +21,8 @@ impl Parser<'_> {
                 tag: ExprTag::BinExpr {
                     op,
                     lhs: Box::new(expr),
-                    rhs: Box::new(self.assignment()?)
-                }
+                    rhs: Box::new(self.assignment()?),
+                },
             }
         }
 
@@ -35,24 +35,24 @@ impl Parser<'_> {
         if let Some(op) = match_tok!(
             self,
             Assign
-            | MulAssign
-            | DivAssign
-            | ModAssign
-            | AddAssign
-            | SubAssign
-            | LeftAssign
-            | RightAssign
-            | AndAssign
-            | XorAssign
-            | OrAssign
+                | MulAssign
+                | DivAssign
+                | ModAssign
+                | AddAssign
+                | SubAssign
+                | LeftAssign
+                | RightAssign
+                | AndAssign
+                | XorAssign
+                | OrAssign
         ) {
             return Ok(Expr {
                 tag: ExprTag::BinExpr {
                     op,
                     lhs: Box::new(expr),
-                    rhs: Box::new(self.assignment()?)
-                }
-            })
+                    rhs: Box::new(self.assignment()?),
+                },
+            });
         }
 
         Ok(expr)
@@ -69,9 +69,9 @@ impl Parser<'_> {
                 tag: ExprTag::Conditional {
                     cond: Box::new(cond),
                     then: Box::new(then),
-                    otherwise: Box::new(self.conditional()?)
-                }
-            })
+                    otherwise: Box::new(self.conditional()?),
+                },
+            });
         }
 
         Ok(cond)
@@ -85,8 +85,8 @@ impl Parser<'_> {
                 tag: ExprTag::BinExpr {
                     op,
                     lhs: Box::new(expr),
-                    rhs: Box::new(self.logical_and()?)
-                }
+                    rhs: Box::new(self.logical_and()?),
+                },
             }
         }
 
@@ -101,8 +101,8 @@ impl Parser<'_> {
                 tag: ExprTag::BinExpr {
                     op,
                     lhs: Box::new(expr),
-                    rhs: Box::new(self.inclusive_or()?)
-                }
+                    rhs: Box::new(self.inclusive_or()?),
+                },
             }
         }
 
@@ -117,8 +117,8 @@ impl Parser<'_> {
                 tag: ExprTag::BinExpr {
                     op,
                     lhs: Box::new(expr),
-                    rhs: Box::new(self.exclusive_or()?)
-                }
+                    rhs: Box::new(self.exclusive_or()?),
+                },
             }
         }
 
@@ -133,8 +133,8 @@ impl Parser<'_> {
                 tag: ExprTag::BinExpr {
                     op,
                     lhs: Box::new(expr),
-                    rhs: Box::new(self.and()?)
-                }
+                    rhs: Box::new(self.and()?),
+                },
             }
         }
 
@@ -149,8 +149,8 @@ impl Parser<'_> {
                 tag: ExprTag::BinExpr {
                     op,
                     lhs: Box::new(expr),
-                    rhs: Box::new(self.equality()?)
-                }
+                    rhs: Box::new(self.equality()?),
+                },
             }
         }
 
@@ -165,8 +165,8 @@ impl Parser<'_> {
                 tag: ExprTag::BinExpr {
                     op,
                     lhs: Box::new(expr),
-                    rhs: Box::new(self.relational()?)
-                }
+                    rhs: Box::new(self.relational()?),
+                },
             }
         }
 
@@ -181,8 +181,8 @@ impl Parser<'_> {
                 tag: ExprTag::BinExpr {
                     op,
                     lhs: Box::new(expr),
-                    rhs: Box::new(self.shift()?)
-                }
+                    rhs: Box::new(self.shift()?),
+                },
             }
         }
 
@@ -197,8 +197,8 @@ impl Parser<'_> {
                 tag: ExprTag::BinExpr {
                     op,
                     lhs: Box::new(expr),
-                    rhs: Box::new(self.additive()?)
-                }
+                    rhs: Box::new(self.additive()?),
+                },
             }
         }
 
@@ -213,8 +213,8 @@ impl Parser<'_> {
                 tag: ExprTag::BinExpr {
                     op,
                     lhs: Box::new(expr?),
-                    rhs: Box::new(self.multiplicative()?)
-                }
+                    rhs: Box::new(self.multiplicative()?),
+                },
             });
         }
 
@@ -229,8 +229,8 @@ impl Parser<'_> {
                 tag: ExprTag::BinExpr {
                     op,
                     lhs: Box::new(expr),
-                    rhs: Box::new(self.cast()?)
-                }
+                    rhs: Box::new(self.cast()?),
+                },
             }
         }
 
@@ -246,9 +246,9 @@ impl Parser<'_> {
                 return Ok(Expr {
                     tag: ExprTag::CastExpr {
                         r#type: Box::new(type_name),
-                        expr: Box::new(self.cast()?)
-                    }
-                })
+                        expr: Box::new(self.cast()?),
+                    },
+                });
             } else {
                 let expr = self.expression();
                 require_tok!(self, RightParen)?;
@@ -262,79 +262,65 @@ impl Parser<'_> {
 
     fn unary(&mut self) -> PR<Expr> {
         match self.iter.peek().val() {
-            Some(
-                Ampersand
-                | Asterisk
-                | Plus
-                | Minus
-                | Tilde
-                | Not
-            ) => {
-                Ok(Expr {
-                    tag: ExprTag::UnExpr {
-                        op: self.iter.next().unwrap(),
-                        rhs: Box::new(self.cast()?)
-                    }
-                })
-            },
+            Some(Ampersand | Asterisk | Plus | Minus | Tilde | Not) => Ok(Expr {
+                tag: ExprTag::UnExpr {
+                    op: self.iter.next().unwrap(),
+                    rhs: Box::new(self.cast()?),
+                },
+            }),
             Some(Sizeof) => {
                 self.iter.next();
 
                 if check_tok!(self, LeftParen) {
                     let sizeof_expr = Expr {
                         tag: ExprTag::SizeofType {
-                            r#type: Box::new(self.type_name()?)
-                        }
+                            r#type: Box::new(self.type_name()?),
+                        },
                     };
                     require_tok!(self, RightParen)?;
                     Ok(sizeof_expr)
                 } else {
                     Ok(Expr {
                         tag: ExprTag::SizeofExpr {
-                            expr: Box::new(self.unary()?)
-                        }
+                            expr: Box::new(self.unary()?),
+                        },
                     })
                 }
-            },
-            _ => self.postfix()
+            }
+            _ => self.postfix(),
         }
     }
 
     fn postfix(&mut self) -> PR<Expr> {
         let mut expr = self.primary();
 
-        while let Some(tok) = match_tok!(
-            self,
-            LeftBrace
-            | LeftParen
-            | Dot
-            | ArrowRight
-            | Decrement
-        ) {
+        while let Some(tok) = match_tok!(self, LeftBrace | LeftParen | Dot | ArrowRight | Decrement)
+        {
             expr = match tok.0 {
                 // todo: somehow make this transformation with macros
-                LeftBrace => { // sugar
+                LeftBrace => {
+                    // sugar
                     self.expression()?;
                     require_tok!(self, RightBrace)?;
                     todo!()
-                },
+                }
                 LeftParen => self.parse_call(expr?),
-                Dot => {
-                    Ok(Expr {
-                        tag: ExprTag::MemberAccess {
-                            expr: Box::new(expr?),
-                            member: tok
-                        }
-                    })
-                },
-                ArrowRight => { // sugar
+                Dot => Ok(Expr {
+                    tag: ExprTag::MemberAccess {
+                        expr: Box::new(expr?),
+                        member: tok,
+                    },
+                }),
+                ArrowRight => {
+                    // sugar
                     require_tok!(self, Identifier(_))?;
                     todo!()
-                },
-                Increment | Decrement => { // sugar
+                }
+                Increment | Decrement => {
+                    // sugar
                     todo!()
-                },
-                _ => panic!()
+                }
+                _ => panic!(),
             }
         }
 
@@ -342,20 +328,21 @@ impl Parser<'_> {
     }
 
     fn parse_call(&mut self, calle: Expr) -> PR<Expr> {
-        if check_tok!(self, RightParen) { // Empty args
+        if check_tok!(self, RightParen) {
+            // Empty args
             return Ok(Expr {
                 tag: ExprTag::Call {
                     calle: Box::new(calle),
                     args: Vec::with_capacity(0),
-                }
-            })
+                },
+            });
         }
 
         let expr = Expr {
             tag: ExprTag::Call {
                 calle: Box::new(calle),
                 args: self.parse_args()?,
-            }
+            },
         };
 
         require_tok!(self, RightParen)?;
@@ -375,16 +362,9 @@ impl Parser<'_> {
 
     fn primary(&mut self) -> PR<Expr> {
         match self.iter.peek().val() {
-            Some(
-                Identifier(_)
-                | StringLiteral
-                | CharLiteral
-                | NumberLiteral { .. }
-            ) => {
-                Ok(Expr {
-                    tag: ExprTag::Primary(self.iter.next().unwrap())
-                })
-            },
+            Some(Identifier(_) | StringLiteral | CharLiteral | NumberLiteral { .. }) => Ok(Expr {
+                tag: ExprTag::Primary(self.iter.next().unwrap()),
+            }),
             Some(LeftParen) => {
                 self.iter.next();
                 let expr = self.expression();
@@ -392,12 +372,10 @@ impl Parser<'_> {
                 expr
             }
             Some(_) => Err((
-                ParseErrorTag::UnexpectedToken(
-                    self.iter.peek().unwrap()
-                ),
-                self.iter.peek().unwrap().1
+                ParseErrorTag::UnexpectedToken(self.iter.peek().unwrap()),
+                self.iter.peek().unwrap().1,
             )),
-            _ => panic!()
+            _ => panic!(),
         }
     }
 }

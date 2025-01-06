@@ -3,7 +3,7 @@ use crate::tree_builder::TreeBuilder;
 /// Implements AST dumping in clang compiler style
 /// style i.e. `clang -Xclang -ast-dump <...>`
 pub struct AstDumper {
-    pub tree_builder: TreeBuilder
+    pub tree_builder: TreeBuilder,
 }
 
 impl AstDumper {
@@ -11,9 +11,7 @@ impl AstDumper {
         let mut tree_builder = TreeBuilder::new();
         entry.dump(&mut tree_builder);
 
-        Self {
-            tree_builder
-        }
+        Self { tree_builder }
     }
 }
 
@@ -26,6 +24,5 @@ impl std::fmt::Display for AstDumper {
 /// Helper trait that defines interface for AST node
 /// dumping.
 pub trait AstNodeDump {
-    fn dump(&self, tb: &mut TreeBuilder) ;
+    fn dump(&self, tb: &mut TreeBuilder);
 }
-

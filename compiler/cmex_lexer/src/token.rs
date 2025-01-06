@@ -79,7 +79,7 @@ pub enum TokenTag {
     NumberLiteral {
         prefix: Option<NumberLiteralPrefix>,
         suffix: Option<NumberLiteralSuffix>,
-        kind: NumberLiteralKind
+        kind: NumberLiteralKind,
     },
     SubAssign,
     Typedef,
@@ -98,7 +98,7 @@ pub enum TokenTag {
     MacroRules,
 
     /// Error recovery token
-    Error
+    Error,
 }
 
 impl TokenTag {
@@ -106,11 +106,11 @@ impl TokenTag {
         matches!(
             self,
             TokenTag::LeftCurly
-            | TokenTag::RightCurly
-            | TokenTag::LeftBrace
-            | TokenTag::RightBrace
-            | TokenTag::LeftParen
-            | TokenTag::RightParen
+                | TokenTag::RightCurly
+                | TokenTag::LeftBrace
+                | TokenTag::RightBrace
+                | TokenTag::LeftParen
+                | TokenTag::RightParen
         )
     }
 
@@ -119,37 +119,37 @@ impl TokenTag {
         matches!(
             self,
             TokenTag::Auto
-            | TokenTag::Break
-            | TokenTag::Case
-            | TokenTag::Char
-            | TokenTag::Const
-            | TokenTag::Continue
-            | TokenTag::Default
-            | TokenTag::Do
-            | TokenTag::Double
-            | TokenTag::Else
-            | TokenTag::Enum
-            | TokenTag::Extern
-            | TokenTag::Float
-            | TokenTag::For
-            | TokenTag::Goto
-            | TokenTag::If
-            | TokenTag::Int
-            | TokenTag::Long
-            | TokenTag::Register
-            | TokenTag::Return
-            | TokenTag::Short
-            | TokenTag::Signed
-            | TokenTag::Sizeof
-            | TokenTag::Static
-            | TokenTag::Struct
-            | TokenTag::Switch
-            | TokenTag::Typedef
-            | TokenTag::Union
-            | TokenTag::Unsigned
-            | TokenTag::Void
-            | TokenTag::Volatile
-            | TokenTag::While
+                | TokenTag::Break
+                | TokenTag::Case
+                | TokenTag::Char
+                | TokenTag::Const
+                | TokenTag::Continue
+                | TokenTag::Default
+                | TokenTag::Do
+                | TokenTag::Double
+                | TokenTag::Else
+                | TokenTag::Enum
+                | TokenTag::Extern
+                | TokenTag::Float
+                | TokenTag::For
+                | TokenTag::Goto
+                | TokenTag::If
+                | TokenTag::Int
+                | TokenTag::Long
+                | TokenTag::Register
+                | TokenTag::Return
+                | TokenTag::Short
+                | TokenTag::Signed
+                | TokenTag::Sizeof
+                | TokenTag::Static
+                | TokenTag::Struct
+                | TokenTag::Switch
+                | TokenTag::Typedef
+                | TokenTag::Union
+                | TokenTag::Unsigned
+                | TokenTag::Void
+                | TokenTag::Volatile
+                | TokenTag::While
         )
     }
 }
@@ -252,14 +252,14 @@ impl std::fmt::Display for TokenTag {
 pub enum NumberLiteralKind {
     Exponent,
     Float,
-    Int
+    Int,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum NumberLiteralPrefix {
     Bin,
     Oct,
-    Hex
+    Hex,
 }
 
 impl std::fmt::Display for NumberLiteralPrefix {
@@ -279,9 +279,8 @@ pub enum NumberLiteralSuffix {
     Long,
     UnsignedLong,
     UnsignedLongLong,
-    LongLong
+    LongLong,
 }
-
 
 #[derive(Clone)]
 pub struct Spanned<I> {
@@ -296,7 +295,7 @@ impl<I> Spanned<I> {
 
 impl<I> Iterator for Spanned<I>
 where
-    I: Positioned + Iterator
+    I: Positioned + Iterator,
 {
     type Item = (<I as Iterator>::Item, Span);
 
@@ -304,10 +303,7 @@ where
         let start = self.iter.get_pos();
         let item = self.iter.next()?;
 
-        Some((item, Span(
-            start,
-            self.iter.get_pos()
-        )))
+        Some((item, Span(start, self.iter.get_pos())))
     }
 }
 

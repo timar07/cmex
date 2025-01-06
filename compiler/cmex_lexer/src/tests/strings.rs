@@ -2,8 +2,7 @@
 mod tests {
     use crate::{
         token::TokenTag::{self, *},
-        LexError,
-        Lexer
+        LexError, Lexer,
     };
 
     #[test]
@@ -24,25 +23,26 @@ mod tests {
     fn escape_sequences() {
         let lexer = Lexer::from(r#""\b\f\n\r\t\v\\\'\"\?""#);
 
-        assert!(
-            dbg!(lexer.collect::<Vec<Result<TokenTag, LexError>>>())
-                .into_iter()
-                .all(|t| t.is_ok())
-        )
+        assert!(dbg!(lexer.collect::<Vec<Result<TokenTag, LexError>>>())
+            .into_iter()
+            .all(|t| t.is_ok()))
     }
 
     #[test]
     fn strings_literals() {
-        let lexer = Lexer::from("\
+        let lexer = Lexer::from(
+            "\
             \"hello, world\"
             \"hello \\b world\"
             \"hello \\111 world\"
             \"hello \\x11 world\"
             \"this string is \\\" terminated\"
-        ");
+        ",
+        );
 
         assert_eq!(
-            lexer.collect::<Vec<Result<TokenTag, LexError>>>()
+            lexer
+                .collect::<Vec<Result<TokenTag, LexError>>>()
                 .into_iter()
                 .flatten()
                 .collect::<Vec<TokenTag>>(),
