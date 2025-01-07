@@ -42,8 +42,12 @@ impl ErrorBuilder {
 
         let snippet = (start..=end)
             .map(|index| {
-                LineFormat::new(index + 1, &source.get_line_contents(index).unwrap(), None)
-                    .to_string()
+                LineFormat::new(
+                    index + 1,
+                    &source.get_line_contents(index).unwrap(),
+                    None,
+                )
+                .to_string()
             })
             .collect();
 

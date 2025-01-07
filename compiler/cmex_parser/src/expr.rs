@@ -240,7 +240,7 @@ impl Parser<'_> {
     fn cast(&mut self) -> PR<Expr> {
         if check_tok!(self, LeftParen) {
             if self.is_type_specifier() {
-                let type_name = self.type_name().unwrap();
+                let type_name = self.type_name()?;
                 require_tok!(self, RightParen)?;
 
                 return Ok(Expr {
@@ -262,12 +262,14 @@ impl Parser<'_> {
 
     fn unary(&mut self) -> PR<Expr> {
         match self.iter.peek().val() {
-            Some(Ampersand | Asterisk | Plus | Minus | Tilde | Not) => Ok(Expr {
-                tag: ExprTag::UnExpr {
-                    op: self.iter.next().unwrap(),
-                    rhs: Box::new(self.cast()?),
-                },
-            }),
+            Some(Ampersand | Asterisk | Plus | Minus | Tilde | Not) => {
+                Ok(Expr {
+                    tag: ExprTag::UnExpr {
+                        op: self.iter.next().unwrap(),
+                        rhs: Box::new(self.cast()?),
+                    },
+                })
+            }
             Some(Sizeof) => {
                 self.iter.next();
 
@@ -294,8 +296,10 @@ impl Parser<'_> {
     fn postfix(&mut self) -> PR<Expr> {
         let mut expr = self.primary();
 
-        while let Some(tok) = match_tok!(self, LeftBrace | LeftParen | Dot | ArrowRight | Decrement)
-        {
+        while let Some(tok) = match_tok!(
+            self,
+            LeftBrace | LeftParen | Dot | Not | ArrowRight | Decrement
+        ) {
             expr = match tok.0 {
                 // todo: somehow make this transformation with macros
                 LeftBrace => {
@@ -303,6 +307,14 @@ impl Parser<'_> {
                     self.expression()?;
                     require_tok!(self, RightBrace)?;
                     todo!()
+                }
+                Not => {
+                    require_tok!(self, LeftParen)?;
+                    self.delim_token_tree()?;
+                    require_tok!(self, RightParen)?;
+                    Ok(Expr {
+                        tag: ExprTag::Invocation,
+                    })
                 }
                 LeftParen => self.parse_call(expr?),
                 Dot => Ok(Expr {
@@ -362,7 +374,12 @@ impl Parser<'_> {
 
     fn primary(&mut self) -> PR<Expr> {
         match self.iter.peek().val() {
-            Some(Identifier(_) | StringLiteral | CharLiteral | NumberLiteral { .. }) => Ok(Expr {
+            Some(
+                Identifier(_)
+                | StringLiteral
+                | CharLiteral
+                | NumberLiteral { .. },
+            ) => Ok(Expr {
                 tag: ExprTag::Primary(self.iter.next().unwrap()),
             }),
             Some(LeftParen) => {

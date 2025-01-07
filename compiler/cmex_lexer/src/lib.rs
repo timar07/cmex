@@ -52,9 +52,9 @@ impl Iterator for Lexemes<'_> {
     type Item = String;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.iter
-            .next()
-            .map(|(_, span)| self.iter.iter.src.slice(span.0, span.1).trim().to_owned())
+        self.iter.next().map(|(_, span)| {
+            self.iter.iter.src.slice(span.0, span.1).trim().to_owned()
+        })
     }
 }
 
@@ -90,7 +90,9 @@ impl Lexer<'_> {
                 self.skip_comment();
                 self.lex_token()
             }
-            '0'..='9' => Some(NumberLiteralCollector::new(&mut self.src).collect()),
+            '0'..='9' => {
+                Some(NumberLiteralCollector::new(&mut self.src).collect())
+            }
             _ => self.parse_single_char(),
         }
     }
@@ -292,8 +294,8 @@ impl<'src, 'a> NumberLiteralCollector<'src, 'a> {
     }
 
     pub fn collect(&mut self) -> Result<TokenTag, LexError> {
-        let prefix = match self.src.peek().unwrap() {
-            '0' => {
+        let prefix = match self.src.peek() {
+            Some('0') => {
                 self.src.next();
                 self.parse_prefix()
             }
@@ -331,7 +333,9 @@ impl<'src, 'a> NumberLiteralCollector<'src, 'a> {
         };
 
         let suffix = self.parse_suffix(match kind {
-            NumberLiteralKind::Exponent | NumberLiteralKind::Float => Self::parse_float_suffix,
+            NumberLiteralKind::Exponent | NumberLiteralKind::Float => {
+                Self::parse_float_suffix
+            }
             NumberLiteralKind::Int => Self::parse_integer_suffix,
         })?;
 
@@ -342,7 +346,10 @@ impl<'src, 'a> NumberLiteralCollector<'src, 'a> {
         })
     }
 
-    fn parse_suffix<F>(&mut self, strategy: F) -> Result<Option<NumberLiteralSuffix>, LexError>
+    fn parse_suffix<F>(
+        &mut self,
+        strategy: F,
+    ) -> Result<Option<NumberLiteralSuffix>, LexError>
     where
         F: Fn(&mut Cursor) -> Option<NumberLiteralSuffix>,
     {
@@ -358,7 +365,9 @@ impl<'src, 'a> NumberLiteralCollector<'src, 'a> {
         }
     }
 
-    fn parse_integer_suffix(cursor: &mut Cursor) -> Option<NumberLiteralSuffix> {
+    fn parse_integer_suffix(
+        cursor: &mut Cursor,
+    ) -> Option<NumberLiteralSuffix> {
         match cursor.peek() {
             Some('u' | 'U') => {
                 cursor.next();
@@ -580,7 +589,9 @@ impl<'src, 'a> EscapeSequenceCollector<'src, 'a> {
         match self.src.next() {
             Some('0'..='7') => self.parse_octal_escape(),
             Some('x') => self.parse_hex_escape(),
-            Some('b' | 'v' | 't' | 'n' | 'f' | 'r' | '\"' | '\'' | '\\' | '?') => Ok(()),
+            Some(
+                'b' | 'v' | 't' | 'n' | 'f' | 'r' | '\"' | '\'' | '\\' | '?',
+            ) => Ok(()),
             Some(c) => Err(UnknownEscapeSequenceCharacter(c)),
             _ => Err(UnexpectedEof),
         }

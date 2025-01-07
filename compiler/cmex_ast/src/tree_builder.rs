@@ -37,7 +37,11 @@ impl TreeBuilder {
         if level == 1 {
             parent.children.push(entry);
         } else {
-            TreeBuilder::append_child(parent.children.last_mut().unwrap(), entry, level - 1);
+            TreeBuilder::append_child(
+                parent.children.last_mut().unwrap(),
+                entry,
+                level - 1,
+            );
         }
     }
 }
@@ -82,9 +86,17 @@ impl TreePrinter {
                 .enumerate()
                 .map(|(n, c)| {
                     if n == entry.children.len() - 1 {
-                        Self::print_entry(&c.clone(), format!("{indent: <shift_width$}",), "`-")
+                        Self::print_entry(
+                            &c.clone(),
+                            format!("{indent: <shift_width$}",),
+                            "`-",
+                        )
                     } else {
-                        Self::print_entry(&c.clone(), format!("{indent: <shift_width$}|",), "-")
+                        Self::print_entry(
+                            &c.clone(),
+                            format!("{indent: <shift_width$}|",),
+                            "-",
+                        )
                     }
                 })
                 .collect::<String>(),

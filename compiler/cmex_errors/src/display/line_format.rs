@@ -27,7 +27,11 @@ impl std::fmt::Display for LineFormat<'_> {
             self.line,
             self.extra
                 .as_ref()
-                .map(|extra| format!("\n{}{}", " ".repeat(snippet_prefix.len()), extra))
+                .map(|extra| format!(
+                    "\n{}{}",
+                    " ".repeat(snippet_prefix.len()),
+                    extra
+                ))
                 .unwrap_or("\n".into())
         )
     }

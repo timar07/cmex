@@ -23,9 +23,10 @@ mod tests {
         assert_eq!(
             lexer.flatten().collect::<Vec<TokenTag>>(),
             vec![
-                Auto, Break, Case, Char, Const, Continue, Default, Do, Double, Else, Enum, Extern,
-                Float, For, Goto, If, Int, Long, Register, Return, Short, Signed, Sizeof, Static,
-                Struct, Switch, Typedef, Union, Unsigned, Void, Volatile, While
+                Auto, Break, Case, Char, Const, Continue, Default, Do, Double,
+                Else, Enum, Extern, Float, For, Goto, If, Int, Long, Register,
+                Return, Short, Signed, Sizeof, Static, Struct, Switch, Typedef,
+                Union, Unsigned, Void, Volatile, While
             ]
         )
     }

@@ -452,7 +452,9 @@ impl MaybeSpannable for DeclaratorSuffix {
     fn span(&self) -> Option<Span> {
         match self {
             DeclaratorSuffix::Array(expr) => expr.clone().map(|e| e.span()),
-            DeclaratorSuffix::Func(param_list) => param_list.clone().map(|list| list.span()),
+            DeclaratorSuffix::Func(param_list) => {
+                param_list.clone().map(|list| list.span())
+            }
         }
     }
 }
@@ -562,7 +564,9 @@ pub enum ParamList {
 impl Spannable for ParamList {
     fn span(&self) -> Span {
         match self {
-            ParamList::Identifier(vec) => vec.iter().map(|id| id.1).reduce(Span::join).unwrap(),
+            ParamList::Identifier(vec) => {
+                vec.iter().map(|id| id.1).reduce(Span::join).unwrap()
+            }
             ParamList::Type(vec) => vec.span().unwrap(),
         }
     }
@@ -710,20 +714,25 @@ pub enum ExprTag {
         then: Box<Expr>,
         otherwise: Box<Expr>,
     },
+    Invocation,
 }
 
 impl Spannable for ExprTag {
     fn span(&self) -> Span {
         match self {
             Self::Primary(tok) => tok.1,
-            Self::BinExpr { op: _, lhs, rhs } => Span::join(lhs.span(), rhs.span()),
+            Self::BinExpr { op: _, lhs, rhs } => {
+                Span::join(lhs.span(), rhs.span())
+            }
             Self::UnExpr { op, rhs } => Span::join(op.1, rhs.span()),
             Self::Call { calle, args } => {
                 let calle_span = calle.span();
 
                 Span::join(calle_span, args.span().unwrap_or(calle_span))
             }
-            Self::MemberAccess { expr, member } => Span::join(expr.span(), member.1),
+            Self::MemberAccess { expr, member } => {
+                Span::join(expr.span(), member.1)
+            }
             Self::SizeofType { r#type } => r#type.span(),
             Self::SizeofExpr { expr } => expr.span(),
             Self::CastExpr { r#type: _, expr } => expr.span(),
@@ -732,6 +741,7 @@ impl Spannable for ExprTag {
                 then: _,
                 otherwise,
             } => Span::join(cond.span(), otherwise.span()),
+            Self::Invocation => todo!(),
         }
     }
 }
@@ -784,6 +794,9 @@ impl AstNodeDump for ExprTag {
                 then.dump(tb);
                 otherwise.dump(tb);
                 tb.close();
+            }
+            ExprTag::Invocation => {
+                tb.append_leaf("Invocation".into());
             }
         }
     }

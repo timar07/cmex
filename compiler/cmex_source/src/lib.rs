@@ -106,7 +106,9 @@ mod tests {
 
         assert_eq!(
             source
-                .get_line_contents(source.get_line_containing_index(15).unwrap())
+                .get_line_contents(
+                    source.get_line_containing_index(15).unwrap()
+                )
                 .unwrap(),
             "test".to_owned()
         );
