@@ -1,37 +1,19 @@
 use std::collections::VecDeque;
+use std::iter::Fuse;
 
-/// Since we parse a LL(k) grammar,
-/// we would need more than one peekable token
-#[derive(Clone)]
-pub struct Lookahead<T: Iterator> {
-    iter: T,
-    peeked: Option<T::Item>,
-    queue: VecDeque<T::Item>,
+/// Since we parse a LL(k) grammar, we would need more than one peekable token
+#[derive(Clone, Debug)]
+pub struct Lookahead<I: Iterator> {
+    iter: Fuse<I>,
+    queue: VecDeque<I::Item>,
 }
 
 impl<T: Iterator> From<T> for Lookahead<T> {
     fn from(iter: T) -> Self {
         Self {
-            iter,
-            peeked: None,
+            iter: iter.fuse(),
             queue: VecDeque::new(),
         }
-    }
-}
-
-impl<T: Iterator> Iterator for Lookahead<T>
-where
-    T::Item: Clone,
-{
-    type Item = T::Item;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.peeked
-            .clone()
-            .inspect(|_| {
-                self.peeked = None;
-            })
-            .or_else(|| self.dequeue())
     }
 }
 
@@ -39,49 +21,34 @@ impl<T: Iterator> Lookahead<T>
 where
     T::Item: Clone,
 {
-    pub fn lookahead(&mut self, k: usize) -> Option<T::Item> {
-        if k == 0 {
-            return self.peek();
-        }
-
-        for _ in 0..k - 1 {
-            self.enqueue();
-        }
-
-        self.enqueue()
-    }
-
     pub fn peek(&mut self) -> Option<T::Item> {
-        self.peeked.clone().or_else(|| self.next())
+        self.lookahead(0)
     }
 
-    fn dequeue(&mut self) -> Option<T::Item> {
-        self.queue
-            .pop_back()
-            .or_else(|| self.iter.next())
-            .inspect(|item| {
-                self.peeked = Some(item.clone());
-            })
-    }
-
-    fn enqueue(&mut self) -> Option<T::Item> {
-        self.queue.push_front(self.iter.next()?);
-        self.queue.front().cloned()
+    pub fn lookahead(&mut self, n: usize) -> Option<T::Item> {
+        let rem = self.queue.len();
+        if n >= rem {
+            self.queue.extend(self.iter.by_ref().take(n - rem + 1));
+        }
+        self.queue.get(n).cloned()
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::Lookahead;
+impl<T> Iterator for Lookahead<T>
+where
+    T: Iterator,
+{
+    type Item = T::Item;
 
-    #[test]
-    fn general_usage_test() {
-        let nums = vec![1, 2, 3, 4, 5];
-        let mut iter = Lookahead::from(nums.iter());
-        assert_eq!(iter.lookahead(2), Some(&2));
-        assert_eq!(iter.peek(), Some(&1));
-        assert_eq!(iter.next(), Some(&1));
-        assert_eq!(iter.next(), Some(&2));
-        assert_eq!(iter.lookahead(3), Some(&5))
+    fn next(&mut self) -> Option<Self::Item> {
+        self.queue.pop_front().or_else(|| self.iter.next())
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let rem = self.queue.len();
+        let (lo, hi) = self.iter.size_hint();
+        (lo + rem, hi.map(|n| n + rem))
     }
 }
+
+impl<I> ExactSizeIterator for Lookahead<I> where I: ExactSizeIterator {}
