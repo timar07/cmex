@@ -46,8 +46,6 @@ impl Parser<'_> {
                         self.iter.next();
                     }
 
-                    dbg!(self.iter.peek());
-
                     errors.push(err);
                 }
             }
@@ -247,9 +245,9 @@ impl Parser<'_> {
     fn expression_statement(&mut self) -> PR<Option<Expr>> {
         let expr = if !check_tok!(self, Semicolon) {
             Some(self.expression().inspect_err(|_| {
-                self.iter
-                    .by_ref()
-                    .skip_while(|(tok, _)| !matches!(tok, Semicolon));
+                while !check_tok!(self, Semicolon) {
+                    self.iter.next();
+                }
             })?)
         } else {
             None
