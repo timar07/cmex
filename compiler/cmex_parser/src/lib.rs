@@ -4,8 +4,7 @@ mod macros;
 mod stmt;
 mod tests;
 
-use cmex_ast::Stmt;
-use cmex_lexer::{Lexer, Spanned, Token, TokenTag};
+use cmex_lexer::{Lexer, Spanned, TokenTag};
 use cmex_span::Span;
 use cmex_symtable::SymTable;
 pub use lookahead::Lookahead;
@@ -30,18 +29,6 @@ impl<'a> Parser<'a> {
             span.1
         } else {
             0
-        }
-    }
-}
-
-impl Iterator for Parser<'_> {
-    type Item = Stmt;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.iter.peek().is_some() {
-            Some(self.statement().unwrap())
-        } else {
-            None
         }
     }
 }
@@ -81,7 +68,7 @@ pub enum ParseErrorTag {
     DeclarationHasNoIdentifier,
     DeclarationHasNoInitializer,
     UnexpectedDeclarationSuffix,
-    UnexpectedToken(Token),
+    UnexpectedToken(TokenTag),
     NameAlreadyDefined(String),
     UnexpectedEof,
 }
@@ -99,7 +86,7 @@ impl std::fmt::Display for ParseErrorTag {
             Self::UnexpectedDeclarationSuffix => {
                 write!(f, "unexpected declaration suffix")
             }
-            Self::UnexpectedToken((tok, _)) => {
+            Self::UnexpectedToken(tok) => {
                 write!(f, "unexpected token `{:?}`", tok)
             }
             Self::NameAlreadyDefined(name) => {
@@ -108,7 +95,7 @@ impl std::fmt::Display for ParseErrorTag {
             Self::ExpectedGot(exp, tok) => {
                 write!(
                     f,
-                    "expected {exp} got {}",
+                    "expected {exp}, got {}",
                     tok.clone()
                         .map(|tok| format!("`{tok}`"))
                         .unwrap_or("end of file".into())
@@ -117,6 +104,13 @@ impl std::fmt::Display for ParseErrorTag {
             Self::UnexpectedEof => write!(f, "unexpected end of file"),
         }
     }
+}
+
+#[macro_export]
+macro_rules! lookahead {
+    ($parser:expr, $k:expr, $pat:pat) => {
+        matches!($parser.iter.lookahead($k).val(), Some($pat))
+    };
 }
 
 /// Check if the next token matches $pat, returns it if it does
@@ -146,7 +140,10 @@ macro_rules! require_tok {
         match $p.iter.peek() {
             Some(($pat, _)) => Ok($p.iter.next().unwrap()),
             _ => Err((
-                ParseErrorTag::ExpectedGot(stringify!($pat).into(), $p.iter.peek().val()),
+                ParseErrorTag::ExpectedGot(
+                    stringify!($pat).into(),
+                    $p.iter.peek().val(),
+                ),
                 Span::from($p.get_pos()),
             )),
         }

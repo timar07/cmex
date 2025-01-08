@@ -114,7 +114,10 @@ impl TokenTag {
         )
     }
 
-    #[allow(unused)]
+    pub fn is_keyword_or_id(&self) -> bool {
+        matches!(self, Self::Identifier(_)) || self.is_keyword()
+    }
+
     pub fn is_keyword(&self) -> bool {
         matches!(
             self,

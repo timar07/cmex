@@ -310,8 +310,10 @@ impl Parser<'_> {
                 }
                 Not => {
                     require_tok!(self, LeftParen)?;
-                    self.delim_token_tree()?;
-                    require_tok!(self, RightParen)?;
+                    if !check_tok!(self, RightParen) {
+                        self.delim_token_tree()?;
+                        require_tok!(self, RightParen)?;
+                    }
                     Ok(Expr {
                         tag: ExprTag::Invocation,
                     })
@@ -388,8 +390,8 @@ impl Parser<'_> {
                 require_tok!(self, RightParen)?;
                 expr
             }
-            Some(_) => Err((
-                ParseErrorTag::UnexpectedToken(self.iter.peek().unwrap()),
+            Some(t) => Err((
+                ParseErrorTag::UnexpectedToken(t),
                 self.iter.peek().unwrap().1,
             )),
             _ => panic!(),

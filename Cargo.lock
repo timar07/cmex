@@ -17,6 +17,7 @@ name = "cmex_ast"
 version = "0.1.0"
 dependencies = [
  "cmex_lexer",
+ "cmex_macros",
  "cmex_span",
 ]
 
@@ -41,8 +42,6 @@ name = "cmex_macros"
 version = "0.1.0"
 dependencies = [
  "cmex_lexer",
- "cmex_parser",
- "cmex_span",
 ]
 
 [[package]]
@@ -52,6 +51,7 @@ dependencies = [
  "cmex_ast",
  "cmex_errors",
  "cmex_lexer",
+ "cmex_macros",
  "cmex_span",
  "cmex_symtable",
 ]

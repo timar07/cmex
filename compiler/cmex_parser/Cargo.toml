@@ -12,3 +12,4 @@ cmex_span = { path = "../cmex_span" }
 cmex_symtable = { path = "../cmex_symtable" }
 cmex_ast = { path = "../cmex_ast" }
 cmex_lexer = { path = "../cmex_lexer" }
+cmex_macros = { path = "../cmex_macros" }

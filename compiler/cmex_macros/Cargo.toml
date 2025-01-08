@@ -4,6 +4,4 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-cmex_parser = { path = "../cmex_parser" }
 cmex_lexer = { path = "../cmex_lexer" }
-cmex_span = { path = "../cmex_span" }

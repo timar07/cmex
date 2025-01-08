@@ -3,6 +3,7 @@ mod tree_builder;
 
 use ast_dump::AstNodeDump;
 use cmex_lexer::Token;
+use cmex_macros::MacroRules;
 use cmex_span::{MaybeSpannable, Span, Spannable};
 use tree_builder::TreeBuilder;
 
@@ -221,7 +222,10 @@ pub enum Decl {
         /// ```
         decl_list: Vec<InitDeclarator>,
     },
-    Macro {},
+    Macro {
+        id: Token,
+        rules: Vec<MacroRules>,
+    },
 }
 
 impl Spannable for Decl {
@@ -241,7 +245,7 @@ impl Spannable for Decl {
                 body.tag.span(),
             ),
             Decl::Var { spec: _, decl_list } => decl_list.span().unwrap(),
-            Decl::Macro {} => todo!(),
+            Decl::Macro { id, rules: _ } => id.1,
         }
     }
 }
@@ -261,11 +265,11 @@ impl AstNodeDump for Decl {
             }
             Decl::Func {
                 spec: _,
-                decl: _,
+                decl,
                 body,
                 params,
             } => {
-                tb.open("FuncDecl".into());
+                tb.open(format!("FuncDecl `{}`", decl));
 
                 if let Some(params) = params {
                     params.dump(tb);
@@ -281,8 +285,8 @@ impl AstNodeDump for Decl {
                     tb.close();
                 });
             }
-            Decl::Macro {} => {
-                tb.append_leaf("Macro".into());
+            Decl::Macro { id, rules: _ } => {
+                tb.append_leaf(format!("Macro `{}`", id.0));
             }
         }
     }
@@ -418,7 +422,7 @@ impl MaybeSpannable for DirectDeclarator {
 impl std::fmt::Display for DirectDeclarator {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Identifier((tok, _)) => write!(f, "{:?}", tok),
+            Self::Identifier((tok, _)) => write!(f, "{}", tok),
             Self::Paren(decl) => write!(f, "{}", decl),
             Self::Abstract => write!(f, ""),
         }
