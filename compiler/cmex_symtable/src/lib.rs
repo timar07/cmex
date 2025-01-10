@@ -11,7 +11,7 @@ impl<T, V> Default for SymTable<T, V> {
     fn default() -> Self {
         Self {
             index: Default::default(),
-            scopes: Default::default(),
+            scopes: vec![Scope::default()],
         }
     }
 }
@@ -55,12 +55,21 @@ impl<T: Hash + Eq, V: Clone> SymTable<T, V> {
     }
 }
 
-#[derive(Default)]
 struct Scope<T, V> {
     #[allow(unused)]
     index: Idx,
     inner: HashMap<T, V>,
     parent: Option<Idx>,
+}
+
+impl<T, V> Default for Scope<T, V> {
+    fn default() -> Self {
+        Self {
+            index: Default::default(),
+            inner: Default::default(),
+            parent: Default::default()
+        }
+    }
 }
 
 impl<T: Hash + Eq, V: Clone> Scope<T, V> {
@@ -83,6 +92,7 @@ impl<T: Hash + Eq, V: Clone> Scope<T, V> {
     }
 }
 
+#[derive(Debug)]
 pub enum SymbolError {
     AlreadyDefined,
 }

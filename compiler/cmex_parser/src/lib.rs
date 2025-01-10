@@ -2,9 +2,8 @@ mod expr;
 mod lookahead;
 mod macros;
 mod stmt;
-mod tests;
 
-use cmex_lexer::{Lexer, Spanned, TokenTag};
+use cmex_lexer::{Lexer, TokenTag, Tokens};
 use cmex_span::Span;
 use cmex_symtable::SymTable;
 pub use lookahead::Lookahead;
@@ -25,37 +24,10 @@ impl<'a> Parser<'a> {
     }
 
     pub fn get_pos(&mut self) -> usize {
-        if let Some((_, span)) = self.iter.peek() {
-            span.1
-        } else {
-            0
-        }
-    }
-}
-
-/// Wrapper above the [Lexer] for convenient error handling
-#[derive(Clone)]
-pub struct Tokens<'a> {
-    iter: Spanned<Lexer<'a>>,
-}
-
-impl<'a> Tokens<'a> {
-    pub fn new(iter: Spanned<Lexer<'a>>) -> Self {
-        Self { iter }
-    }
-}
-
-impl Iterator for Tokens<'_> {
-    type Item = (TokenTag, Span);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next().map(|(i, span)| match i {
-            Ok(i) => (i, span),
-            Err(e) => {
-                println!("{e}");
-                (TokenTag::Error, span)
-            }
-        })
+        self.iter
+            .peek()
+            .map(|(_, span)| span.0)
+            .unwrap_or(0)
     }
 }
 

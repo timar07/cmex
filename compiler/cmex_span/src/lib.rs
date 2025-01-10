@@ -33,12 +33,15 @@ pub trait Unspan<T> {
     fn val(self) -> Option<T>;
 }
 
-pub type SpannedOption<I> = Option<(I, Span)>;
-
-impl<T> Unspan<T> for SpannedOption<T> {
-    /// A handy method to convert `Option<(T, Span)>` to `Option<T>`
+impl<T> Unspan<T> for Option<(T, Span)> {
     fn val(self) -> Option<T> {
         self.map(|(val, _)| val)
+    }
+}
+
+impl<T: Clone> Unspan<T> for Option<&(T, Span)> {
+    fn val(self) -> Option<T> {
+        self.map(|(val, _)| val).cloned()
     }
 }
 

@@ -3,12 +3,39 @@ mod errors;
 mod tests;
 mod token;
 
+use cmex_span::Span;
 pub use errors::LexError;
 pub use token::Spanned;
 pub use token::*;
 
 use cursor::Cursor;
 use errors::LexError::*;
+
+/// Wrapper above the [Lexer] for convenient error handling
+#[derive(Clone)]
+pub struct Tokens<'a> {
+    iter: Spanned<Lexer<'a>>,
+}
+
+impl<'a> Tokens<'a> {
+    pub fn new(iter: Spanned<Lexer<'a>>) -> Self {
+        Self { iter }
+    }
+}
+
+impl Iterator for Tokens<'_> {
+    type Item = (TokenTag, Span);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next().map(|(i, span)| match i {
+            Ok(i) => (i, span),
+            Err(e) => {
+                println!("{e}");
+                (TokenTag::Error, span)
+            }
+        })
+    }
+}
 
 #[derive(Clone)]
 pub struct Lexer<'src> {
