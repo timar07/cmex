@@ -38,8 +38,8 @@ impl Parser<'_> {
 
         while self.iter.peek().is_some() {
             match self.external_decl() {
-                Ok(decl) => {
-                    decls.push(decl);
+                Ok(mut decl) => {
+                    decls.append(&mut decl);
                 }
                 Err(err) => {
                     while !check_tok!(self, Comma | Semicolon | RightCurly) {
