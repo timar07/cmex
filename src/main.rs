@@ -3,6 +3,7 @@ use std::{env, fs};
 use cmex_ast::ast_dump::AstDumper;
 use cmex_errors::ErrorBuilder;
 use cmex_lexer::Lexer;
+use cmex_macros::MacroExpander;
 use cmex_parser::Parser;
 
 fn main() {
@@ -14,7 +15,10 @@ fn main() {
 
     match &parser.parse() {
         Ok(ast) => {
-            println!("{}", AstDumper::new(ast));
+            MacroExpander::new(parser).expand_ast(ast.clone());
+            if args.contains(&"-ast-dump".into()) {
+                println!("{}", AstDumper::new(ast));
+            }
         }
         Err(errors) => {
             errors.iter().for_each(|err| {
