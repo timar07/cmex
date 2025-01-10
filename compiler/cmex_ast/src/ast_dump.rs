@@ -32,8 +32,8 @@ impl AstNodeDump for TranslationUnit {
     fn dump(&self, tb: &mut TreeBuilder) {
         tb.open("TranslationUnit".into());
 
-        for decls in self.0.clone() {
-            decls.iter().for_each(|decl| decl.dump(tb));
+        for decl in self.0.clone() {
+            decl.dump(tb);
         }
 
         tb.close();
@@ -124,7 +124,9 @@ impl AstNodeDump for StmtTag {
             StmtTag::Return => {
                 tb.append_leaf("ReturnStmt".into());
             }
-            StmtTag::Goto(_) => todo!(),
+            StmtTag::Goto(_) => {
+                tb.append_leaf("Goto".into());
+            },
         };
     }
 }
@@ -164,7 +166,7 @@ impl AstNodeDump for Decl {
                     tb.close();
                 });
             }
-            Decl::Macro { id, rules: _ } => {
+            Decl::Macro { id, .. } => {
                 tb.append_leaf(format!("Macro `{}`", id.0));
             }
         }
@@ -211,7 +213,11 @@ impl AstNodeDump for EnumConstantDecl {
 impl AstNodeDump for ParamList {
     fn dump(&self, tb: &mut TreeBuilder) {
         match self {
-            Self::Identifier(_) => todo!(),
+            Self::Identifier(ids) => {
+                ids.iter().for_each(|id| {
+                    tb.append_leaf(format!("ParamDecl `{}`", id.0.to_string()));
+                })
+            },
             Self::Type(decls) => {
                 decls.iter().for_each(|decl| decl.dump(tb));
             }
@@ -280,7 +286,7 @@ impl AstNodeDump for ExprTag {
                 otherwise.dump(tb);
                 tb.close();
             }
-            ExprTag::Invocation => {
+            ExprTag::Invocation(_) => {
                 tb.append_leaf("Invocation".into());
             }
         }

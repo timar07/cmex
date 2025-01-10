@@ -1,13 +1,11 @@
 pub mod ast_dump;
 mod tree_builder;
 
-use ast_dump::AstNodeDump;
 use cmex_lexer::Token;
-use cmex_macros::MacroRules;
 use cmex_span::{MaybeSpannable, Span, Spannable};
-use tree_builder::TreeBuilder;
 
-pub struct TranslationUnit(pub Vec<Vec<Decl>>);
+#[derive(Clone)]
+pub struct TranslationUnit(pub Vec<Decl>);
 
 #[derive(Debug, Clone)]
 pub struct Stmt {
@@ -78,7 +76,7 @@ impl Spannable for StmtTag {
             Self::Break => todo!(),
             Self::Continue => todo!(),
             Self::Return => todo!(),
-            Self::Goto(_) => todo!(),
+            Self::Goto(tok) => tok.1,
         }
     }
 }
@@ -123,7 +121,7 @@ pub enum Decl {
     },
     Macro {
         id: Token,
-        rules: Vec<MacroRules>,
+        body: TokenTree,
     },
 }
 
@@ -144,7 +142,7 @@ impl Spannable for Decl {
                 body.tag.span(),
             ),
             Decl::Var { spec: _, decl_list } => decl_list.span().unwrap(),
-            Decl::Macro { id, rules: _ } => id.1,
+            Decl::Macro { id, ..} => id.1,
         }
     }
 }
@@ -515,7 +513,7 @@ pub enum ExprTag {
         then: Box<Expr>,
         otherwise: Box<Expr>,
     },
-    Invocation,
+    Invocation(InvocationTag),
 }
 
 impl Spannable for ExprTag {
@@ -542,7 +540,33 @@ impl Spannable for ExprTag {
                 then: _,
                 otherwise,
             } => Span::join(cond.span(), otherwise.span()),
-            Self::Invocation => todo!(),
+            Self::Invocation(_) => todo!(),
         }
     }
+}
+
+/// Other types of invocations may be implemented
+#[derive(Debug, Clone)]
+pub enum InvocationTag {
+    Bang(String, Option<TokenTree>)
+}
+
+/// Abstract tokens collection, mostly used in macros
+#[derive(Debug, Clone)]
+pub enum TokenTree {
+    /// A primary node of the tree - the token itself
+    Token(Token),
+    /// Delimited token tree, i.e. token tree wrapped with braces,
+    /// e.g. curlies, brackets or parenthesis
+    Delim(DelimTag, Vec<TokenTree>),
+}
+
+#[derive(Debug, Clone)]
+pub enum DelimTag {
+    /// Curly braces `{` `}`
+    Curly,
+    /// Square braces `[` `]`
+    Square,
+    /// Parenthesis `(` `)`
+    Paren
 }

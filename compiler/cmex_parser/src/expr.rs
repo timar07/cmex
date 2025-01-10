@@ -4,7 +4,7 @@
 
 use super::{ParseErrorTag, Parser, PR};
 use crate::{check_tok, match_tok, require_tok};
-use cmex_ast::{Expr, ExprTag};
+use cmex_ast::{Expr, ExprTag, InvocationTag};
 use cmex_lexer::TokenTag::*;
 use cmex_span::{Span, Unspan};
 
@@ -294,7 +294,7 @@ impl Parser<'_> {
     }
 
     fn postfix(&mut self) -> PR<Expr> {
-        let mut expr = self.primary();
+        let mut expr = self.primary()?;
 
         while let Some(tok) = match_tok!(
             self,
@@ -309,22 +309,31 @@ impl Parser<'_> {
                     todo!()
                 }
                 Not => {
-                    require_tok!(self, LeftParen)?;
-                    if !check_tok!(self, RightParen) {
-                        self.delim_token_tree()?;
-                        require_tok!(self, RightParen)?;
+                    match expr.tag {
+                        ExprTag::Primary((Identifier(id), _)) => {
+                            let mut tt = None;
+
+                            require_tok!(self, LeftParen)?;
+                            if !check_tok!(self, RightParen) {
+                                tt = Some(self.delim_token_tree()?);
+                                require_tok!(self, RightParen)?;
+                            }
+                            Expr {
+                                tag: ExprTag::Invocation(
+                                    InvocationTag::Bang(id, tt)
+                                ),
+                            }
+                        },
+                        _ => panic!("expected identifier before macro invocation")
                     }
-                    Ok(Expr {
-                        tag: ExprTag::Invocation,
-                    })
                 }
-                LeftParen => self.parse_call(expr?),
-                Dot => Ok(Expr {
+                LeftParen => self.parse_call(expr)?,
+                Dot => Expr {
                     tag: ExprTag::MemberAccess {
-                        expr: Box::new(expr?),
+                        expr: Box::new(expr),
                         member: tok,
                     },
-                }),
+                },
                 ArrowRight => {
                     // sugar
                     require_tok!(self, Identifier(_))?;
@@ -338,7 +347,7 @@ impl Parser<'_> {
             }
         }
 
-        expr
+        Ok(expr)
     }
 
     fn parse_call(&mut self, calle: Expr) -> PR<Expr> {

@@ -1,8 +1,20 @@
+mod parse;
+mod expand;
+
+use cmex_ast::TokenTree;
 use cmex_lexer::Token;
+pub use expand::MacroExpander;
 
 #[derive(Debug, Clone)]
-pub struct MacroRules(pub MacroMatcher, pub TokenTree);
+pub struct MacroRule(pub MacroMatcher, pub TokenTree);
 
+/// A part of the macro that defines how token stream will be matched.
+/// ```ignore
+/// macro_rules! foo {
+///     ($e:expr) => { /* ... */ }
+///  /* ^~~~~~~~~ matcher */
+/// }
+/// ```
 #[derive(Debug, Clone)]
 pub struct MacroMatcher(pub Option<MacroMatch>);
 
@@ -65,8 +77,3 @@ impl std::fmt::Display for RepOpTag {
     }
 }
 
-#[derive(Debug, Clone)]
-pub enum TokenTree {
-    Token(Token),
-    Delim(/* todo: delimiter ,*/ Vec<TokenTree>),
-}
