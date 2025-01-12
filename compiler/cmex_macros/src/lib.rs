@@ -1,5 +1,6 @@
 mod parse;
 mod expand;
+mod tt_cursor;
 
 use cmex_ast::TokenTree;
 use cmex_lexer::Token;

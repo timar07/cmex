@@ -5,3 +5,7 @@ edition = "2021"
 
 [dependencies]
 cmex_lexer = { path = "../cmex_lexer" }
+cmex_parser = { path = "../cmex_parser" }
+cmex_span = { path = "../cmex_span" }
+cmex_ast = { path = "../cmex_ast" }
+cmex_symtable = { path = "../cmex_symtable" }

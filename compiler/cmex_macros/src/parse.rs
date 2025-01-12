@@ -1,9 +1,9 @@
 use cmex_ast::{DelimTag, TokenTree};
 use cmex_span::{Span, Unspan};
-use cmex_parser::Parser;
-use cmex_lexer::{Token, TokenTag::{self, *}};
+use cmex_lexer::TokenTag::{self, *};
+use crate::tt_cursor::TtCursor;
 
-use crate::{MacroFragSpec, MacroMatch, MacroMatcher, MacroRule, RepOpTag};
+use crate::{MacroFragSpec, MacroMatch, MacroMatcher, MacroRule};
 
 type PR<T> = Result<T, (ParseErrorTag, Span)>;
 
@@ -22,70 +22,6 @@ macro_rules! match_tok {
             true
         } else {
             false
-        }
-    }
-}
-
-/// A helper structure to traverse [`TokenTree`] as a flat token stream.
-struct TtCursor<'a> {
-    stack: Vec<TtItem<'a>>,
-}
-
-impl<'a> TtCursor<'a> {
-    pub fn new(tree: &'a Vec<TokenTree>) -> Self {
-        TtCursor {
-            stack: tree.iter().map(TtItem::from).collect(),
-        }
-    }
-
-    pub fn get_subtree(&mut self) -> Option<TokenTree> {
-        match self.stack.last().cloned()? {
-            TtItem::Delim(delim_tag, vec, _) => {
-                Some(TokenTree::Delim(delim_tag, vec.to_vec()))
-            },
-            TtItem::Token(t) => {
-                Some(TokenTree::Token(t.clone()))
-            },
-        }
-    }
-}
-
-impl<'a> Iterator for TtCursor<'a> {
-    type Item = Token;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        while let Some(peek) = self.stack.last_mut() {
-            match peek {
-                TtItem::Token(token) => {
-                    return Some(token.to_owned()); // Return the token
-                }
-                TtItem::Delim(_, vec, index) => {
-                    if *index < vec.len() {
-                        let next_tree = &vec[*index];
-                        *index += 1; // Move the index forward
-                        self.stack.push(TtItem::from(next_tree)); // Push the next item on the stack
-                    } else {
-                        self.stack.pop(); // Finished with this delimiter, go back
-                    }
-                }
-            }
-        }
-        None
-    }
-}
-
-/// TODO: all this stuff looks weird, refactor later
-#[derive(Clone)]
-pub enum TtItem<'a> {
-    Delim(DelimTag, &'a Vec<TokenTree>, usize),
-    Token(&'a Token)
-}
-
-impl<'a> From<&'a TokenTree> for TtItem<'a> {
-    fn from(tree: &'a TokenTree) -> Self {
-        match tree {
-            TokenTree::Token(token) => Self::Token(token),
-            TokenTree::Delim(delim, vec) => Self::Delim(delim.clone(), vec, 0),
         }
     }
 }
@@ -130,8 +66,9 @@ impl MacroParser {
             );
             rules.push(rule);
 
-            // TODO: this is incorrect
-            match_tok!(iter, Semicolon);
+            if iter.peek().is_some() {
+                require_tok!(iter, Semicolon);
+            }
         }
 
         rules
