@@ -125,9 +125,7 @@ impl Lexer<'_> {
     }
 
     fn skip_comment(&mut self) {
-        loop {
-            self.src.next();
-
+        while let Some(_) = self.src.next() {
             if self.src.match_ch('*') && self.src.match_ch('/') {
                 break;
             }
