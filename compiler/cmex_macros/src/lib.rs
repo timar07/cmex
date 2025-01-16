@@ -1,9 +1,10 @@
 mod parse;
 mod expand;
+mod matcher;
 mod tt_cursor;
 
 use cmex_ast::TokenTree;
-use cmex_lexer::Token;
+use cmex_lexer::{Token, TokenTag};
 pub use expand::MacroExpander;
 
 #[derive(Debug, Clone)]
@@ -17,7 +18,7 @@ pub struct MacroRule(pub MacroMatcher, pub TokenTree);
 /// }
 /// ```
 #[derive(Debug, Clone)]
-pub struct MacroMatcher(pub Option<MacroMatch>);
+pub struct MacroMatcher(pub Vec<MacroMatch>);
 
 #[derive(Debug, Clone)]
 pub enum MacroMatch {
@@ -31,8 +32,8 @@ pub enum MacroMatch {
     /// ```
     Frag(String, MacroFragSpec),
     /// Repitition macro form, it has the following syntax:
-    /// `$ ( ... ) sep rep`
-    Rep(Option<Box<MacroMatch>>, Option<Token>, Option<RepOpTag>),
+    /// `$ ( ... ) sep? rep`
+    Rep(Box<MacroMatcher>, Option<Token>, RepOpTag),
 }
 
 #[derive(Debug, Clone)]
@@ -77,4 +78,3 @@ impl std::fmt::Display for RepOpTag {
         }
     }
 }
-

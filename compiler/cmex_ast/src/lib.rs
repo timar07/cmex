@@ -552,7 +552,7 @@ pub enum InvocationTag {
 }
 
 /// Abstract tokens collection, mostly used in macros
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TokenTree {
     /// A primary node of the tree - the token itself
     Token(Token),
@@ -561,7 +561,7 @@ pub enum TokenTree {
     Delim(DelimTag, Vec<TokenTree>),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DelimTag {
     /// Curly braces `{` `}`
     Curly,
