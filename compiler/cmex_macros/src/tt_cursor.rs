@@ -3,14 +3,14 @@ use cmex_lexer::Token;
 
 pub struct TtCursor<'a> {
     iter: TtIter<'a>,
-    peeked: Option<Option<Token>>
+    peeked: Option<Option<Token>>,
 }
 
 impl<'a> TtCursor<'a> {
     pub fn new(tree: &'a Vec<TokenTree>) -> Self {
         Self {
             iter: TtIter::new(tree),
-            peeked: None
+            peeked: None,
         }
     }
 
@@ -51,14 +51,14 @@ impl<'a> TtIter<'a> {
         TtIter {
             stack: Vec::new(),
             tt: tree,
-            curr: 0
+            curr: 0,
         }
     }
 
     pub fn next_tree(&mut self) -> Option<TokenTree> {
         self.stack
             .pop()
-            .map_or(None, |iter| iter.peek_tree().cloned())
+            .and_then(|iter| iter.peek_tree().cloned())
             .or_else(|| {
                 self.peek_tt().cloned().inspect(|_| {
                     self.curr += 1;
@@ -80,29 +80,27 @@ impl<'a> TtIter<'a> {
     }
 }
 
-impl<'a> Iterator for TtIter<'a> {
+impl Iterator for TtIter<'_> {
     type Item = Token;
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(cursor) = self.stack.last_mut() {
-            cursor
-                .next()
-                .or_else(|| {
-                    self.stack.pop();
-                    self.next()
-                })
+            cursor.next().or_else(|| {
+                self.stack.pop();
+                self.next()
+            })
         } else {
             match &self.tt.get(self.curr) {
                 Some(TokenTree::Token(tok)) => {
                     self.curr += 1;
                     Some(tok.clone())
-                },
+                }
                 Some(TokenTree::Delim(_, vec)) => {
                     self.stack.push(Self::new(vec));
                     self.curr += 1;
                     self.stack.last_mut()?.next()
-                },
-                None => None
+                }
+                None => None,
             }
         }
     }
@@ -114,7 +112,7 @@ mod tests {
     use cmex_lexer::{Token, TokenTag::*};
     use cmex_span::Span;
 
-    use crate::tt_cursor::{TtIter, TtCursor};
+    use crate::tt_cursor::{TtCursor, TtIter};
 
     #[test]
     fn tree_iterating() {
@@ -129,16 +127,17 @@ mod tests {
                         vec![
                             TokenTree::Token((Dollar, Span(7, 8))),
                             TokenTree::Token((Dollar, Span(8, 9))),
-                        ]
+                        ],
                     ),
                 ],
             ),
             TokenTree::Delim(
                 DelimTag::Paren,
-                vec![
-                    TokenTree::Token((Identifier("foo".into()), Span(10, 13)))
-                ]
-            )
+                vec![TokenTree::Token((
+                    Identifier("foo".into()),
+                    Span(10, 13),
+                ))],
+            ),
         ];
 
         let mut cursor = TtCursor::new(&tree);
@@ -165,9 +164,10 @@ mod tests {
             cursor.next_tree(),
             Some(TokenTree::Delim(
                 DelimTag::Paren,
-                vec![
-                    TokenTree::Token((Identifier("foo".into()), Span(10, 13)))
-                ]
+                vec![TokenTree::Token((
+                    Identifier("foo".into()),
+                    Span(10, 13)
+                ))]
             ))
         );
     }
@@ -186,13 +186,14 @@ mod tests {
                         TokenTree::Token((Dollar, Span(8, 9))),
                         TokenTree::Delim(
                             DelimTag::Paren,
-                            vec![
-                                TokenTree::Token((Identifier("foo".into()), Span(10, 13)))
-                            ]
-                        )
-                    ]
-                )
-            ]
+                            vec![TokenTree::Token((
+                                Identifier("foo".into()),
+                                Span(10, 13),
+                            ))],
+                        ),
+                    ],
+                ),
+            ],
         )];
 
         assert_eq!(
@@ -222,24 +223,31 @@ mod tests {
                         TokenTree::Delim(
                             DelimTag::Paren,
                             vec![
-                                TokenTree::Token((Identifier("foo".into()), Span(10, 13))),
+                                TokenTree::Token((
+                                    Identifier("foo".into()),
+                                    Span(10, 13),
+                                )),
                                 TokenTree::Delim(
                                     DelimTag::Paren,
                                     vec![
-                                        TokenTree::Token((Identifier("bar".into()), Span(13, 16))),
+                                        TokenTree::Token((
+                                            Identifier("bar".into()),
+                                            Span(13, 16),
+                                        )),
                                         TokenTree::Delim(
                                             DelimTag::Paren,
-                                            vec![
-                                                TokenTree::Token((Identifier("baz".into()), Span(16, 19))),
-                                            ]
-                                        )
-                                    ]
-                                )
-                            ]
-                        )
-                    ]
-                )
-            ]
+                                            vec![TokenTree::Token((
+                                                Identifier("baz".into()),
+                                                Span(16, 19),
+                                            ))],
+                                        ),
+                                    ],
+                                ),
+                            ],
+                        ),
+                    ],
+                ),
+            ],
         )];
 
         assert_eq!(
@@ -291,33 +299,37 @@ mod tests {
                         TokenTree::Delim(
                             DelimTag::Paren,
                             vec![
-                                TokenTree::Token((Identifier("foo".into()), Span(10, 13))),
+                                TokenTree::Token((
+                                    Identifier("foo".into()),
+                                    Span(10, 13),
+                                )),
                                 TokenTree::Delim(
                                     DelimTag::Paren,
                                     vec![
-                                        TokenTree::Token((Identifier("bar".into()), Span(13, 16))),
+                                        TokenTree::Token((
+                                            Identifier("bar".into()),
+                                            Span(13, 16),
+                                        )),
                                         TokenTree::Delim(
                                             DelimTag::Paren,
-                                            vec![
-                                                TokenTree::Token((Identifier("baz".into()), Span(16, 19))),
-                                            ]
-                                        )
-                                    ]
-                                )
-                            ]
-                        )
-                    ]
+                                            vec![TokenTree::Token((
+                                                Identifier("baz".into()),
+                                                Span(16, 19),
+                                            ))],
+                                        ),
+                                    ],
+                                ),
+                            ],
+                        ),
+                    ],
                 ),
-                TokenTree::Token((Identifier("ident".into()), Span(19, 24)))
-            ]
+                TokenTree::Token((Identifier("ident".into()), Span(19, 24))),
+            ],
         )];
 
         let mut cursor = TtIter::new(&tree);
 
-        assert_eq!(
-            cursor.next(),
-            Some((Dollar, Span(0, 1)))
-        );
+        assert_eq!(cursor.next(), Some((Dollar, Span(0, 1))));
 
         assert_eq!(
             cursor.next(),
@@ -326,67 +338,68 @@ mod tests {
 
         assert_eq!(
             cursor.peek_tree(),
-            Some(
-                &TokenTree::Delim(
-                    DelimTag::Curly,
-                    vec![
-                        TokenTree::Token((Dollar, Span(7, 8))),
-                        TokenTree::Token((Dollar, Span(8, 9))),
-                        TokenTree::Delim(
-                            DelimTag::Paren,
-                            vec![
-                                TokenTree::Token((Identifier("foo".into()), Span(10, 13))),
-                                TokenTree::Delim(
-                                    DelimTag::Paren,
-                                    vec![
-                                        TokenTree::Token((Identifier("bar".into()), Span(13, 16))),
-                                        TokenTree::Delim(
-                                            DelimTag::Paren,
-                                            vec![
-                                                TokenTree::Token((Identifier("baz".into()), Span(16, 19))),
-                                            ]
-                                        )
-                                    ]
-                                )
-                            ]
-                        )
-                    ]
-                )
-            )
+            Some(&TokenTree::Delim(
+                DelimTag::Curly,
+                vec![
+                    TokenTree::Token((Dollar, Span(7, 8))),
+                    TokenTree::Token((Dollar, Span(8, 9))),
+                    TokenTree::Delim(
+                        DelimTag::Paren,
+                        vec![
+                            TokenTree::Token((
+                                Identifier("foo".into()),
+                                Span(10, 13)
+                            )),
+                            TokenTree::Delim(
+                                DelimTag::Paren,
+                                vec![
+                                    TokenTree::Token((
+                                        Identifier("bar".into()),
+                                        Span(13, 16)
+                                    )),
+                                    TokenTree::Delim(
+                                        DelimTag::Paren,
+                                        vec![TokenTree::Token((
+                                            Identifier("baz".into()),
+                                            Span(16, 19)
+                                        )),]
+                                    )
+                                ]
+                            )
+                        ]
+                    )
+                ]
+            ))
         );
 
-        assert_eq!(
-            cursor.next(),
-            Some((Dollar, Span(7, 8)))
-        );
+        assert_eq!(cursor.next(), Some((Dollar, Span(7, 8))));
 
-        assert_eq!(
-            cursor.next(),
-            Some((Dollar, Span(8, 9)))
-        );
+        assert_eq!(cursor.next(), Some((Dollar, Span(8, 9))));
 
         assert_eq!(
             cursor.peek_tree(),
-            Some(
-                &TokenTree::Delim(
-                    DelimTag::Paren,
-                    vec![
-                        TokenTree::Token((Identifier("foo".into()), Span(10, 13))),
-                        TokenTree::Delim(
-                            DelimTag::Paren,
-                            vec![
-                                TokenTree::Token((Identifier("bar".into()), Span(13, 16))),
-                                TokenTree::Delim(
-                                    DelimTag::Paren,
-                                    vec![
-                                        TokenTree::Token((Identifier("baz".into()), Span(16, 19))),
-                                    ]
-                                )
-                            ]
-                        )
-                    ]
-                )
-            )
+            Some(&TokenTree::Delim(
+                DelimTag::Paren,
+                vec![
+                    TokenTree::Token((Identifier("foo".into()), Span(10, 13))),
+                    TokenTree::Delim(
+                        DelimTag::Paren,
+                        vec![
+                            TokenTree::Token((
+                                Identifier("bar".into()),
+                                Span(13, 16)
+                            )),
+                            TokenTree::Delim(
+                                DelimTag::Paren,
+                                vec![TokenTree::Token((
+                                    Identifier("baz".into()),
+                                    Span(16, 19)
+                                )),]
+                            )
+                        ]
+                    )
+                ]
+            ))
         );
 
         assert_eq!(
@@ -396,20 +409,19 @@ mod tests {
 
         assert_eq!(
             cursor.peek_tree(),
-            Some(
-                &TokenTree::Delim(
-                    DelimTag::Paren,
-                    vec![
-                        TokenTree::Token((Identifier("bar".into()), Span(13, 16))),
-                        TokenTree::Delim(
-                            DelimTag::Paren,
-                            vec![
-                                TokenTree::Token((Identifier("baz".into()), Span(16, 19))),
-                            ]
-                        )
-                    ]
-                )
-            )
+            Some(&TokenTree::Delim(
+                DelimTag::Paren,
+                vec![
+                    TokenTree::Token((Identifier("bar".into()), Span(13, 16))),
+                    TokenTree::Delim(
+                        DelimTag::Paren,
+                        vec![TokenTree::Token((
+                            Identifier("baz".into()),
+                            Span(16, 19)
+                        )),]
+                    )
+                ]
+            ))
         );
 
         assert_eq!(
@@ -419,14 +431,13 @@ mod tests {
 
         assert_eq!(
             cursor.peek_tree(),
-            Some(
-                &TokenTree::Delim(
-                    DelimTag::Paren,
-                    vec![
-                        TokenTree::Token((Identifier("baz".into()), Span(16, 19))),
-                    ]
-                )
-            )
+            Some(&TokenTree::Delim(
+                DelimTag::Paren,
+                vec![TokenTree::Token((
+                    Identifier("baz".into()),
+                    Span(16, 19)
+                )),]
+            ))
         );
 
         assert_eq!(
