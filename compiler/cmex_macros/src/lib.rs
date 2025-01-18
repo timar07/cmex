@@ -1,12 +1,21 @@
-mod parse;
 mod expand;
 mod matcher;
+mod parse;
 mod tt_cursor;
 
-use cmex_ast::TokenTree;
+use cmex_ast::{NtTag, TokenTree};
 use cmex_lexer::{Token, TokenTag};
 pub use expand::MacroExpander;
 
+/// Macro rule consists of lhs (i.e. matcher) and rhs (some token tree).
+/// For example:
+/// ```ignore
+/// macro rules! foo {
+///     ($e:expr) => { /* ... */ }
+///  /* ^~~~~~~~~    ^~~~~~~~~~~~~ */
+///  /* matcher      token tree */
+/// }
+/// ```
 #[derive(Debug, Clone)]
 pub struct MacroRule(pub MacroMatcher, pub TokenTree);
 
@@ -30,33 +39,10 @@ pub enum MacroMatch {
     ///     ($e:expr) => { /* ... */ }
     /// }
     /// ```
-    Frag(String, MacroFragSpec),
+    Frag(String, NtTag),
     /// Repitition macro form, it has the following syntax:
     /// `$ ( ... ) sep? rep`
     Rep(Box<MacroMatcher>, Option<Token>, RepOpTag),
-}
-
-#[derive(Debug, Clone)]
-pub enum MacroFragSpec {
-    Block,
-    Literal,
-    Ident,
-    Item,
-    Ty,
-    Expr,
-}
-
-impl std::fmt::Display for MacroFragSpec {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Block => write!(f, "block"),
-            Self::Literal => write!(f, "literal"),
-            Self::Ident => write!(f, "ident"),
-            Self::Item => write!(f, "item"),
-            Self::Ty => write!(f, "ty"),
-            Self::Expr => write!(f, "expr"),
-        }
-    }
 }
 
 #[derive(Debug, Clone)]

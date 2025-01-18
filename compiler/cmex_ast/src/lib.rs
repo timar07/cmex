@@ -1,7 +1,7 @@
 pub mod ast_dump;
 mod tree_builder;
 
-use cmex_lexer::Token;
+use cmex_lexer::{Token, TokenTag, Tokens};
 use cmex_span::{MaybeSpannable, Span, Spannable};
 
 #[derive(Clone)]
@@ -142,7 +142,7 @@ impl Spannable for Decl {
                 body.tag.span(),
             ),
             Decl::Var { spec: _, decl_list } => decl_list.span().unwrap(),
-            Decl::Macro { id, ..} => id.1,
+            Decl::Macro { id, .. } => id.1,
         }
     }
 }
@@ -548,7 +548,7 @@ impl Spannable for ExprTag {
 /// Other types of invocations may be implemented
 #[derive(Debug, Clone)]
 pub enum InvocationTag {
-    Bang(String, Option<TokenTree>)
+    Bang(String, Option<TokenTree>),
 }
 
 /// Abstract tokens collection, mostly used in macros
@@ -568,5 +568,45 @@ pub enum DelimTag {
     /// Square braces `[` `]`
     Square,
     /// Parenthesis `(` `)`
-    Paren
+    Paren,
+}
+
+#[derive(Debug, Clone)]
+pub enum Nonterminal {
+    Block(Vec<Stmt>),
+    Literal(Token),
+    Ident(Token),
+    Item(Vec<Decl>),
+    Ty(TypeName),
+    Expr(Expr)
+}
+
+/// Nonterminal tag
+#[derive(Debug, Clone)]
+pub enum NtTag {
+    /// Zero or more satements wrapped with { ... }
+    Block,
+    /// Any literal, e.g. number, string, char
+    Literal,
+    /// Identifier
+    Ident,
+    /// Any item, declaration in terms of C
+    Item,
+    /// Type
+    Ty,
+    /// Expression
+    Expr,
+}
+
+impl std::fmt::Display for NtTag {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Block => write!(f, "block"),
+            Self::Literal => write!(f, "literal"),
+            Self::Ident => write!(f, "ident"),
+            Self::Item => write!(f, "item"),
+            Self::Ty => write!(f, "ty"),
+            Self::Expr => write!(f, "expr"),
+        }
+    }
 }

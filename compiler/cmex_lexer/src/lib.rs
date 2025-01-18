@@ -3,7 +3,7 @@ mod errors;
 mod tests;
 mod token;
 
-use cmex_span::Span;
+use cmex_span::{Span, Spannable};
 pub use errors::LexError;
 pub use token::Spanned;
 pub use token::*;
@@ -11,29 +11,40 @@ pub use token::*;
 use cursor::Cursor;
 use errors::LexError::*;
 
-/// Wrapper above the [Lexer] for convenient error handling
 #[derive(Clone)]
-pub struct Tokens<'a> {
-    iter: Spanned<Lexer<'a>>,
+pub struct Tokens(pub Vec<Token>);
+
+pub struct TokensIter<'a> {
+    toks: &'a Tokens,
+    index: usize
 }
 
-impl<'a> Tokens<'a> {
-    pub fn new(iter: Spanned<Lexer<'a>>) -> Self {
-        Self { iter }
+impl<'a> TokensIter<'a> {
+    pub fn peek(&self) -> Option<&'a Token> {
+        self.toks.0.get(self.index)
     }
 }
 
-impl Iterator for Tokens<'_> {
-    type Item = (TokenTag, Span);
+impl<'a> From<&'a Tokens> for TokensIter<'a> {
+    fn from(toks: &'a Tokens) -> Self {
+        Self {
+            index: 0,
+            toks
+        }
+    }
+}
+
+impl<'a> Iterator for TokensIter<'a> {
+    type Item = Token;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next().map(|(i, span)| match i {
-            Ok(i) => (i, span),
-            Err(e) => {
-                println!("{e}");
-                (TokenTag::Error, span)
-            }
-        })
+        self.toks.0
+            .get(self.index)
+            .map(|tok| {
+                self.index += 1;
+                tok
+            })
+            .cloned()
     }
 }
 

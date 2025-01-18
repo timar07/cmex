@@ -8,7 +8,7 @@ use cmex_ast::{Expr, ExprTag, InvocationTag};
 use cmex_lexer::TokenTag::*;
 use cmex_span::{Span, Unspan};
 
-impl Parser<'_> {
+impl<'a> Parser<'a> {
     pub fn constant_expression(&mut self) -> PR<Expr> {
         self.conditional()
     }
@@ -308,25 +308,16 @@ impl Parser<'_> {
                     require_tok!(self, RightBrace)?;
                     todo!()
                 }
-                Not => {
-                    match expr.tag {
-                        ExprTag::Primary((Identifier(id), _)) => {
-                            let mut tt = None;
-
-                            require_tok!(self, LeftParen)?;
-                            if !check_tok!(self, RightParen) {
-                                tt = Some(self.delim_token_tree()?);
-                                require_tok!(self, RightParen)?;
-                            }
-                            Expr {
-                                tag: ExprTag::Invocation(
-                                    InvocationTag::Bang(id, tt)
-                                ),
-                            }
-                        },
-                        _ => panic!("expected identifier before macro invocation")
+                Not => match expr.tag {
+                    ExprTag::Primary((Identifier(id), _)) => {
+                        Expr {
+                            tag: ExprTag::Invocation(InvocationTag::Bang(
+                                id, Some(self.delim_token_tree()?),
+                            )),
+                        }
                     }
-                }
+                    _ => panic!("expected identifier before macro invocation"),
+                },
                 LeftParen => self.parse_call(expr)?,
                 Dot => Expr {
                     tag: ExprTag::MemberAccess {

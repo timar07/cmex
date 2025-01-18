@@ -2,7 +2,7 @@ use std::{env, fs};
 
 use cmex_ast::ast_dump::AstDumper;
 use cmex_errors::ErrorBuilder;
-use cmex_lexer::Lexer;
+use cmex_lexer::{Lexer, TokenTag, Tokens};
 use cmex_macros::MacroExpander;
 use cmex_parser::Parser;
 
@@ -11,7 +11,19 @@ fn main() {
     let file = fs::read_to_string(&args[1])
         .unwrap_or_else(|_| panic!("unable to read file `{}`", args[0]));
     let lexer = Lexer::from(file.as_str());
-    let mut parser = Parser::new(lexer);
+    let tokens = Tokens(lexer
+        .spanned()
+        .map(|(res, span)| {
+            match res {
+                Ok(tok) => (tok, span),
+                Err(e) => {
+                    println!("{e}");
+                    (TokenTag::Error, span)
+                }
+            }
+        })
+        .collect());
+    let mut parser = Parser::new(&tokens);
 
     match &parser.parse() {
         Ok(ast) => {

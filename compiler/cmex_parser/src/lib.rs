@@ -3,31 +3,79 @@ mod lookahead;
 mod macros;
 mod stmt;
 
-use cmex_lexer::{Lexer, TokenTag, Tokens};
-use cmex_span::Span;
+use cmex_ast::{Nonterminal, NtTag};
+use cmex_lexer::{Lexer, Token, TokenTag, Tokens, TokensIter};
+use cmex_span::{Span, Unspan};
 use cmex_symtable::SymTable;
 pub use lookahead::Lookahead;
 
 pub(crate) type PR<T> = Result<T, ParseError>;
 
 pub struct Parser<'a> {
-    iter: Lookahead<Tokens<'a>>,
+    pub iter: Lookahead<TokensIter<'a>>,
     symbols: SymTable<String, Span>,
 }
 
 impl<'a> Parser<'a> {
-    pub fn new(iter: Lexer<'a>) -> Self {
+    pub fn new(iter: &'a Tokens) -> Self {
         Self {
-            iter: Lookahead::from(Tokens::new(iter.spanned())),
+            iter: Lookahead::from(TokensIter::from(iter)),
             symbols: SymTable::new(),
         }
     }
 
     pub fn get_pos(&mut self) -> usize {
-        self.iter
-            .peek()
-            .map(|(_, span)| span.0)
-            .unwrap_or(0)
+        self.iter.peek().map(|(_, span)| span.0).unwrap_or(0)
+    }
+
+    pub fn next(&mut self) {
+        self.iter.next();
+    }
+
+    /// Parse nonterminal. There is only on usage case so far so the function
+    /// is inlined.
+    #[inline]
+    pub fn parse_nt(&mut self, tag: &NtTag) -> PR<Nonterminal> {
+        match tag {
+            NtTag::Block => {
+                Ok(Nonterminal::Block(self.block()?))
+            },
+            NtTag::Literal => {
+                match self.iter.peek().val() {
+                    Some(
+                        TokenTag::NumberLiteral { .. }
+                        | TokenTag::CharLiteral
+                        | TokenTag::StringLiteral
+                    ) => {
+                        Ok(Nonterminal::Literal(self.iter.next().unwrap()))
+                    },
+                    _ => Err((
+                        ParseErrorTag::Expected("literal".into()),
+                        self.iter.peek().unwrap().1
+                    )),
+                }
+            },
+            NtTag::Ident => {
+                match self.iter.peek().val() {
+                    Some(TokenTag::Identifier(_)) => {
+                        Ok(Nonterminal::Ident(self.iter.next().unwrap()))
+                    },
+                    _ => Err((
+                        ParseErrorTag::Expected("identifier".into()),
+                        self.iter.peek().unwrap().1
+                    ))
+                }
+            },
+            NtTag::Item => {
+                Ok(Nonterminal::Item(self.external_decl()?))
+            },
+            NtTag::Ty => {
+                Ok(Nonterminal::Ty(self.type_name()?))
+            },
+            NtTag::Expr => {
+                Ok(Nonterminal::Expr(self.expression()?))
+            },
+        }
     }
 }
 
