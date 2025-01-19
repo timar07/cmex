@@ -45,7 +45,7 @@ pub enum MacroMatch {
     Rep(Box<MacroMatcher>, Option<Token>, RepOpTag),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RepOpTag {
     /// One or more repitition
     Plus,

@@ -7,7 +7,7 @@ use cmex_ast::{Decl, DelimTag, TokenTree};
 use cmex_lexer::TokenTag::*;
 use cmex_span::{Span, Unspan};
 
-impl Parser<'_> {
+impl<'a> Parser<'a> {
     /// Parse `macro_rules!`. The pre-expansion parsing is implemented in
     /// `cmex_macros` module, for now, the definition is represented as an
     /// iterator over tokens within the body.
@@ -29,11 +29,11 @@ impl Parser<'_> {
             Some(LeftCurly) => {
                 self.iter.next();
                 (RightCurly, DelimTag::Curly)
-            },
+            }
             Some(LeftParen) => {
                 self.iter.next();
                 (RightParen, DelimTag::Paren)
-            },
+            }
             Some(LeftBrace) => {
                 self.iter.next();
                 (RightBrace, DelimTag::Square)
@@ -61,9 +61,7 @@ impl Parser<'_> {
 
     fn token_tree(&mut self) -> PR<TokenTree> {
         match self.iter.peek().val() {
-            Some(LeftCurly | LeftParen | LeftBrace) => {
-                self.delim_token_tree()
-            }
+            Some(LeftCurly | LeftParen | LeftBrace) => self.delim_token_tree(),
             Some(_) => Ok(TokenTree::Token(self.iter.next().unwrap())),
             None => todo!(),
         }

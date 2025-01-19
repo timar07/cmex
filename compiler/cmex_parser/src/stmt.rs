@@ -27,7 +27,7 @@ macro_rules! paren_wrapped {
     }};
 }
 
-impl Parser<'_> {
+impl<'a> Parser<'a> {
     pub fn parse(&mut self) -> Result<TranslationUnit, Vec<ParseError>> {
         self.translation_unit()
     }
@@ -60,7 +60,7 @@ impl Parser<'_> {
 
     /// External declaration is a top level declaration (e.g. functions)
     /// or a regular declaration
-    fn external_decl(&mut self) -> PR<Vec<Decl>> {
+    pub(crate) fn external_decl(&mut self) -> PR<Vec<Decl>> {
         let mut decl_list = Vec::with_capacity(1);
 
         if matches!(self.iter.peek().val(), Some(MacroRules)) {
@@ -240,6 +240,18 @@ impl Parser<'_> {
         Ok(Stmt {
             tag: StmtTag::Compound(stmts),
         })
+    }
+
+    pub fn block(&mut self) -> PR<Vec<Stmt>> {
+        require_tok!(self, LeftCurly)?;
+
+        let mut stmts = Vec::new();
+
+        while !check_tok!(self, RightCurly) {
+            stmts.push(self.statement()?);
+        }
+
+        Ok(stmts)
     }
 
     fn expression_statement(&mut self) -> PR<Option<Expr>> {

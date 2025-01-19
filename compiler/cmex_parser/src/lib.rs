@@ -37,44 +37,30 @@ impl<'a> Parser<'a> {
     #[inline]
     pub fn parse_nt(&mut self, tag: &NtTag) -> PR<Nonterminal> {
         match tag {
-            NtTag::Block => {
-                Ok(Nonterminal::Block(self.block()?))
+            NtTag::Block => Ok(Nonterminal::Block(self.block()?)),
+            NtTag::Literal => match self.iter.peek().val() {
+                Some(
+                    TokenTag::NumberLiteral { .. }
+                    | TokenTag::CharLiteral
+                    | TokenTag::StringLiteral,
+                ) => Ok(Nonterminal::Literal(self.iter.next().unwrap())),
+                _ => Err((
+                    ParseErrorTag::Expected("literal".into()),
+                    self.iter.peek().unwrap().1,
+                )),
             },
-            NtTag::Literal => {
-                match self.iter.peek().val() {
-                    Some(
-                        TokenTag::NumberLiteral { .. }
-                        | TokenTag::CharLiteral
-                        | TokenTag::StringLiteral
-                    ) => {
-                        Ok(Nonterminal::Literal(self.iter.next().unwrap()))
-                    },
-                    _ => Err((
-                        ParseErrorTag::Expected("literal".into()),
-                        self.iter.peek().unwrap().1
-                    )),
+            NtTag::Ident => match self.iter.peek().val() {
+                Some(TokenTag::Identifier(_)) => {
+                    Ok(Nonterminal::Ident(self.iter.next().unwrap()))
                 }
+                _ => Err((
+                    ParseErrorTag::Expected("identifier".into()),
+                    self.iter.peek().unwrap().1,
+                )),
             },
-            NtTag::Ident => {
-                match self.iter.peek().val() {
-                    Some(TokenTag::Identifier(_)) => {
-                        Ok(Nonterminal::Ident(self.iter.next().unwrap()))
-                    },
-                    _ => Err((
-                        ParseErrorTag::Expected("identifier".into()),
-                        self.iter.peek().unwrap().1
-                    ))
-                }
-            },
-            NtTag::Item => {
-                Ok(Nonterminal::Item(self.external_decl()?))
-            },
-            NtTag::Ty => {
-                Ok(Nonterminal::Ty(self.type_name()?))
-            },
-            NtTag::Expr => {
-                Ok(Nonterminal::Expr(self.expression()?))
-            },
+            NtTag::Item => Ok(Nonterminal::Item(self.external_decl()?)),
+            NtTag::Ty => Ok(Nonterminal::Ty(self.type_name()?)),
+            NtTag::Expr => Ok(Nonterminal::Expr(self.expression()?)),
         }
     }
 }
