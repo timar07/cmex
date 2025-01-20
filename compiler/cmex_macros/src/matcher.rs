@@ -1,20 +1,57 @@
+use std::collections::{hash_map::Entry, HashMap};
+
 use cmex_ast::{Nonterminal, NtTag};
 use cmex_lexer::Token;
 use cmex_parser::Parser;
 use cmex_span::Span;
 
-use crate::{MacroMatch, RepOpTag};
+use crate::{MacroTokenTree, RepOpTag};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MatcherPos {
     i: usize,
-    matches: Vec<Nonterminal>,
+    matches: Vec<BoundMatch>,
+}
+
+impl MatcherPos {
+    #[inline]
+    pub fn push_match(&mut self, metavar_index: usize, depth: usize, m: BoundMatch) {
+        match depth {
+            0 => {
+                self.matches.push(m);
+            },
+            _ => {
+                let mut curr = &mut self.matches[metavar_index];
+                for _ in 0..depth - 1 {
+                    match curr {
+                        BoundMatch::Seq(seq) => {
+                            curr = seq.last_mut().unwrap()
+                        },
+                        _ => unreachable!()
+                    }
+                }
+                match curr {
+                    BoundMatch::Seq(seq) => seq.push(m),
+                    _ => unreachable!()
+                }
+            }
+        }
+    }
 }
 
 pub enum EofMatcherPos {
     None,
     One(MatcherPos),
     Multiple,
+}
+
+/// A match bound to some metavariable.
+/// In other words, represents a *meaningful* match, that will be used
+/// in macros' rhs.
+#[derive(Debug, Clone)]
+pub enum BoundMatch {
+    Seq(Vec<BoundMatch>),
+    Single(Nonterminal)
 }
 
 /// Represents current matcher state
@@ -24,6 +61,8 @@ pub enum MatcherState {
     Rep {
         rep: RepOpTag,
         index_after_rep: usize,
+        next_metavar: usize,
+        depth: usize
     },
     /// Repetition separator
     /// ```ignore
@@ -50,7 +89,10 @@ pub enum MatcherState {
         index_first: usize,
     },
     MetaVarDecl {
+        id: Token,
         tag: NtTag,
+        next_metavar: usize,
+        seq_depth: usize
     },
     /// End state
     End,
@@ -75,7 +117,7 @@ impl TtMatcher {
         &mut self,
         matcher: &'a [MatcherState],
         parser: &mut Parser,
-    ) -> MatchResult<Vec<Nonterminal>> {
+    ) -> MatchResult<HashMap<String, Option<BoundMatch>>> {
         self.curr_mps.clear();
         self.curr_mps.push(MatcherPos {
             i: 0,
@@ -124,8 +166,13 @@ impl TtMatcher {
                     let mut mp = self.nt_mps.pop().unwrap();
                     let loc = &matcher[mp.i];
 
-                    if let MatcherState::MetaVarDecl { tag } = loc {
-                        let nt = match parser.parse_nt(tag) {
+                    if let &MatcherState::MetaVarDecl {
+                        tag,
+                        next_metavar,
+                        seq_depth,
+                        ..
+                    } = loc {
+                        let nt = match parser.parse_nt(tag.clone()) {
                             Ok(nt) => nt,
                             Err(_) => return MatchResult::Error(
                                 format!("error occured while parsing nonterminal `{tag}`"),
@@ -133,7 +180,7 @@ impl TtMatcher {
                             )
                         };
 
-                        mp.matches.push(nt);
+                        mp.push_match(next_metavar, seq_depth, BoundMatch::Single(nt));
                         mp.i += 1;
                     }
 
@@ -143,16 +190,14 @@ impl TtMatcher {
                     panic!("ambiguity error")
                 }
             }
-
-            dbg!(&self.curr_mps);
         }
     }
 
-    fn parse_tt_inner<'a>(
+    fn parse_tt_inner(
         &mut self,
         token: Option<&Token>,
-        matcher: &'a [MatcherState],
-    ) -> Option<MatchResult<Vec<Nonterminal>>> {
+        matcher: &[MatcherState],
+    ) -> Option<MatchResult<HashMap<String, Option<BoundMatch>>>> {
         let mut eof_mp = EofMatcherPos::None;
 
         while let Some(mut mp) = self.curr_mps.pop() {
@@ -169,7 +214,14 @@ impl TtMatcher {
                 &MatcherState::Rep {
                     rep,
                     index_after_rep,
+                    depth,
+                    next_metavar
                 } => {
+                    // TODO: instead of +2 actually count metavar decls
+                    for i in next_metavar..next_metavar + 2 {
+                        mp.push_match(i, depth, BoundMatch::Seq(vec![]));
+                    }
+
                     // As a possible next position, we can try zero repetitions of it
                     if matches!(rep, RepOpTag::Asterisk | RepOpTag::Quest) {
                         self.curr_mps.push(MatcherPos {
@@ -212,7 +264,6 @@ impl TtMatcher {
                         mp.i += 1;
                         self.next_mps.push(mp);
                     } else {
-                        dbg!("expected token");
                         // TODO: Expected token
                     }
                 }
@@ -233,7 +284,7 @@ impl TtMatcher {
         if token.is_none() {
             Some(match eof_mp {
                 EofMatcherPos::One(eof_mp) => {
-                    MatchResult::Success(eof_mp.matches)
+                    self.bind_names(matcher, eof_mp.matches.into_iter())
                 }
                 EofMatcherPos::Multiple => {
                     panic!("ambiguity error: multiple successful parses")
@@ -247,8 +298,34 @@ impl TtMatcher {
         }
     }
 
-    fn bind_names() {
-        todo!()
+    /// Checks that every metavariable in matcher has only one binding.
+    fn bind_names<I>(
+        &self,
+        matcher: &[MatcherState],
+        mut iter: I
+    ) -> MatchResult<HashMap<String, Option<BoundMatch>>>
+    where
+        I: Iterator<Item = BoundMatch>
+    {
+        let mut syms = HashMap::new();
+
+        for state in matcher {
+            if let MatcherState::MetaVarDecl { id, .. } = state {
+                match syms.entry(id.0.to_string()) {
+                    Entry::Occupied(_) => {
+                        return MatchResult::Error(
+                            format!("redefinition of metavariable name `{}`", id.0.to_string()),
+                            id.1.clone()
+                        )
+                    },
+                    Entry::Vacant(cell) => {
+                        cell.insert(iter.next());
+                    },
+                }
+            }
+        }
+
+        MatchResult::Success(syms)
     }
 }
 
@@ -276,27 +353,31 @@ impl StatesParser {
     ///     RepOpNoSep
     /// ]
     /// ```
-    pub fn generate_substates(matcher: &[MacroMatch]) -> Vec<MatcherState> {
+    pub fn generate_substates(matcher: &[MacroTokenTree]) -> Vec<MatcherState> {
         let mut locs = Vec::new();
-        Self::substates_from_tts(matcher, &mut locs);
+        let mut next_metavar = 0;
+        Self::substates_from_tts(matcher, &mut locs, &mut next_metavar, 0);
         locs.push(MatcherState::End);
         locs
     }
 
     fn substates_from_tts(
-        matcher: &[MacroMatch],
+        matcher: &[MacroTokenTree],
         locs: &mut Vec<MatcherState>,
+        next_metavar: &mut usize,
+        seq_depth: usize
     ) {
         for item in matcher {
             match item {
-                MacroMatch::Token(tok) => {
+                MacroTokenTree::Token(tok) => {
                     locs.push(MatcherState::Token(tok.clone()))
                 }
-                MacroMatch::Rep(matcher, sep, rep) => {
+                MacroTokenTree::Rep(matcher, sep, rep) => {
                     locs.push(MatcherState::End);
+                    let temp = *next_metavar;
                     let index_first = locs.len();
                     let index_seq = index_first - 1;
-                    Self::substates_from_tts(&matcher.0, locs);
+                    Self::substates_from_tts(&matcher, locs, next_metavar, seq_depth + 1);
 
                     if let Some(sep) = sep {
                         locs.push(MatcherState::RepSep(sep.clone()));
@@ -314,10 +395,18 @@ impl StatesParser {
                     locs[index_seq] = MatcherState::Rep {
                         rep: rep.clone(),
                         index_after_rep: locs.len(),
+                        depth: seq_depth,
+                        next_metavar: temp
                     };
                 }
-                MacroMatch::Frag(_, tag) => {
-                    locs.push(MatcherState::MetaVarDecl { tag: tag.clone() });
+                MacroTokenTree::Frag(id, tag) => {
+                    locs.push(MatcherState::MetaVarDecl {
+                        id: id.clone(),
+                        tag: tag.clone().expect("expected fragment kind specifier"),
+                        seq_depth,
+                        next_metavar: *next_metavar
+                    });
+                    *next_metavar += 1;
                 }
             }
         }

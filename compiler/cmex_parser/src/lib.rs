@@ -35,7 +35,7 @@ impl<'a> Parser<'a> {
     /// Parse nonterminal. There is only on usage case so far so the function
     /// is inlined.
     #[inline]
-    pub fn parse_nt(&mut self, tag: &NtTag) -> PR<Nonterminal> {
+    pub fn parse_nt(&mut self, tag: NtTag) -> PR<Nonterminal> {
         match tag {
             NtTag::Block => Ok(Nonterminal::Block(self.block()?)),
             NtTag::Literal => match self.iter.peek().val() {

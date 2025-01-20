@@ -18,8 +18,8 @@ impl<'a> TtCursor<'a> {
         self.iter.next_tree()
     }
 
-    pub fn peek_tree(&mut self) -> Option<&TokenTree> {
-        self.iter.peek_tree()
+    pub fn peek_tree(&mut self) -> Option<TokenTree> {
+        self.iter.peek_tree().cloned()
     }
 
     pub fn peek(&mut self) -> Option<Token> {

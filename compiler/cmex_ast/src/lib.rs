@@ -578,11 +578,11 @@ pub enum Nonterminal {
     Ident(Token),
     Item(Vec<Decl>),
     Ty(TypeName),
-    Expr(Expr)
+    Expr(Expr),
 }
 
 /// Nonterminal tag
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum NtTag {
     /// Zero or more satements wrapped with { ... }
     Block,
