@@ -374,7 +374,7 @@ impl Parser<'_> {
         match self.iter.peek().val() {
             Some(
                 Identifier(_)
-                | StringLiteral
+                | StringLiteral(_)
                 | CharLiteral
                 | NumberLiteral { .. },
             ) => Ok(Expr {

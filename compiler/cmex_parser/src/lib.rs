@@ -42,7 +42,7 @@ impl<'a> Parser<'a> {
                 Some(
                     TokenTag::NumberLiteral { .. }
                     | TokenTag::CharLiteral
-                    | TokenTag::StringLiteral,
+                    | TokenTag::StringLiteral(_),
                 ) => Ok(Nonterminal::Literal(self.iter.next().unwrap())),
                 _ => Err((
                     ParseErrorTag::Expected("literal".into()),

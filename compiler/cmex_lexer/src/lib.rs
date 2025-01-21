@@ -582,24 +582,28 @@ impl<'src, 'a> StringLiteralCollector<'src, 'a> {
 
     pub fn collect(&mut self) -> Result<TokenTag, LexError> {
         self.src.next(); // "
+        let mut s = String::new();
 
         loop {
             match self.src.peek() {
                 Some('\\') => {
-                    EscapeSequenceCollector::new(self.src).collect()?;
+                    s.push_str(
+                        &EscapeSequenceCollector::new(self.src).collect()?
+                    );
                 }
                 Some('"') => {
                     self.src.next();
                     break;
                 }
-                None => return Err(UnterminatedString),
-                _ => {
+                Some(c) => {
+                    s.push(c);
                     self.src.next();
-                }
+                },
+                None => return Err(UnterminatedString),
             }
         }
 
-        Ok(TokenTag::StringLiteral)
+        Ok(TokenTag::StringLiteral(s))
     }
 }
 
@@ -645,41 +649,47 @@ impl<'src, 'a> EscapeSequenceCollector<'src, 'a> {
         Self { src }
     }
 
-    pub fn collect(&mut self) -> Result<(), LexError> {
+    pub fn collect(&mut self) -> Result<String, LexError> {
         assert!(self.src.next() == Some('\\'));
 
-        match self.src.next() {
+        let escape = match self.src.next() {
             Some('0'..='7') => self.parse_octal_escape(),
             Some('x') => self.parse_hex_escape(),
-            Some(
+            c @ Some(
                 'b' | 'v' | 't' | 'n' | 'f' | 'r' | '\"' | '\'' | '\\' | '?',
-            ) => Ok(()),
-            Some(c) => Err(UnknownEscapeSequenceCharacter(c)),
-            _ => Err(UnexpectedEof),
-        }
+            ) => Ok(c.unwrap().to_string()),
+            Some(c) => return Err(UnknownEscapeSequenceCharacter(c)),
+            _ => return Err(UnexpectedEof),
+        }?;
+
+        Ok(format!("\\{escape}"))
     }
 
-    fn parse_hex_escape(&mut self) -> Result<(), LexError> {
+    fn parse_hex_escape(&mut self) -> Result<String, LexError> {
+        let mut s = String::with_capacity(2);
+
         for _ in 0..=2 {
             if !self.src.peek().is_some_and(|c| c.is_ascii_hexdigit()) {
                 break;
             }
 
-            self.src.next();
+            s.push(self.src.next().unwrap());
         }
 
-        Ok(())
+        Ok(s)
     }
 
-    fn parse_octal_escape(&mut self) -> Result<(), LexError> {
+    fn parse_octal_escape(&mut self) -> Result<String, LexError> {
+        let mut s = String::with_capacity(2);
+
         for _ in 0..=3 {
             if !matches!(self.src.peek(), Some('0'..='7')) {
                 break;
             }
 
-            self.src.next();
+            s.push(self.src.next().unwrap());
         }
 
-        Ok(())
+        Ok(s)
     }
 }
