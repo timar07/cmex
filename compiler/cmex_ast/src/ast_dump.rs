@@ -121,8 +121,12 @@ impl AstNodeDump for StmtTag {
             StmtTag::Continue => {
                 tb.append_leaf("ContinueStmt".into());
             }
-            StmtTag::Return => {
-                tb.append_leaf("ReturnStmt".into());
+            StmtTag::Return(_, expr) => {
+                tb.open("ReturnStmt".into());
+                if let Some(expr) = expr {
+                    expr.dump(tb);
+                }
+                tb.close();
             }
             StmtTag::Goto(_) => {
                 tb.append_leaf("Goto".into());

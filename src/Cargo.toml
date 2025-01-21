@@ -9,6 +9,7 @@ cmex_errors = { path = "../compiler/cmex_errors"}
 cmex_lexer = { path = "../compiler/cmex_lexer"}
 cmex_parser = { path = "../compiler/cmex_parser"}
 cmex_macros = { path = "../compiler/cmex_macros"}
+cmex_compile = { path = "../compiler/cmex_compile" }
 
 [features]
 kr_func_decl = []

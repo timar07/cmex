@@ -49,7 +49,7 @@ pub enum StmtTag {
     Default(Box<Stmt>),
     Break,
     Continue,
-    Return,
+    Return(Token, Option<Expr>),
     Goto(Token),
 }
 
@@ -77,7 +77,7 @@ impl Spannable for StmtTag {
             Self::Default(stmt) => stmt.tag.span(),
             Self::Break => todo!(),
             Self::Continue => todo!(),
-            Self::Return => todo!(),
+            Self::Return((_, span), expr) => *span,
             Self::Goto(tok) => tok.1,
         }
     }
@@ -154,6 +154,20 @@ pub enum DeclSpecifier {
     TypeSpecifier(TypeSpecifier),
     TypeQualifier(Token),
     StorageClass(Token),
+}
+
+impl std::fmt::Display for DeclSpecifier {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DeclSpecifier::TypeSpecifier(type_spec) => {
+                write!(f, "{type_spec}")
+            },
+            DeclSpecifier::TypeQualifier((tok, _))
+            | DeclSpecifier::StorageClass((tok, _)) => {
+                write!(f, "{tok}")
+            },
+        }
+    }
 }
 
 impl Spannable for DeclSpecifier {
@@ -261,7 +275,7 @@ impl std::fmt::Display for DirectDeclarator {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Identifier((tok, _)) => write!(f, "{}", tok),
-            Self::Paren(decl) => write!(f, "{}", decl),
+            Self::Paren(decl) => write!(f, "({})", decl),
             Self::Abstract => write!(f, ""),
         }
     }
@@ -385,6 +399,35 @@ pub enum ParamList {
     Type(Vec<ParamDecl>),
 }
 
+impl std::fmt::Display for ParamList {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ParamList::Identifier(params) => {
+                write!(
+                    f,
+                    "{}",
+                    params
+                        .iter()
+                        .map(|tok| tok.0.to_string())
+                        .collect::<Vec<String>>()
+                        .join(", ")
+                )
+            },
+            ParamList::Type(vec) => {
+                write!(
+                    f,
+                    "{}",
+                    vec.
+                        iter()
+                        .map(|param| param.to_string())
+                        .collect::<Vec<String>>()
+                        .join(", ")
+                )
+            },
+        }
+    }
+}
+
 impl Spannable for ParamList {
     fn span(&self) -> Span {
         match self {
@@ -401,6 +444,21 @@ impl Spannable for ParamList {
 pub struct ParamDecl {
     pub spec: Vec<DeclSpecifier>,
     pub decl: Box<Declarator>,
+}
+
+impl std::fmt::Display for ParamDecl {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{} {}",
+            self.spec
+                .iter()
+                .map(|spec| spec.to_string())
+                .collect::<Vec<String>>()
+                .join(" "),
+            self.decl
+        )
+    }
 }
 
 impl Spannable for ParamDecl {
@@ -426,6 +484,16 @@ pub enum TypeSpecifier {
     /// ```
     Record(Vec<FieldDecl>),
     Enum(Vec<EnumConstantDecl>),
+}
+
+impl std::fmt::Display for TypeSpecifier {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TypeSpecifier::TypeName((tok, _)) => write!(f, "{tok}"),
+            TypeSpecifier::Record(vec) => todo!(),
+            TypeSpecifier::Enum(vec) => todo!(),
+        }
+    }
 }
 
 impl Spannable for TypeSpecifier {

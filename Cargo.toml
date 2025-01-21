@@ -5,7 +5,12 @@ members = [
     "compiler/cmex_errors",
     "compiler/cmex_lexer",
     "compiler/cmex_parser",
-    "compiler/cmex_span"
-, "compiler/cmex_source", "compiler/cmex_symtable", "compiler/cmex_macros", "compiler/cmex_driver"]
+    "compiler/cmex_span",
+    "compiler/cmex_source",
+    "compiler/cmex_symtable",
+    "compiler/cmex_macros",
+    "compiler/cmex_driver",
+    "compiler/cmex_compile"
+]
 
 resolver = "2"

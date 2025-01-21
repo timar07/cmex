@@ -1,7 +1,7 @@
 [package]
-name = "cmex_ast"
+name = "cmex_compile"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-cmex_span = { path = "../cmex_span" }
+cmex_ast = { path = "../cmex_ast" }

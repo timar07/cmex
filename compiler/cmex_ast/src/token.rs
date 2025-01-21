@@ -79,6 +79,7 @@ pub enum TokenTag {
     Switch,
     Minus,
     NumberLiteral {
+        literal: String,
         prefix: Option<NumberLiteralPrefix>,
         suffix: Option<NumberLiteralSuffix>,
         kind: NumberLiteralKind,
@@ -236,7 +237,17 @@ impl std::fmt::Display for TokenTag {
             Self::Struct => write!(f, "struct"),
             Self::Switch => write!(f, "switch"),
             Self::Minus => write!(f, "-"),
-            Self::NumberLiteral { .. } => write!(f, "number literal"),
+            Self::NumberLiteral {
+                literal,
+                prefix,
+                suffix,
+                ..
+            } => write!(
+                f,
+                "{}{literal}{}",
+                prefix.map(|prefix| prefix.to_string()).unwrap_or_default(),
+                suffix.map(|suffix| suffix.to_string()).unwrap_or_default()
+            ),
             Self::SubAssign => write!(f, "-="),
             Self::Typedef => write!(f, "typedef"),
             Self::Tilde => write!(f, "~"),
@@ -264,7 +275,7 @@ pub enum NumberLiteralKind {
     Int,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NumberLiteralPrefix {
     Bin,
     Oct,
@@ -281,7 +292,7 @@ impl std::fmt::Display for NumberLiteralPrefix {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NumberLiteralSuffix {
     Float,
     Unsigned,
@@ -289,4 +300,17 @@ pub enum NumberLiteralSuffix {
     UnsignedLong,
     UnsignedLongLong,
     LongLong,
+}
+
+impl std::fmt::Display for NumberLiteralSuffix {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            NumberLiteralSuffix::Float => write!(f, "f"),
+            NumberLiteralSuffix::Unsigned => write!(f, "u"),
+            NumberLiteralSuffix::Long => write!(f, "l"),
+            NumberLiteralSuffix::UnsignedLong => write!(f, "ul"),
+            NumberLiteralSuffix::UnsignedLongLong => write!(f, "ull"),
+            NumberLiteralSuffix::LongLong => write!(f, "ll"),
+        }
+    }
 }

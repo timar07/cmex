@@ -9,3 +9,4 @@ cmex_parser = { path = "../cmex_parser" }
 cmex_span = { path = "../cmex_span" }
 cmex_ast = { path = "../cmex_ast" }
 cmex_symtable = { path = "../cmex_symtable" }
+tracing = "0.1"

@@ -415,15 +415,17 @@ impl Parser<'_> {
                 })
             }
             Some(Return) => {
-                self.iter.next();
+                let token = self.iter.next().unwrap();
 
-                if !check_tok!(self, Semicolon) {
-                    self.expression()?;
-                }
+                let expr = if !check_tok!(self, Semicolon) {
+                    Some(self.expression()?)
+                } else {
+                    None
+                };
 
                 require_tok!(self, Semicolon)?;
                 Ok(Stmt {
-                    tag: StmtTag::Return,
+                    tag: StmtTag::Return(token, expr),
                 })
             }
             _ => unreachable!(),
