@@ -126,7 +126,7 @@ impl AstNodeDump for StmtTag {
             }
             StmtTag::Goto(_) => {
                 tb.append_leaf("Goto".into());
-            },
+            }
         };
     }
 }
@@ -213,11 +213,9 @@ impl AstNodeDump for EnumConstantDecl {
 impl AstNodeDump for ParamList {
     fn dump(&self, tb: &mut TreeBuilder) {
         match self {
-            Self::Identifier(ids) => {
-                ids.iter().for_each(|id| {
-                    tb.append_leaf(format!("ParamDecl `{}`", id.0.to_string()));
-                })
-            },
+            Self::Identifier(ids) => ids.iter().for_each(|id| {
+                tb.append_leaf(format!("ParamDecl `{}`", id.0));
+            }),
             Self::Type(decls) => {
                 decls.iter().for_each(|decl| decl.dump(tb));
             }
@@ -240,8 +238,8 @@ impl AstNodeDump for Expr {
 impl AstNodeDump for ExprTag {
     fn dump(&self, tb: &mut TreeBuilder) {
         match self {
-            ExprTag::Primary(_) => {
-                tb.append_leaf("PrimaryExpr".into());
+            ExprTag::Primary(tok) => {
+                tb.append_leaf(format!("PrimaryExpr `{}`", tok.0));
             }
             ExprTag::BinExpr { op, lhs, rhs } => {
                 tb.open(format!("BinaryOperator `{}`", op.0));
@@ -288,6 +286,11 @@ impl AstNodeDump for ExprTag {
             }
             ExprTag::Invocation(_) => {
                 tb.append_leaf("Invocation".into());
+            }
+            ExprTag::StmtExpr(vec, _) => {
+                tb.open("StmtExpr".into());
+                vec.iter().for_each(|stmt| stmt.tag.dump(tb));
+                tb.close();
             }
         }
     }
