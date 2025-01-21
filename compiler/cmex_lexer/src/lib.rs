@@ -1,22 +1,50 @@
 mod cursor;
 mod errors;
 mod tests;
-mod token;
 
-use cmex_span::{Span, Spannable};
+use cmex_ast::token::*;
+
+use cmex_span::Span;
 pub use errors::LexError;
-pub use token::Spanned;
-pub use token::*;
 
 use cursor::Cursor;
 use errors::LexError::*;
+
+#[derive(Clone)]
+pub struct Spanned<I> {
+    pub iter: I,
+}
+
+impl<I> Spanned<I> {
+    pub fn new(iter: I) -> Self {
+        Self { iter }
+    }
+}
+
+impl<I> Iterator for Spanned<I>
+where
+    I: Positioned + Iterator,
+{
+    type Item = (<I as Iterator>::Item, Span);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let start = self.iter.get_pos();
+        let item = self.iter.next()?;
+
+        Some((item, Span(start, self.iter.get_pos())))
+    }
+}
+
+pub trait Positioned {
+    fn get_pos(&self) -> usize;
+}
 
 #[derive(Clone)]
 pub struct Tokens(pub Vec<Token>);
 
 pub struct TokensIter<'a> {
     toks: &'a Tokens,
-    index: usize
+    index: usize,
 }
 
 impl<'a> TokensIter<'a> {
@@ -27,22 +55,19 @@ impl<'a> TokensIter<'a> {
 
 impl<'a> From<&'a Tokens> for TokensIter<'a> {
     fn from(toks: &'a Tokens) -> Self {
-        Self {
-            index: 0,
-            toks
-        }
+        Self { index: 0, toks }
     }
 }
 
-impl<'a> Iterator for TokensIter<'a> {
+impl Iterator for TokensIter<'_> {
     type Item = Token;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.toks.0
+        self.toks
+            .0
             .get(self.index)
-            .map(|tok| {
+            .inspect(|_| {
                 self.index += 1;
-                tok
             })
             .cloned()
     }
@@ -136,7 +161,7 @@ impl Lexer<'_> {
     }
 
     fn skip_comment(&mut self) {
-        while let Some(_) = self.src.next() {
+        while self.src.next().is_some() {
             if self.src.match_ch('*') && self.src.match_ch('/') {
                 break;
             }

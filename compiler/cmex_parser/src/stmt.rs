@@ -5,8 +5,8 @@
 
 use super::{ParseError, ParseErrorTag, Parser, PR};
 use crate::{check_tok, lookahead, match_tok, require_tok};
+use cmex_ast::token::{Token, TokenTag::*};
 use cmex_ast::*;
-use cmex_lexer::{Token, TokenTag::*};
 use cmex_span::{MaybeSpannable, Span, Spannable, Unspan};
 
 macro_rules! curly_wrapped {
@@ -27,7 +27,7 @@ macro_rules! paren_wrapped {
     }};
 }
 
-impl<'a> Parser<'a> {
+impl Parser<'_> {
     pub fn parse(&mut self) -> Result<TranslationUnit, Vec<ParseError>> {
         self.translation_unit()
     }
@@ -62,6 +62,18 @@ impl<'a> Parser<'a> {
     /// or a regular declaration
     pub(crate) fn external_decl(&mut self) -> PR<Vec<Decl>> {
         let mut decl_list = Vec::with_capacity(1);
+
+        if let Some(Interpolated(nt)) = self.iter.peek().val() {
+            match *nt {
+                Nonterminal::Item(decl) => return Ok(decl),
+                _ => {
+                    return Err((
+                        ParseErrorTag::InterpolationFailed(*nt),
+                        self.iter.next().unwrap().1,
+                    ))
+                }
+            }
+        }
 
         if matches!(self.iter.peek().val(), Some(MacroRules)) {
             decl_list.push(self.macro_rules_definition()?);
@@ -242,16 +254,18 @@ impl<'a> Parser<'a> {
         })
     }
 
-    pub fn block(&mut self) -> PR<Vec<Stmt>> {
-        require_tok!(self, LeftCurly)?;
+    pub fn block(&mut self) -> PR<(Vec<Stmt>, Span)> {
+        let (_, open) = require_tok!(self, LeftCurly)?;
 
         let mut stmts = Vec::new();
 
-        while !check_tok!(self, RightCurly) {
+        while !matches!(self.iter.peek().val(), Some(RightCurly)) {
             stmts.push(self.statement()?);
         }
 
-        Ok(stmts)
+        let (_, close) = self.iter.next().unwrap();
+
+        Ok((stmts, Span::join(open, close)))
     }
 
     fn expression_statement(&mut self) -> PR<Option<Expr>> {

@@ -1,5 +1,7 @@
 use cmex_span::Span;
 
+use crate::Nonterminal;
+
 pub type Token = (TokenTag, Span);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -96,6 +98,9 @@ pub enum TokenTag {
 
     FatArrow,
     MacroRules,
+
+    /// Interpolated token, used in macros expansion
+    Interpolated(Box<Nonterminal>),
 
     /// Error recovery token
     Error,
@@ -246,6 +251,7 @@ impl std::fmt::Display for TokenTag {
             Self::XorAssign => write!(f, "^="),
             Self::FatArrow => write!(f, "=>"),
             Self::MacroRules => write!(f, "macro_rules"),
+            Self::Interpolated(_) => write!(f, "<interpolated>"),
             Self::Error => write!(f, "<error>"),
         }
     }
@@ -283,33 +289,4 @@ pub enum NumberLiteralSuffix {
     UnsignedLong,
     UnsignedLongLong,
     LongLong,
-}
-
-#[derive(Clone)]
-pub struct Spanned<I> {
-    pub iter: I,
-}
-
-impl<I> Spanned<I> {
-    pub fn new(iter: I) -> Self {
-        Self { iter }
-    }
-}
-
-impl<I> Iterator for Spanned<I>
-where
-    I: Positioned + Iterator,
-{
-    type Item = (<I as Iterator>::Item, Span);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let start = self.iter.get_pos();
-        let item = self.iter.next()?;
-
-        Some((item, Span(start, self.iter.get_pos())))
-    }
-}
-
-pub trait Positioned {
-    fn get_pos(&self) -> usize;
 }

@@ -1,8 +1,10 @@
 pub mod ast_dump;
+pub mod token;
 mod tree_builder;
 
-use cmex_lexer::{Token, TokenTag, Tokens};
 use cmex_span::{MaybeSpannable, Span, Spannable};
+
+use token::{Token, TokenTag};
 
 #[derive(Clone)]
 pub struct TranslationUnit(pub Vec<Decl>);
@@ -514,6 +516,7 @@ pub enum ExprTag {
         otherwise: Box<Expr>,
     },
     Invocation(InvocationTag),
+    StmtExpr(Vec<Stmt>, Span),
 }
 
 impl Spannable for ExprTag {
@@ -541,6 +544,7 @@ impl Spannable for ExprTag {
                 otherwise,
             } => Span::join(cond.span(), otherwise.span()),
             Self::Invocation(_) => todo!(),
+            Self::StmtExpr(_, span) => *span,
         }
     }
 }
@@ -548,7 +552,7 @@ impl Spannable for ExprTag {
 /// Other types of invocations may be implemented
 #[derive(Debug, Clone)]
 pub enum InvocationTag {
-    Bang(String, Option<TokenTree>),
+    Bang(Token, Option<TokenTree>),
 }
 
 /// Abstract tokens collection, mostly used in macros
@@ -558,10 +562,34 @@ pub enum TokenTree {
     Token(Token),
     /// Delimited token tree, i.e. token tree wrapped with braces,
     /// e.g. curlies, brackets or parenthesis
-    Delim(DelimTag, Vec<TokenTree>),
+    Delim(DelimTag, Vec<TokenTree>, DelimSpan),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+impl TokenTree {
+    pub fn flatten(&self) -> Vec<Token> {
+        match self {
+            TokenTree::Token(tok) => vec![tok.clone()],
+            TokenTree::Delim(delim_tag, vec, delim_span) => {
+                let mut toks = vec![];
+                let (l, r) = delim_tag.get_delims();
+                let DelimSpan(lspan, rspan) = delim_span.clone();
+                toks.push((l, lspan));
+                toks.append(
+                    &mut vec
+                        .to_vec()
+                        .iter()
+                        .map(|tt| tt.flatten())
+                        .reduce(|a, b| [a, b].concat())
+                        .unwrap_or_else(Vec::new),
+                );
+                toks.push((r, rspan));
+                toks
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DelimTag {
     /// Curly braces `{` `}`
     Curly,
@@ -571,6 +599,19 @@ pub enum DelimTag {
     Paren,
 }
 
+impl DelimTag {
+    pub fn get_delims(&self) -> (TokenTag, TokenTag) {
+        match self {
+            DelimTag::Curly => (TokenTag::LeftCurly, TokenTag::RightCurly),
+            DelimTag::Square => (TokenTag::LeftBrace, TokenTag::RightBrace),
+            DelimTag::Paren => (TokenTag::LeftParen, TokenTag::RightParen),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DelimSpan(pub Span, pub Span);
+
 #[derive(Debug, Clone)]
 pub enum Nonterminal {
     Block(Vec<Stmt>),
@@ -579,6 +620,35 @@ pub enum Nonterminal {
     Item(Vec<Decl>),
     Ty(TypeName),
     Expr(Expr),
+}
+
+impl std::fmt::Display for Nonterminal {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Nonterminal::Block(_) => write!(f, "block"),
+            Nonterminal::Literal(_) => write!(f, "literal"),
+            Nonterminal::Ident(_) => write!(f, "ident"),
+            Nonterminal::Item(_) => write!(f, "item"),
+            Nonterminal::Ty(_) => write!(f, "type name"),
+            Nonterminal::Expr(_) => write!(f, "expr"),
+        }
+    }
+}
+
+impl Eq for Nonterminal {}
+
+impl PartialEq for Nonterminal {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Block(_), Self::Block(_)) => true,
+            (Self::Literal(l0), Self::Literal(r0)) => l0 == r0,
+            (Self::Ident(l0), Self::Ident(r0)) => l0 == r0,
+            (Self::Item(_), Self::Item(_)) => true,
+            (Self::Ty(_), Self::Ty(_)) => true,
+            (Self::Expr(_), Self::Expr(_)) => true,
+            _ => false,
+        }
+    }
 }
 
 /// Nonterminal tag
