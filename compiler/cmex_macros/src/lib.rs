@@ -3,8 +3,8 @@ mod matcher;
 mod parse;
 mod tt_cursor;
 
-use cmex_ast::{NtTag, TokenTree};
-use cmex_lexer::{Token, TokenTag};
+use cmex_ast::token::Token;
+use cmex_ast::{DelimSpan, DelimTag, NtTag};
 pub use expand::MacroExpander;
 
 /// Macro rule consists of lhs (i.e. matcher) and rhs (some token tree).
@@ -17,7 +17,7 @@ pub use expand::MacroExpander;
 /// }
 /// ```
 #[derive(Debug, Clone)]
-pub struct MacroRule(pub MacroMatcher, pub TokenTree);
+pub struct MacroRule(pub MacroMatcher, pub DelimMtt);
 
 /// A part of the macro that defines how token stream will be matched.
 /// ```ignore
@@ -27,10 +27,17 @@ pub struct MacroRule(pub MacroMatcher, pub TokenTree);
 /// }
 /// ```
 #[derive(Debug, Clone)]
-pub struct MacroMatcher(pub Vec<MacroMatch>);
+pub struct MacroMatcher(pub Vec<MacroTokenTree>);
 
 #[derive(Debug, Clone)]
-pub enum MacroMatch {
+pub struct DelimMtt {
+    pub delim: DelimTag,
+    pub mtt: Vec<MacroTokenTree>,
+    pub span: DelimSpan,
+}
+
+#[derive(Debug, Clone)]
+pub enum MacroTokenTree {
     /// Any token except `$` and delimiters.
     Token(Token),
     /// Fragment-specified variable, for example
@@ -39,10 +46,12 @@ pub enum MacroMatch {
     ///     ($e:expr) => { /* ... */ }
     /// }
     /// ```
-    Frag(String, NtTag),
+    Frag(Token, Option<NtTag>),
     /// Repitition macro form, it has the following syntax:
-    /// `$ ( ... ) sep? rep`
-    Rep(Box<MacroMatcher>, Option<Token>, RepOpTag),
+    /// `$ ( ... ) sep? rep` for lhs and `$( ... ) rep` for rhs
+    Rep(Vec<MacroTokenTree>, Option<Token>, RepOpTag),
+    /// Delimited token tree e.g. `(a b c)`
+    Delim(DelimMtt),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

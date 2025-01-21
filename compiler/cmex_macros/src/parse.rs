@@ -1,9 +1,9 @@
-use crate::tt_cursor::TtCursor;
+use crate::{tt_cursor::TtCursor, DelimMtt};
+use cmex_ast::token::TokenTag::{self, *};
 use cmex_ast::{DelimTag, NtTag, TokenTree};
-use cmex_lexer::TokenTag::{self, *};
 use cmex_span::{Span, Unspan};
 
-use crate::{MacroTokenTree, MacroMatcher, MacroRule, RepOpTag};
+use crate::{MacroMatcher, MacroRule, MacroTokenTree, RepOpTag};
 
 type PR<T> = Result<T, (ParseErrorTag, Span)>;
 
@@ -45,7 +45,7 @@ impl MacroParser {
 
     fn macro_rules_def(&mut self) -> Vec<MacroRule> {
         match &self.tt {
-            TokenTree::Delim(_, tt) => self.macro_rules(tt.to_vec()),
+            TokenTree::Delim(_, tt, _) => self.macro_rules(tt.to_vec()),
             TokenTree::Token(_) => panic!("expected macro rules body"),
         }
     }
@@ -71,7 +71,7 @@ impl MacroParser {
         let mut iter = tt.iter().peekable();
 
         let matcher = match iter.next() {
-            Some(TokenTree::Delim(_, tt)) => {
+            Some(TokenTree::Delim(_, tt, _)) => {
                 self.macro_matcher(&mut TtCursor::new(tt))
             }
             _ => panic!("expected macro matcher"),
@@ -80,23 +80,30 @@ impl MacroParser {
         require_tok!(iter, FatArrow);
 
         let rhs = match iter.next().unwrap().clone() {
-            TokenTree::Delim(_, body) => {
+            TokenTree::Delim(delim, body, span) => {
                 let cursor = &mut TtCursor::new(&body);
-                MacroTtParser::new(cursor).parse_mtt()
-            },
-            _ => panic!("expected delimited token tree")
+                DelimMtt {
+                    delim,
+                    mtt: MacroTtParser::new(cursor).parse_mtt(),
+                    span,
+                }
+            }
+            _ => panic!("expected delimited token tree"),
         };
 
         MacroRule(matcher, rhs)
     }
 
-    fn macro_matcher<'a>(&mut self, iter: &'a mut TtCursor<'a>) -> MacroMatcher {
+    fn macro_matcher<'a>(
+        &mut self,
+        iter: &'a mut TtCursor<'a>,
+    ) -> MacroMatcher {
         MacroMatcher(MacroTtParser::new(iter).parse_mtt())
     }
 }
 
 pub struct MacroTtParser<'a> {
-    iter: &'a mut TtCursor<'a>
+    iter: &'a mut TtCursor<'a>,
 }
 
 impl<'a> MacroTtParser<'a> {
@@ -115,15 +122,15 @@ impl<'a> MacroTtParser<'a> {
     }
 
     fn parse_item(&mut self) -> Option<MacroTokenTree> {
-        match dbg!(self.iter.next()) {
-            Some((TokenTag::Dollar, _)) => {
-                match dbg!(self.iter.peek_tree()) {
-                    Some(TokenTree::Delim(DelimTag::Paren, inner)) => {
+        match self.iter.next_tree() {
+            Some(TokenTree::Token((TokenTag::Dollar, _))) => {
+                match self.iter.peek_tree() {
+                    Some(TokenTree::Delim(DelimTag::Paren, inner, _)) => {
                         let matcher = subparse(&inner);
 
                         self.iter.next_tree();
 
-                        dbg!(match self.iter.peek().val() {
+                        match self.iter.peek().val() {
                             Some(
                                 TokenTag::Plus
                                 | TokenTag::Asterisk
@@ -139,12 +146,21 @@ impl<'a> MacroTtParser<'a> {
                                 self.rep_op(),
                             )),
                             _ => panic!("expected `+`, `*` or `?`"),
-                        })
+                        }
                     }
                     _ => self.macro_frag(),
                 }
-            },
-            Some(tok) => Some(MacroTokenTree::Token(tok.clone())),
+            }
+            Some(TokenTree::Token(tok)) => {
+                Some(MacroTokenTree::Token(tok.clone()))
+            }
+            Some(TokenTree::Delim(delim, inner, span)) => {
+                Some(MacroTokenTree::Delim(DelimMtt {
+                    delim,
+                    span,
+                    mtt: subparse(&inner),
+                }))
+            }
             _ => None,
         }
     }
@@ -168,10 +184,7 @@ impl<'a> MacroTtParser<'a> {
                         Some(self.macro_frag_spec()),
                     ))
                 } else {
-                    Some(MacroTokenTree::Frag(
-                        tok.clone(),
-                        None
-                    ))
+                    Some(MacroTokenTree::Frag(tok.clone(), None))
                 }
             }
             _ => panic!("expected matcher"),
@@ -197,7 +210,7 @@ impl<'a> MacroTtParser<'a> {
 }
 
 fn subparse(inner: &Vec<TokenTree>) -> Vec<MacroTokenTree> {
-    dbg!(MacroTtParser::new(&mut TtCursor::new(&inner)).parse_mtt())
+    MacroTtParser::new(&mut TtCursor::new(inner)).parse_mtt()
 }
 
 pub enum ParseErrorTag {

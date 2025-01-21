@@ -3,8 +3,8 @@ mod lookahead;
 mod macros;
 mod stmt;
 
-use cmex_ast::{Nonterminal, NtTag};
-use cmex_lexer::{Lexer, Token, TokenTag, Tokens, TokensIter};
+use cmex_ast::{token::TokenTag, Nonterminal, NtTag};
+use cmex_lexer::{Tokens, TokensIter};
 use cmex_span::{Span, Unspan};
 use cmex_symtable::SymTable;
 pub use lookahead::Lookahead;
@@ -37,7 +37,7 @@ impl<'a> Parser<'a> {
     #[inline]
     pub fn parse_nt(&mut self, tag: NtTag) -> PR<Nonterminal> {
         match tag {
-            NtTag::Block => Ok(Nonterminal::Block(self.block()?)),
+            NtTag::Block => Ok(Nonterminal::Block(self.block()?.0)),
             NtTag::Literal => match self.iter.peek().val() {
                 Some(
                     TokenTag::NumberLiteral { .. }
@@ -70,6 +70,7 @@ type ParseError = (ParseErrorTag, Span);
 #[derive(Debug)]
 pub enum ParseErrorTag {
     Expected(String),
+    InterpolationFailed(Nonterminal),
     ExpectedGot(String, Option<TokenTag>),
     DeclarationHasNoIdentifier,
     DeclarationHasNoInitializer,
@@ -105,6 +106,13 @@ impl std::fmt::Display for ParseErrorTag {
                     tok.clone()
                         .map(|tok| format!("`{tok}`"))
                         .unwrap_or("end of file".into())
+                )
+            }
+            Self::InterpolationFailed(nt) => {
+                write!(
+                    f,
+                    "cannot interpolate nonterminal type `{}` into AST",
+                    nt
                 )
             }
             Self::UnexpectedEof => write!(f, "unexpected end of file"),

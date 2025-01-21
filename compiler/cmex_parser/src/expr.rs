@@ -4,11 +4,10 @@
 
 use super::{ParseErrorTag, Parser, PR};
 use crate::{check_tok, match_tok, require_tok};
-use cmex_ast::{Expr, ExprTag, InvocationTag};
-use cmex_lexer::TokenTag::*;
+use cmex_ast::{token::TokenTag::*, Expr, ExprTag, InvocationTag, Nonterminal};
 use cmex_span::{Span, Unspan};
 
-impl<'a> Parser<'a> {
+impl Parser<'_> {
     pub fn constant_expression(&mut self) -> PR<Expr> {
         self.conditional()
     }
@@ -240,6 +239,7 @@ impl<'a> Parser<'a> {
     fn cast(&mut self) -> PR<Expr> {
         if check_tok!(self, LeftParen) {
             if self.is_type_specifier() {
+                self.iter.next();
                 let type_name = self.type_name()?;
                 require_tok!(self, RightParen)?;
 
@@ -250,10 +250,7 @@ impl<'a> Parser<'a> {
                     },
                 });
             } else {
-                let expr = self.expression();
-                require_tok!(self, RightParen)?;
-
-                return expr;
+                return self.parenthesized();
             }
         }
 
@@ -309,13 +306,12 @@ impl<'a> Parser<'a> {
                     todo!()
                 }
                 Not => match expr.tag {
-                    ExprTag::Primary((Identifier(id), _)) => {
-                        Expr {
-                            tag: ExprTag::Invocation(InvocationTag::Bang(
-                                id, Some(self.delim_token_tree()?),
-                            )),
-                        }
-                    }
+                    ExprTag::Primary(id @ (Identifier(_), _)) => Expr {
+                        tag: ExprTag::Invocation(InvocationTag::Bang(
+                            id,
+                            Some(self.delim_token_tree()?),
+                        )),
+                    },
                     _ => panic!("expected identifier before macro invocation"),
                 },
                 LeftParen => self.parse_call(expr)?,
@@ -384,11 +380,19 @@ impl<'a> Parser<'a> {
             ) => Ok(Expr {
                 tag: ExprTag::Primary(self.iter.next().unwrap()),
             }),
+            Some(Interpolated(nt)) => {
+                self.iter.next();
+                match *nt {
+                    Nonterminal::Expr(expr) => Ok(expr),
+                    _ => Err((
+                        ParseErrorTag::InterpolationFailed(*nt),
+                        self.iter.next().unwrap().1,
+                    )),
+                }
+            }
             Some(LeftParen) => {
                 self.iter.next();
-                let expr = self.expression();
-                require_tok!(self, RightParen)?;
-                expr
+                self.parenthesized()
             }
             Some(t) => Err((
                 ParseErrorTag::UnexpectedToken(t),
@@ -396,5 +400,24 @@ impl<'a> Parser<'a> {
             )),
             _ => panic!(),
         }
+    }
+
+    fn parenthesized(&mut self) -> PR<Expr> {
+        if matches!(self.iter.peek().val(), Some(LeftCurly)) {
+            let expr = self.statement_expression();
+            require_tok!(self, RightParen)?;
+            return expr;
+        }
+
+        let expr = self.expression();
+        require_tok!(self, RightParen)?;
+        expr
+    }
+
+    fn statement_expression(&mut self) -> PR<Expr> {
+        let (inner, span) = self.block()?;
+        Ok(Expr {
+            tag: ExprTag::StmtExpr(inner, span),
+        })
     }
 }

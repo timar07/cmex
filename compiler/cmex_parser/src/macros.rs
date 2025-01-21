@@ -3,11 +3,11 @@
 //! <https://doc.rust-lang.org/reference/macros-by-example.html#r-macro.decl.syntax>
 
 use crate::{require_tok, ParseErrorTag, Parser, PR};
-use cmex_ast::{Decl, DelimTag, TokenTree};
-use cmex_lexer::TokenTag::*;
+use cmex_ast::token::TokenTag::*;
+use cmex_ast::{Decl, DelimSpan, DelimTag, TokenTree};
 use cmex_span::{Span, Unspan};
 
-impl<'a> Parser<'a> {
+impl Parser<'_> {
     /// Parse `macro_rules!`. The pre-expansion parsing is implemented in
     /// `cmex_macros` module, for now, the definition is represented as an
     /// iterator over tokens within the body.
@@ -26,18 +26,9 @@ impl<'a> Parser<'a> {
         let mut subtree = Vec::new();
 
         let (end, delim_tag) = match self.iter.peek().val() {
-            Some(LeftCurly) => {
-                self.iter.next();
-                (RightCurly, DelimTag::Curly)
-            }
-            Some(LeftParen) => {
-                self.iter.next();
-                (RightParen, DelimTag::Paren)
-            }
-            Some(LeftBrace) => {
-                self.iter.next();
-                (RightBrace, DelimTag::Square)
-            }
+            Some(LeftCurly) => (RightCurly, DelimTag::Curly),
+            Some(LeftParen) => (RightParen, DelimTag::Paren),
+            Some(LeftBrace) => (RightBrace, DelimTag::Square),
             Some(_) => {
                 return Err((
                     ParseErrorTag::ExpectedGot(
@@ -50,13 +41,21 @@ impl<'a> Parser<'a> {
             _ => panic!(),
         };
 
+        let start_span = self.iter.next().unwrap().1;
+
         while self.iter.peek().val() != Some(end.clone()) {
             subtree.push(self.token_tree()?);
         }
 
+        let end_span = self.iter.peek().unwrap().1;
+
         assert_eq!(self.iter.next().val(), Some(end));
 
-        Ok(TokenTree::Delim(delim_tag, subtree))
+        Ok(TokenTree::Delim(
+            delim_tag,
+            subtree,
+            DelimSpan(start_span, end_span),
+        ))
     }
 
     fn token_tree(&mut self) -> PR<TokenTree> {

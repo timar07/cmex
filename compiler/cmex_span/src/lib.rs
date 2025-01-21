@@ -2,6 +2,18 @@
 pub struct Span(pub usize, pub usize);
 
 impl Span {
+    pub fn placeholder() -> Self {
+        Self(0, 0)
+    }
+
+    pub fn lo(self) -> Self {
+        Self(self.0, self.0)
+    }
+
+    pub fn hi(self) -> Self {
+        Self(self.1, self.1)
+    }
+
     pub fn join(a: Self, b: Self) -> Self {
         Self(a.0, b.1).normalize()
     }
