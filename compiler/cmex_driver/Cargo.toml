@@ -4,3 +4,12 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+cmex_ast = { path = "../cmex_ast" }
+cmex_errors = { path = "../cmex_errors" }
+cmex_lexer = { path = "../cmex_lexer" }
+cmex_parser = { path = "../cmex_parser" }
+cmex_macros = { path = "../cmex_macros" }
+cmex_compile = { path = "../cmex_compile" }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"]}
+

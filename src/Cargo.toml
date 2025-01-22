@@ -4,12 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-cmex_ast = { path = "../compiler/cmex_ast"}
-cmex_errors = { path = "../compiler/cmex_errors"}
-cmex_lexer = { path = "../compiler/cmex_lexer"}
-cmex_parser = { path = "../compiler/cmex_parser"}
-cmex_macros = { path = "../compiler/cmex_macros"}
-cmex_compile = { path = "../compiler/cmex_compile" }
+cmex_driver = { path = "../compiler/cmex_driver"}
 
 [features]
 kr_func_decl = []

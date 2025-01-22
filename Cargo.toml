@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "src",
+    "compiler/cmex_driver",
     "compiler/cmex_ast",
     "compiler/cmex_errors",
     "compiler/cmex_lexer",
@@ -9,7 +10,6 @@ members = [
     "compiler/cmex_source",
     "compiler/cmex_symtable",
     "compiler/cmex_macros",
-    "compiler/cmex_driver",
     "compiler/cmex_compile"
 ]
 
