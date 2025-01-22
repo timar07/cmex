@@ -60,7 +60,7 @@ impl Parser<'_> {
 
     /// External declaration is a top level declaration (e.g. functions)
     /// or a regular declaration
-    pub(crate) fn external_decl(&mut self) -> PR<Vec<Decl>> {
+    pub(crate) fn external_decl(&mut self) -> PR<Vec<DeclTag>> {
         let mut decl_list = Vec::with_capacity(1);
 
         if let Some(Interpolated(nt)) = self.iter.peek().val() {
@@ -150,7 +150,7 @@ impl Parser<'_> {
     fn type_definition(
         &mut self,
         spec: Vec<DeclSpecifier>,
-    ) -> PR<Option<Decl>> {
+    ) -> PR<Option<DeclTag>> {
         if let Some(DeclSpecifier::TypeSpecifier(t)) = spec.last() {
             match t {
                 TypeSpecifier::Enum(consts) => {
@@ -169,9 +169,11 @@ impl Parser<'_> {
                         }
                     }
 
-                    Ok(Some(Decl::Enum(consts.to_vec())))
+                    Ok(Some(DeclTag::Enum(consts.to_vec())))
                 }
-                TypeSpecifier::Record(r) => Ok(Some(Decl::Record(r.to_vec()))),
+                TypeSpecifier::Record(r) => {
+                    Ok(Some(DeclTag::Record(r.to_vec())))
+                }
                 _ => Ok(None),
             }
         } else {
@@ -183,9 +185,9 @@ impl Parser<'_> {
         &mut self,
         spec: Option<Vec<DeclSpecifier>>,
         decl: InitDeclarator,
-    ) -> PR<Decl> {
+    ) -> PR<DeclTag> {
         match decl.0.suffix {
-            Some(DeclaratorSuffix::Func(suffix)) => Ok(Decl::Func {
+            Some(DeclaratorSuffix::Func(suffix)) => Ok(DeclTag::Func {
                 spec,
                 params: suffix,
                 decl: decl.0.inner,
@@ -436,10 +438,10 @@ impl Parser<'_> {
         &mut self,
         spec: Vec<DeclSpecifier>,
         init_decl: InitDeclarator,
-    ) -> PR<Decl> {
+    ) -> PR<DeclTag> {
         let decl_list = self.init_declarator_list(init_decl)?;
 
-        Ok(Decl::Var { spec, decl_list })
+        Ok(DeclTag::Var { spec, decl_list })
     }
 
     fn decl_specifier(&mut self) -> PR<Vec<DeclSpecifier>> {

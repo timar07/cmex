@@ -4,19 +4,19 @@
 
 use crate::{require_tok, ParseErrorTag, Parser, PR};
 use cmex_ast::token::TokenTag::*;
-use cmex_ast::{Decl, DelimSpan, DelimTag, TokenTree};
+use cmex_ast::{DeclTag, DelimSpan, DelimTag, TokenTree};
 use cmex_span::{Span, Unspan};
 
 impl Parser<'_> {
     /// Parse `macro_rules!`. The pre-expansion parsing is implemented in
     /// `cmex_macros` module, for now, the definition is represented as an
     /// iterator over tokens within the body.
-    pub fn macro_rules_definition(&mut self) -> PR<Decl> {
+    pub fn macro_rules_definition(&mut self) -> PR<DeclTag> {
         self.iter.next();
         require_tok!(self, Not)?;
         let id = require_tok!(self, Identifier(_))?;
 
-        Ok(Decl::Macro {
+        Ok(DeclTag::Macro {
             id,
             body: self.delim_token_tree()?,
         })

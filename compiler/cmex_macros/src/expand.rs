@@ -2,13 +2,14 @@ use std::collections::HashMap;
 
 use cmex_ast::token::{Token, TokenTag};
 use cmex_ast::{
-    Decl, DelimSpan, DelimTag, Expr, ExprTag, Initializer, InvocationTag,
+    DeclTag, DelimSpan, DelimTag, Expr, Initializer, InvocationTag,
     Nonterminal, NtTag, Stmt, StmtTag, TokenTree, TranslationUnit,
 };
 use cmex_lexer::Tokens;
 use cmex_parser::{ParseErrorTag, Parser};
-use cmex_span::Span;
+use cmex_span::{MaybeSpannable, Span};
 use cmex_symtable::SymTable;
+use tracing::debug;
 
 use crate::{
     matcher::{BoundMatch, MatchResult, StatesParser, TtMatcher},
@@ -23,6 +24,7 @@ type ExpRes<T> = Result<T, (ExpError, Span)>;
 pub enum ExpError {
     NtParseError(ParseErrorTag),
     UseOfUndeclaredMacro(String),
+    MatchError(String),
 }
 
 impl std::fmt::Display for ExpError {
@@ -33,6 +35,9 @@ impl std::fmt::Display for ExpError {
             }
             Self::UseOfUndeclaredMacro(name) => {
                 write!(f, "use of undeclared macro {name}")
+            }
+            Self::MatchError(msg) => {
+                write!(f, "match error: {msg}")
             }
         }
     }
@@ -56,24 +61,24 @@ impl MacroExpander {
         Ok(())
     }
 
-    fn expand_decl(&mut self, decl: &mut Decl) -> ExpRes<()> {
+    fn expand_decl(&mut self, decl: &mut DeclTag) -> ExpRes<()> {
         match decl {
-            Decl::Func { body, .. } => {
+            DeclTag::Func { body, .. } => {
                 self.expand_stmt(body)?;
             }
-            Decl::Var { decl_list, .. } => {
+            DeclTag::Var { decl_list, .. } => {
                 for decl in decl_list {
                     if let Some(init) = &mut decl.1 {
                         self.expand_initializer(init)?;
                     }
                 }
             }
-            Decl::Macro { id, body } => {
+            DeclTag::Macro { id, body } => {
                 if let TokenTag::Identifier(name) = &id.0 {
                     self.decls
                         .define(
                             name.clone(),
-                            MacroParser::new(body.clone()).parse(),
+                            MacroParser::new(body.clone()).parse().unwrap(),
                         )
                         .unwrap();
                 }
@@ -98,34 +103,34 @@ impl MacroExpander {
     }
 
     fn expand_expr(&mut self, expr: &mut Expr) -> ExpRes<()> {
-        match &mut expr.tag {
-            ExprTag::Invocation(invocation_tag) => {
+        match expr {
+            Expr::Invocation(invocation_tag) => {
                 *expr = self.expand_invocation(invocation_tag)?;
             }
-            ExprTag::BinExpr { lhs, rhs, .. } => {
+            Expr::BinExpr { lhs, rhs, .. } => {
                 self.expand_expr(lhs.as_mut())?;
                 self.expand_expr(rhs.as_mut())?;
             }
-            ExprTag::UnExpr { rhs, .. } => {
+            Expr::UnExpr { rhs, .. } => {
                 self.expand_expr(rhs.as_mut())?;
             }
-            ExprTag::Call { calle, args } => {
+            Expr::Call { calle, args } => {
                 self.expand_expr(calle)?;
 
                 for arg in args {
                     self.expand_expr(arg)?;
                 }
             }
-            ExprTag::MemberAccess { expr, .. } => {
+            Expr::MemberAccess { expr, .. } => {
                 self.expand_expr(expr)?;
             }
-            ExprTag::SizeofExpr { expr } => {
+            Expr::SizeofExpr { expr } => {
                 self.expand_expr(expr)?;
             }
-            ExprTag::CastExpr { expr, .. } => {
+            Expr::CastExpr { expr, .. } => {
                 self.expand_expr(expr)?;
             }
-            ExprTag::Conditional {
+            Expr::Conditional {
                 cond,
                 then,
                 otherwise,
@@ -210,13 +215,10 @@ impl MacroExpander {
                 let matchers: Vec<MacroMatcher> =
                     decl.iter().map(|rule| rule.0.clone()).collect();
 
-                let Ok((index, captures)) =
-                    dbg!(match_macro(&matchers, &mut parser, id.1))
-                else {
-                    panic!("match failed");
-                };
+                let (idx, captures) = match_macro(&matchers, &mut parser, id.1)
+                    .map_err(|err| (ExpError::MatchError(err.0), err.1))?;
 
-                let rhs = &decl[index].1;
+                let rhs = &decl[idx].1;
                 let tokens: Vec<(TokenTag, cmex_span::Span)> =
                     expand(captures, rhs)
                         .unwrap()
@@ -225,9 +227,8 @@ impl MacroExpander {
                         .reduce(|a, b| [a, b].concat())
                         .unwrap_or_else(Vec::new);
 
-                dbg!(&tokens);
                 match Parser::new(&Tokens(tokens)).parse_nt(NtTag::Expr) {
-                    Ok(Nonterminal::Expr(exp)) => Ok(dbg!(exp)),
+                    Ok(Nonterminal::Expr(exp)) => Ok(exp),
                     Err((e, span)) => Err((ExpError::NtParseError(e), span)),
                     _ => unreachable!(),
                 }
@@ -365,7 +366,6 @@ fn expand(
             MacroTokenTree::Token(tok) => {
                 result.push(TokenTree::Token(tok.clone()))
             }
-            _ => panic!(),
         }
     }
 }
@@ -427,22 +427,29 @@ fn match_macro(
     span: Span,
 ) -> Result<(usize, HashMap<String, Option<BoundMatch>>), (String, Span)> {
     let mut tt_matcher = TtMatcher::new();
+    let mut last_error = None;
 
     for (i, matcher) in matchers.iter().enumerate() {
-        println!("Matcing arm {i}");
-        let res = tt_matcher
-            .match_tt(&StatesParser::generate_substates(&matcher.0)?, parser);
+        debug!("Matcing arm {i}");
+        let res = tt_matcher.match_tt(
+            &StatesParser::generate_substates(&matcher.0)?,
+            parser,
+            matcher.0.span().unwrap_or_default(),
+        );
 
         match res {
-            MatchResult::Error(msg, _) => {
-                panic!("{msg}");
+            MatchResult::Error(msg, span) => {
+                debug!("Fatal error occurred during matching {i} arm");
+                return Err((msg, span));
             }
-            MatchResult::Fail(_, _) => {
-                println!("failed to match macro, retrying")
+            MatchResult::Fail(msg, span) => {
+                debug!("Failed to match {i} arm, retrying");
+                last_error = Some(Err((msg, span)))
             }
             MatchResult::Success(captures) => return Ok((i, captures)),
         }
     }
 
-    Err(("no arms matched this invocation input".into(), span))
+    last_error
+        .unwrap_or(Err(("no arms matched this invocation input".into(), span)))
 }
