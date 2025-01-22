@@ -80,6 +80,7 @@ pub enum MatcherState {
     ///         /* ^ RepOpAfterSep */
     /// ```
     RepOpAfterSep {
+        #[allow(dead_code)]
         tag: RepOpTag,
         index_first: usize,
     },
@@ -121,6 +122,7 @@ impl TtMatcher {
         &mut self,
         matcher: &[MatcherState],
         parser: &mut Parser,
+        span: Span,
     ) -> MatchResult<HashMap<String, Option<BoundMatch>>> {
         self.curr_mps.clear();
         self.curr_mps.push(MatcherPos {
@@ -132,7 +134,8 @@ impl TtMatcher {
             self.next_mps.clear();
             self.nt_mps.clear();
 
-            let res = self.parse_tt_inner(parser.iter.peek().as_ref(), matcher);
+            let res =
+                self.parse_tt_inner(parser.iter.peek().as_ref(), matcher, span);
 
             // Result emited
             if let Some(res) = res {
@@ -196,7 +199,7 @@ impl TtMatcher {
                     self.curr_mps.push(mp);
                 }
                 (_, _) => {
-                    panic!("ambiguity error")
+                    return MatchResult::Error("ambiguity error".into(), span)
                 }
             }
         }
@@ -206,6 +209,7 @@ impl TtMatcher {
         &mut self,
         token: Option<&Token>,
         matcher: &[MatcherState],
+        span: Span,
     ) -> Option<MatchResult<HashMap<String, Option<BoundMatch>>>> {
         let mut eof_mp = EofMatcherPos::None;
 
@@ -298,12 +302,15 @@ impl TtMatcher {
                     self.bind_names(matcher, eof_mp.matches.into_iter())
                 }
                 EofMatcherPos::Multiple => {
-                    panic!("ambiguity error: multiple successful parses")
+                    return Some(MatchResult::Fail(
+                        "ambiguity error: multiple successful parses".into(),
+                        span,
+                    ));
                 }
                 EofMatcherPos::None => {
                     return Some(MatchResult::Fail(
                         "missing tokens in macro token tree".into(),
-                        Span::placeholder(),
+                        span,
                     ))
                 }
             })
