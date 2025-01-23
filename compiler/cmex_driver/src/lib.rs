@@ -50,7 +50,15 @@ pub fn main() {
             .map(|(res, span)| match res {
                 Ok(tok) => (tok, span),
                 Err(e) => {
-                    eprintln!("{e}");
+                    // TODO: context
+                    eprintln!(
+                        "{}",
+                        ErrorBuilder::new()
+                            .filename(args[1].clone())
+                            .tag("LexError")
+                            .info(format!("{}", e))
+                            .build()
+                    );
                     (TokenTag::Error, span)
                 }
             })
