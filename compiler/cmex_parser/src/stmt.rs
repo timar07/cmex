@@ -75,16 +75,20 @@ impl Parser<'_> {
             }
         }
 
-        if matches!(self.iter.peek().val(), Some(MacroRules)) {
-            decl_list.push(self.macro_rules_definition()?);
-            return Ok(decl_list);
+        match self.iter.peek().val() {
+            Some(MacroRules) => {
+                decl_list.push(self.macro_rules_definition()?);
+                return Ok(decl_list);
+            }
+            Some(Hash) => return Ok(vec![self.deprecated_macro()?]),
+            _ => {}
         }
 
         if let Some(tok) = match_tok!(self, Typedef) {
             return self
                 .maybe_decl_specifiers()?
                 .map(|specs| {
-                    if let Some(decl) = self.type_definition(specs.clone())? {
+                    if let Some(decl) = self.type_definition(specs.as_ref())? {
                         decl_list.push(decl);
                         Ok(decl_list)
                     } else {
@@ -106,8 +110,20 @@ impl Parser<'_> {
 
         let spec = self.maybe_decl_specifiers()?;
 
+        // TODO: hotfix, refactor
+        if check_tok!(self, Semicolon) {
+            if let Some(ref spec) = spec {
+                if let Some(decl) = self.type_definition(&spec)? {
+                    decl_list.push(decl);
+                    return Ok(decl_list);
+                }
+            }
+        }
+
         while !matches!(self.iter.peek().val(), Some(Semicolon) | None) {
             let decl = self.init_declarator()?;
+
+            dbg!(&decl);
 
             // Declator has an initializer e.g. `int foo = bar, ...`
             if decl.1.is_some() {
@@ -116,6 +132,8 @@ impl Parser<'_> {
                     decl.span(),
                 )))?;
 
+                // Push this declaration just like it was seperate declaration
+                // e.g. `int a = 5, b = 7;` would be `int a = 5; int b = 7;`
                 decl_list.push(self.decl(decl_spec, decl.clone())?);
             }
 
@@ -149,7 +167,7 @@ impl Parser<'_> {
 
     fn type_definition(
         &mut self,
-        spec: Vec<DeclSpecifier>,
+        spec: &Vec<DeclSpecifier>,
     ) -> PR<Option<DeclTag>> {
         if let Some(DeclSpecifier::TypeSpecifier(t)) = spec.last() {
             match t {
@@ -171,8 +189,8 @@ impl Parser<'_> {
 
                     Ok(Some(DeclTag::Enum(consts.to_vec())))
                 }
-                TypeSpecifier::Record(r) => {
-                    Ok(Some(DeclTag::Record(r.to_vec())))
+                TypeSpecifier::Record(id, r) => {
+                    Ok(Some(DeclTag::Record(id.clone(), r.to_vec())))
                 }
                 _ => Ok(None),
             }
@@ -187,10 +205,9 @@ impl Parser<'_> {
         decl: InitDeclarator,
     ) -> PR<DeclTag> {
         match decl.0.suffix {
-            Some(DeclaratorSuffix::Func(suffix)) => Ok(DeclTag::Func {
+            Some(DeclaratorSuffix::Func(_)) => Ok(DeclTag::Func {
                 spec,
-                params: suffix,
-                decl: decl.0.inner,
+                decl: Box::new(decl.0.clone()),
                 body: Box::new(self.compound_statement()?),
             }),
             // Function has a array suffix e.g. `int foo[100]() { ... }`
@@ -575,12 +592,13 @@ impl Parser<'_> {
                 ));
             }
 
-            return Ok(TypeSpecifier::Record(vec![]));
+            return Ok(TypeSpecifier::Record(maybe_id, vec![]));
         }
 
-        Ok(TypeSpecifier::Record(curly_wrapped!(self, {
-            self.struct_decl_list()?
-        })))
+        Ok(TypeSpecifier::Record(
+            maybe_id,
+            curly_wrapped!(self, { self.struct_decl_list()? }),
+        ))
     }
 
     fn struct_decl_list(&mut self) -> PR<Vec<FieldDecl>> {
@@ -603,13 +621,16 @@ impl Parser<'_> {
     }
 
     fn struct_decl(&mut self) -> PR<Vec<FieldDecl>> {
-        self.specifier_qualifier_list()?;
+        let specs = self.specifier_qualifier_list()?;
         let decl_list = self.struct_declarator_list()?;
         require_tok!(self, Semicolon)?;
 
         Ok(decl_list
             .iter()
-            .map(|decl| FieldDecl { decl: decl.clone() })
+            .map(|decl| FieldDecl {
+                specs: specs.clone(),
+                decl: decl.clone(),
+            })
             .collect())
     }
 
@@ -617,19 +638,21 @@ impl Parser<'_> {
         self.is_specifier_qualifier()
     }
 
-    fn specifier_qualifier_list(&mut self) -> PR<()> {
-        self.specifier_qualifier()?;
+    fn specifier_qualifier_list(&mut self) -> PR<Vec<TypeSpecifier>> {
+        let mut specs = vec![];
 
         while self.is_specifier_qualifier() {
-            self.specifier_qualifier()?;
+            if let Some(spec) = self.specifier_qualifier()? {
+                specs.push(spec);
+            }
         }
 
-        Ok(())
+        Ok(specs)
     }
 
-    fn specifier_qualifier(&mut self) -> PR<Option<()>> {
+    fn specifier_qualifier(&mut self) -> PR<Option<TypeSpecifier>> {
         if self.maybe_type_qualifier().is_none() {
-            self.maybe_type_specifier()?;
+            return Ok(self.maybe_type_specifier()?);
         }
 
         Ok(None)
@@ -710,12 +733,11 @@ impl Parser<'_> {
     }
 
     fn declarator(&mut self) -> PR<Declarator> {
-        if matches!(self.iter.peek().val(), Some(Asterisk)) {
-            self.pointer()?;
-        }
-
+        let prefix = self.pointer()?;
         let inner = self.direct_declarator()?;
+
         Ok(Declarator {
+            prefix,
             suffix: if inner.is_abstract() {
                 self.maybe_abstract_declarator_suffix()?
             } else {
@@ -783,18 +805,20 @@ impl Parser<'_> {
         matches!(self.iter.peek().val(), Some(LeftBrace | LeftParen))
     }
 
-    fn pointer(&mut self) -> PR<()> {
-        require_tok!(self, Asterisk)?;
+    fn pointer(&mut self) -> PR<Vec<DeclaratorPrefix>> {
+        let mut prefix = Vec::new();
 
-        if matches!(self.iter.peek().val(), Some(Const | Volatile)) {
-            self.type_qualifier_list();
+        while check_tok!(self, Asterisk) {
+            if matches!(self.iter.peek().val(), Some(Const | Volatile)) {
+                prefix.push(DeclaratorPrefix::Pointer(
+                    self.type_qualifier_list(),
+                ));
+            } else {
+                prefix.push(DeclaratorPrefix::Pointer(Vec::with_capacity(0)))
+            }
         }
 
-        if matches!(self.iter.peek().val(), Some(Asterisk)) {
-            self.pointer()?;
-        }
-
-        Ok(())
+        Ok(prefix)
     }
 
     fn type_qualifier_list(&mut self) -> Vec<Token> {

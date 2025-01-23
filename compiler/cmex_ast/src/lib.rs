@@ -7,7 +7,13 @@ use cmex_span::{MaybeSpannable, Span, Spannable};
 use token::{Token, TokenTag};
 
 #[derive(Clone)]
-pub struct TranslationUnit(pub Vec<Decl>);
+pub struct TranslationUnit(pub Vec<DeclTag>);
+
+#[derive(Clone)]
+pub enum Item {
+    Invocation(InvocationTag),
+    Decl(DeclTag),
+}
 
 #[derive(Debug, Clone)]
 pub struct Stmt {
@@ -24,7 +30,7 @@ impl Spannable for Stmt {
 pub enum StmtTag {
     Expr(Option<Expr>),
     Compound(Vec<Stmt>),
-    Decl(Decl),
+    Decl(DeclTag),
     /// while (cond) stmt
     While {
         cond: Expr,
@@ -84,8 +90,13 @@ impl Spannable for StmtTag {
 }
 
 #[derive(Debug, Clone)]
-pub enum Decl {
-    Record(Vec<FieldDecl>),
+pub enum DeclTag {
+    /// `include` are represented directly in AST.
+    Include {
+        path: String,
+        span: Span,
+    },
+    Record(Option<Token>, Vec<FieldDecl>),
     Enum(Vec<EnumConstantDecl>),
     Func {
         /// ```c
@@ -97,12 +108,7 @@ pub enum Decl {
         /// int foo() { /* ... */ }
         ///  /* ^~~~~ decl */
         /// ```
-        decl: Box<DirectDeclarator>,
-        ///```c
-        /// int foo() { /* ... */ }
-        ///     /* ^~ params */
-        /// ```
-        params: Option<ParamList>,
+        decl: Box<Declarator>,
         ///```c
         /// int foo() { /* ... */ }
         ///        /* ^~~~~~~~ body */
@@ -127,24 +133,20 @@ pub enum Decl {
     },
 }
 
-impl Spannable for Decl {
+impl Spannable for DeclTag {
     fn span(&self) -> Span {
         match self {
-            Decl::Record(vec) => vec.span().unwrap(),
-            Decl::Enum(vec) => vec.span().unwrap(),
-            Decl::Func {
-                spec,
-                decl,
-                params: _,
-                body,
-            } => Span::join(
+            DeclTag::Include { span, .. } => *span,
+            DeclTag::Record(_, vec) => vec.span().unwrap(),
+            DeclTag::Enum(vec) => vec.span().unwrap(),
+            DeclTag::Func { spec, decl, body } => Span::join(
                 spec.clone()
                     .map(|specs| specs.span().unwrap())
-                    .unwrap_or_else(|| decl.span().unwrap()),
+                    .unwrap_or_else(|| decl.span()),
                 body.tag.span(),
             ),
-            Decl::Var { spec: _, decl_list } => decl_list.span().unwrap(),
-            Decl::Macro { id, .. } => id.1,
+            DeclTag::Var { spec: _, decl_list } => decl_list.span().unwrap(),
+            DeclTag::Macro { id, .. } => id.1,
         }
     }
 }
@@ -154,20 +156,6 @@ pub enum DeclSpecifier {
     TypeSpecifier(TypeSpecifier),
     TypeQualifier(Token),
     StorageClass(Token),
-}
-
-impl std::fmt::Display for DeclSpecifier {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            DeclSpecifier::TypeSpecifier(type_spec) => {
-                write!(f, "{type_spec}")
-            },
-            DeclSpecifier::TypeQualifier((tok, _))
-            | DeclSpecifier::StorageClass((tok, _)) => {
-                write!(f, "{tok}")
-            },
-        }
-    }
 }
 
 impl Spannable for DeclSpecifier {
@@ -212,22 +200,9 @@ impl Spannable for InitDeclarator {
 
 #[derive(Debug, Clone)]
 pub struct Declarator {
+    pub prefix: Vec<DeclaratorPrefix>,
     pub inner: Box<DirectDeclarator>,
     pub suffix: Option<DeclaratorSuffix>,
-}
-
-impl std::fmt::Display for Declarator {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}{}",
-            self.inner,
-            self.suffix
-                .as_ref()
-                .map(|suffix| format!("{}", suffix))
-                .unwrap_or_default()
-        )
-    }
 }
 
 impl Spannable for Declarator {
@@ -271,12 +246,36 @@ impl MaybeSpannable for DirectDeclarator {
     }
 }
 
+/*
 impl std::fmt::Display for DirectDeclarator {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Identifier((tok, _)) => write!(f, "{}", tok),
             Self::Paren(decl) => write!(f, "({})", decl),
             Self::Abstract => write!(f, ""),
+        }
+    }
+}
+    */
+
+#[derive(Debug, Clone)]
+pub enum DeclaratorPrefix {
+    Pointer(Vec<Token>),
+}
+
+impl std::fmt::Display for DeclaratorPrefix {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DeclaratorPrefix::Pointer(vec) => {
+                write!(
+                    f,
+                    "* {}",
+                    vec.iter()
+                        .map(|(tok, _)| tok.to_string())
+                        .collect::<Vec<String>>()
+                        .join(" ")
+                )
+            }
         }
     }
 }
@@ -293,15 +292,6 @@ pub enum DeclaratorSuffix {
     ///         /* ^~~~~~~ function declarator suffix */
     /// ```
     Func(Option<ParamList>),
-}
-
-impl std::fmt::Display for DeclaratorSuffix {
-    fn fmt(&self, _: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            DeclaratorSuffix::Array(_) => todo!(),
-            DeclaratorSuffix::Func(_) => todo!(),
-        }
-    }
 }
 
 impl MaybeSpannable for DeclaratorSuffix {
@@ -325,6 +315,7 @@ impl MaybeSpannable for DeclaratorSuffix {
 /// ```
 #[derive(Debug, Clone)]
 pub struct FieldDecl {
+    pub specs: Vec<TypeSpecifier>,
     pub decl: FieldDeclarator,
 }
 
@@ -399,35 +390,6 @@ pub enum ParamList {
     Type(Vec<ParamDecl>),
 }
 
-impl std::fmt::Display for ParamList {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ParamList::Identifier(params) => {
-                write!(
-                    f,
-                    "{}",
-                    params
-                        .iter()
-                        .map(|tok| tok.0.to_string())
-                        .collect::<Vec<String>>()
-                        .join(", ")
-                )
-            },
-            ParamList::Type(vec) => {
-                write!(
-                    f,
-                    "{}",
-                    vec.
-                        iter()
-                        .map(|param| param.to_string())
-                        .collect::<Vec<String>>()
-                        .join(", ")
-                )
-            },
-        }
-    }
-}
-
 impl Spannable for ParamList {
     fn span(&self) -> Span {
         match self {
@@ -444,21 +406,6 @@ impl Spannable for ParamList {
 pub struct ParamDecl {
     pub spec: Vec<DeclSpecifier>,
     pub decl: Box<Declarator>,
-}
-
-impl std::fmt::Display for ParamDecl {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{} {}",
-            self.spec
-                .iter()
-                .map(|spec| spec.to_string())
-                .collect::<Vec<String>>()
-                .join(" "),
-            self.decl
-        )
-    }
 }
 
 impl Spannable for ParamDecl {
@@ -482,25 +429,15 @@ pub enum TypeSpecifier {
     ///     struct { int a; } foo = { 1 };
     ///  /* ^~~~~~~~~~~~~~~~~ definition */
     /// ```
-    Record(Vec<FieldDecl>),
+    Record(Option<Token>, Vec<FieldDecl>),
     Enum(Vec<EnumConstantDecl>),
-}
-
-impl std::fmt::Display for TypeSpecifier {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            TypeSpecifier::TypeName((tok, _)) => write!(f, "{tok}"),
-            TypeSpecifier::Record(vec) => todo!(),
-            TypeSpecifier::Enum(vec) => todo!(),
-        }
-    }
 }
 
 impl Spannable for TypeSpecifier {
     fn span(&self) -> Span {
         match self {
             TypeSpecifier::TypeName((_, span)) => *span,
-            TypeSpecifier::Record(vec) => vec.span().unwrap(),
+            TypeSpecifier::Record(_, vec) => vec.span().unwrap(),
             TypeSpecifier::Enum(vec) => vec.span().unwrap(),
         }
     }
@@ -528,18 +465,7 @@ impl Spannable for TypeName {
 }
 
 #[derive(Debug, Clone)]
-pub struct Expr {
-    pub tag: ExprTag,
-}
-
-impl Spannable for Expr {
-    fn span(&self) -> Span {
-        self.tag.span()
-    }
-}
-
-#[derive(Debug, Clone)]
-pub enum ExprTag {
+pub enum Expr {
     Primary(Token),
     BinExpr {
         op: Token,
@@ -587,7 +513,7 @@ pub enum ExprTag {
     StmtExpr(Vec<Stmt>, Span),
 }
 
-impl Spannable for ExprTag {
+impl Spannable for Expr {
     fn span(&self) -> Span {
         match self {
             Self::Primary(tok) => tok.1,
@@ -677,7 +603,7 @@ impl DelimTag {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct DelimSpan(pub Span, pub Span);
 
 #[derive(Debug, Clone)]
@@ -685,9 +611,10 @@ pub enum Nonterminal {
     Block(Vec<Stmt>),
     Literal(Token),
     Ident(Token),
-    Item(Vec<Decl>),
+    Item(Vec<DeclTag>),
     Ty(TypeName),
     Expr(Expr),
+    Tt(Vec<TokenTree>),
 }
 
 impl std::fmt::Display for Nonterminal {
@@ -699,6 +626,7 @@ impl std::fmt::Display for Nonterminal {
             Nonterminal::Item(_) => write!(f, "item"),
             Nonterminal::Ty(_) => write!(f, "type name"),
             Nonterminal::Expr(_) => write!(f, "expr"),
+            Nonterminal::Tt(_) => write!(f, "token tree"),
         }
     }
 }
@@ -732,6 +660,8 @@ pub enum NtTag {
     Item,
     /// Type
     Ty,
+    /// Token tree
+    Tt,
     /// Expression
     Expr,
 }
@@ -744,6 +674,7 @@ impl std::fmt::Display for NtTag {
             Self::Ident => write!(f, "ident"),
             Self::Item => write!(f, "item"),
             Self::Ty => write!(f, "ty"),
+            Self::Tt => write!(f, "tt"),
             Self::Expr => write!(f, "expr"),
         }
     }
