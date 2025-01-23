@@ -227,11 +227,18 @@ impl MacroExpander {
                         .reduce(|a, b| [a, b].concat())
                         .unwrap_or_else(Vec::new);
 
-                match Parser::new(&Tokens(tokens)).parse_nt(NtTag::Expr) {
-                    Ok(Nonterminal::Expr(exp)) => Ok(exp),
-                    Err((e, span)) => Err((ExpError::NtParseError(e), span)),
-                    _ => unreachable!(),
-                }
+                let mut expr =
+                    match Parser::new(&Tokens(tokens)).parse_nt(NtTag::Expr) {
+                        Ok(Nonterminal::Expr(exp)) => exp,
+                        Err((e, span)) => {
+                            return Err((ExpError::NtParseError(e), span))
+                        }
+                        _ => unreachable!(),
+                    };
+
+                self.expand_expr(&mut expr)?;
+
+                Ok(expr)
             }
         }
     }

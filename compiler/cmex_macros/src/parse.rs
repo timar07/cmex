@@ -209,6 +209,7 @@ impl<'a> MacroTtParser<'a> {
                 "item" => NtTag::Item,
                 "ty" => NtTag::Ty,
                 "expr" => NtTag::Expr,
+                "tt" => NtTag::Tt,
                 "pat" => todo!(),
                 _ => panic!("incorrect fragment specifier"),
             }

@@ -58,6 +58,13 @@ impl<'a> Parser<'a> {
                     self.iter.peek().unwrap().1,
                 )),
             },
+            NtTag::Tt => {
+                let mut tt = vec![];
+                while self.iter.peek().is_some() {
+                    tt.push(self.token_tree()?);
+                }
+                Ok(Nonterminal::Tt(tt))
+            }
             NtTag::Item => Ok(Nonterminal::Item(self.external_decl()?)),
             NtTag::Ty => Ok(Nonterminal::Ty(self.type_name()?)),
             NtTag::Expr => Ok(Nonterminal::Expr(self.expression()?)),
