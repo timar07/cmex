@@ -58,11 +58,59 @@ impl Parser<'_> {
         ))
     }
 
-    fn token_tree(&mut self) -> PR<TokenTree> {
+    pub(crate) fn token_tree(&mut self) -> PR<TokenTree> {
         match self.iter.peek().val() {
             Some(LeftCurly | LeftParen | LeftBrace) => self.delim_token_tree(),
             Some(_) => Ok(TokenTree::Token(self.iter.next().unwrap())),
             None => todo!(),
+        }
+    }
+
+    pub(crate) fn deprecated_macro(&mut self) -> PR<DeclTag> {
+        assert_eq!(self.iter.next().val(), Some(Hash));
+
+        match self.iter.peek() {
+            Some((Identifier(directive), span)) => match directive.as_ref() {
+                "include" => {
+                    self.iter.next();
+
+                    Ok(DeclTag::Include {
+                        path: self.parse_path()?,
+                        span: span,
+                    })
+                }
+                _ => Err((
+                    ParseErrorTag::Expected("macro directive".into()),
+                    span,
+                )),
+            },
+            _ => Err((
+                ParseErrorTag::Expected("macro directive".into()),
+                self.iter.next().unwrap().1,
+            )),
+        }
+    }
+
+    fn parse_path(&mut self) -> PR<String> {
+        match self.iter.peek().val() {
+            Some(StringLiteral(path)) => Ok(path),
+            Some(Lt) => {
+                self.iter.next();
+                let path = self
+                    .iter
+                    .by_ref()
+                    .take_while(|tok| tok.0 != Gt)
+                    .map(|tok| tok.0.to_string())
+                    .collect::<Vec<String>>()
+                    .join("");
+                require_tok!(self, Gt);
+                Ok(path)
+            }
+            Some(tok) => Err((
+                ParseErrorTag::ExpectedGot("path".into(), Some(tok)),
+                self.iter.next().unwrap().1,
+            )),
+            _ => panic!("unexpected eof"),
         }
     }
 }

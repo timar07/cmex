@@ -297,6 +297,7 @@ impl Lexer<'_> {
             '~' => TokenTag::Tilde,
             '?' => TokenTag::Quest,
             '$' => TokenTag::Dollar,
+            '#' => TokenTag::Hash,
             c => return Some(Err(UnexpectedCharacter(c))),
         }))
     }
@@ -588,7 +589,7 @@ impl<'src, 'a> StringLiteralCollector<'src, 'a> {
             match self.src.peek() {
                 Some('\\') => {
                     s.push_str(
-                        &EscapeSequenceCollector::new(self.src).collect()?
+                        &EscapeSequenceCollector::new(self.src).collect()?,
                     );
                 }
                 Some('"') => {
@@ -598,7 +599,7 @@ impl<'src, 'a> StringLiteralCollector<'src, 'a> {
                 Some(c) => {
                     s.push(c);
                     self.src.next();
-                },
+                }
                 None => return Err(UnterminatedString),
             }
         }
