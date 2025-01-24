@@ -9,6 +9,7 @@ pub use errors::LexError;
 
 use cursor::Cursor;
 use errors::LexError::*;
+use tracing::debug;
 
 #[derive(Clone)]
 pub struct Spanned<I> {
@@ -90,7 +91,9 @@ impl Iterator for Lexer<'_> {
     type Item = Result<TokenTag, LexError>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.lex_token()
+        let token = self.lex_token();
+        debug!("{:?}", token);
+        token
     }
 }
 
@@ -146,7 +149,7 @@ impl Lexer<'_> {
                 self.src.next();
                 self.lex_token()
             }
-            c if c.is_ascii_alphabetic() => Some(self.parse_keyword_or_ident()),
+            c if Self::is_ident_char(c) => Some(self.parse_keyword_or_ident()),
             '\"' => Some(StringLiteralCollector::new(&mut self.src).collect()),
             '\'' => Some(CharLiteralCollector::new(&mut self.src).collect()),
             '/' if self.src.lookahead(1) == Some('*') => {
@@ -344,6 +347,10 @@ impl Lexer<'_> {
             _ => TokenTag::Identifier(ident),
         })
     }
+
+    fn is_ident_char(c: char) -> bool {
+        c.is_ascii_alphabetic() | matches!(c, '_')
+    }
 }
 
 struct NumberLiteralCollector<'src, 'a> {
@@ -358,8 +365,12 @@ impl<'src, 'a> NumberLiteralCollector<'src, 'a> {
     pub fn collect(&mut self) -> Result<TokenTag, LexError> {
         let prefix = match self.src.peek() {
             Some('0') => {
-                self.src.next();
-                self.parse_prefix()
+                match self.src.lookahead(1) {
+                    Some('x' | 'o' | 'b') => {
+                        self.parse_prefix()
+                    }
+                    _ => None
+                }
             }
             _ => None,
         };
