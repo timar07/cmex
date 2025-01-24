@@ -7,7 +7,7 @@ struct vec {
     int capacity;
 };
 
-void vec_init_with_cap(struct vec *vec, int cap) {
+void vec_init_capacity(struct vec *vec, int cap) {
     vec->size = 0;
     vec->capacity = cap;
     vec->data = (int *)malloc(vec->capacity * sizeof(int));
@@ -50,7 +50,7 @@ int vec_get(struct vec *vec, int index) {
     return vec->data[index];
 }
 
-void vector_free(struct vec *vec) {
+void vec_free(struct vec *vec) {
     free(vec->data);
 }
 
@@ -63,6 +63,14 @@ void vec_print(struct vec *vec) {
 }
 
 macro_rules! vec {
+    [capacity = $cap:expr; $($x:expr),*] => {
+        ({
+            struct vec v;
+            vec_init_capacity(&v, $cap);
+            $(vec_push(&v, $x);)*
+            v;
+        })
+    };
     [$($x:expr),*] => {
         ({
             struct vec v;
@@ -76,5 +84,7 @@ macro_rules! vec {
 int main(void) {
     struct vec a = vec![1, 2, 3];
     vec_print(&a);
+    struct vec b = vec![capacity = 5; 1, 2, 3, 4, 5];
+    vec_print(&b);
     return 0;
 }
