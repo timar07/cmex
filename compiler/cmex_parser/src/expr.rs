@@ -4,8 +4,8 @@
 
 use super::{ParseErrorTag, Parser, PR};
 use crate::{check_tok, match_tok, require_tok};
-use cmex_ast::{token::TokenTag::*, Expr, InvocationTag, Nonterminal};
-use cmex_span::{Span, Unspan};
+use cmex_ast::{token::{NumberLiteralKind, TokenTag::*}, Expr, InvocationTag, Nonterminal};
+use cmex_span::{Spannable, Span, Unspan};
 
 impl Parser<'_> {
     pub fn constant_expression(&mut self) -> PR<Expr> {
@@ -15,12 +15,14 @@ impl Parser<'_> {
     pub fn expression(&mut self) -> PR<Expr> {
         let mut expr = self.assignment()?;
 
-        while let Some(op) = match_tok!(self, Comma) {
-            expr = Expr::BinExpr {
-                op,
-                lhs: Box::new(expr),
-                rhs: Box::new(self.assignment()?),
-            };
+        if self.opts.allow_comma_op {
+            while let Some(op) = match_tok!(self, Comma) {
+                expr = Expr::BinExpr {
+                    op,
+                    lhs: Box::new(expr),
+                    rhs: Box::new(self.assignment()?),
+                };
+            }
         }
 
         Ok(expr)
@@ -213,7 +215,6 @@ impl Parser<'_> {
     fn cast(&mut self) -> PR<Expr> {
         if check_tok!(self, LeftParen) {
             if self.is_type_specifier() {
-                self.iter.next();
                 let type_name = self.type_name()?;
                 require_tok!(self, RightParen)?;
 
@@ -269,32 +270,65 @@ impl Parser<'_> {
                 | Increment
                 | Decrement
         ) {
+
+            let span = Span::join(expr.span(), tok.1);
+
             expr = match tok.0 {
-                // todo: somehow make this transformation with macros
                 LeftBrace => {
-                    // sugar
-                    self.expression()?;
-                    require_tok!(self, RightBrace)?;
-                    todo!()
+                    let idx = self.expression()?;
+                    require_tok!(self, RightBrace);
+
+                    Expr::UnExpr {
+                        op: (Asterisk, span),
+                        rhs: Box::new(Expr::Paren(
+                            Box::new(Expr::BinExpr{
+                                op: (Plus, span),
+                                lhs: Box::new(expr),
+                                rhs: Box::new(idx)
+                            })
+                        ))
+                    }
                 }
                 Not => match expr {
-                    Expr::Primary(id @ (Identifier(_), _)) => Expr::Invocation(
+                    Expr::Primary(id @ (Identifier(_), _)) => {
+                        Expr::Invocation(
                         InvocationTag::Bang(id, Some(self.delim_token_tree()?)),
-                    ),
+                    )
+                    },
                     _ => panic!("expected identifier before macro invocation"),
                 },
                 LeftParen => self.parse_call(expr)?,
-                Dot => Expr::MemberAccess {
-                    expr: Box::new(expr),
-                    member: tok,
+                Dot => {
+                    Expr::MemberAccess {
+                        expr: Box::new(expr),
+                        member: require_tok!(self, Identifier(_))?
+                    }
                 },
                 ArrowRight => {
-                    // sugar
-                    require_tok!(self, Identifier(_))?;
-                    todo!()
+                    Expr::MemberAccess {
+                        expr: Box::new(Expr::UnExpr {
+                            op: (Asterisk, span),
+                            rhs: Box::new(expr.clone())
+                        }),
+                        member: require_tok!(self, Identifier(_))?,
+                    }
                 }
                 Increment | Decrement => {
-                    todo!()
+                    Expr::Paren(Box::new(
+                        Expr::BinExpr {
+                            op: (AddAssign, span),
+                            lhs: Box::new(expr.clone()),
+                            rhs: Box::new(Expr::Primary((
+                                NumberLiteral {
+                                    literal: "1".into(),
+                                    prefix: None,
+                                    suffix: None,
+                                    kind: NumberLiteralKind::Int
+                                },
+                                span
+                            )))
+                        }
+                    ))
                 }
                 _ => panic!(),
             }

@@ -6,3 +6,4 @@ edition = "2021"
 [dependencies]
 cmex_span = { path = "../cmex_span" }
 cmex_ast = { path = "../cmex_ast" }
+tracing = "0.1"

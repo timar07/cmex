@@ -6,7 +6,7 @@ use cmex_ast::{
     Nonterminal, NtTag, Stmt, StmtTag, TokenTree, TranslationUnit,
 };
 use cmex_lexer::Tokens;
-use cmex_parser::{ParseErrorTag, Parser};
+use cmex_parser::{ParseErrorTag, ParseOptions, Parser};
 use cmex_span::{MaybeSpannable, Span};
 use cmex_symtable::SymTable;
 use tracing::debug;
@@ -206,7 +206,9 @@ impl MacroExpander {
                         .map(|tt| TtCursor::new(&vec![tt]).collect())
                         .unwrap_or(Vec::new()),
                 );
-                let mut parser = Parser::new(&toks);
+                let mut parser = Parser::new(&toks, ParseOptions {
+                    allow_comma_op: false // We may want to parse , as a delimiter
+                });
                 let decl =
                     self.decls.lookup(&id.0.to_string()).ok_or_else(|| {
                         (ExpError::UseOfUndeclaredMacro(id.0.to_string()), id.1)
@@ -219,16 +221,21 @@ impl MacroExpander {
                     .map_err(|err| (ExpError::MatchError(err.0), err.1))?;
 
                 let rhs = &decl[idx].1;
-                let tokens: Vec<(TokenTag, cmex_span::Span)> =
+                let tokens = Tokens(
                     expand(captures, rhs)
                         .unwrap()
                         .iter()
                         .map(|tt| tt.flatten())
                         .reduce(|a, b| [a, b].concat())
-                        .unwrap_or_else(Vec::new);
+                        .unwrap_or_else(Vec::new)
+                );
+
+                let mut parser = Parser::new(&tokens, ParseOptions {
+                    allow_comma_op: true
+                });
 
                 let mut expr =
-                    match Parser::new(&Tokens(tokens)).parse_nt(NtTag::Expr) {
+                    match parser.parse_nt(NtTag::Expr) {
                         Ok(Nonterminal::Expr(exp)) => exp,
                         Err((e, span)) => {
                             return Err((ExpError::NtParseError(e), span))

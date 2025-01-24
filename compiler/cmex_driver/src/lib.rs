@@ -1,4 +1,5 @@
 use std::fs::File;
+use std::io::BufWriter;
 use std::{env, fs};
 use tracing_subscriber::EnvFilter;
 
@@ -8,7 +9,7 @@ use cmex_compile::Compiler;
 use cmex_errors::ErrorBuilder;
 use cmex_lexer::{Lexer, Tokens};
 use cmex_macros::MacroExpander;
-use cmex_parser::Parser;
+use cmex_parser::{ParseOptions, Parser};
 
 /// TODO: maybe it worth using clap?
 fn print_help() {
@@ -24,7 +25,7 @@ fn print_help() {
 }
 
 fn compile_file(path: &String, ast: &TranslationUnit) -> std::io::Result<()> {
-    let mut f = File::create(path)?;
+    let mut f = BufWriter::new(File::create(path)?);
     Compiler::new(&mut f, ast).compile();
     Ok(())
 }
@@ -64,7 +65,9 @@ pub fn main() {
             })
             .collect(),
     );
-    let mut parser = Parser::new(&tokens);
+    let mut parser = Parser::new(&tokens, ParseOptions {
+        allow_comma_op: true
+    });
 
     match &mut parser.parse() {
         Ok(ast) => {

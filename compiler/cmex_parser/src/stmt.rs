@@ -8,6 +8,7 @@ use crate::{check_tok, lookahead, match_tok, require_tok};
 use cmex_ast::token::{Token, TokenTag::*};
 use cmex_ast::*;
 use cmex_span::{MaybeSpannable, Span, Spannable, Unspan};
+use tracing::{debug, instrument};
 
 macro_rules! curly_wrapped {
     ($self:expr, $expr:expr) => {{
@@ -32,6 +33,7 @@ impl Parser<'_> {
         self.translation_unit()
     }
 
+    #[instrument(skip_all)]
     fn translation_unit(&mut self) -> Result<TranslationUnit, Vec<ParseError>> {
         let mut decls = Vec::new();
         let mut errors = Vec::new();
@@ -42,9 +44,16 @@ impl Parser<'_> {
                     decls.append(&mut decl);
                 }
                 Err(err) => {
-                    while !check_tok!(self, Comma | Semicolon | RightCurly) {
+                    while !check_tok!(
+                        self,
+                        Comma
+                        | Semicolon
+                        | RightCurly
+                    ) {
                         self.iter.next();
                     }
+
+                    debug!("Synchronize parser");
 
                     errors.push(err);
                 }
@@ -60,6 +69,7 @@ impl Parser<'_> {
 
     /// External declaration is a top level declaration (e.g. functions)
     /// or a regular declaration
+    #[instrument(skip_all)]
     pub(crate) fn external_decl(&mut self) -> PR<Vec<DeclTag>> {
         let mut decl_list = Vec::with_capacity(1);
 
@@ -123,8 +133,6 @@ impl Parser<'_> {
         while !matches!(self.iter.peek().val(), Some(Semicolon) | None) {
             let decl = self.init_declarator()?;
 
-            dbg!(&decl);
-
             // Declator has an initializer e.g. `int foo = bar, ...`
             if decl.1.is_some() {
                 let decl_spec = spec.clone().map(Ok).unwrap_or(Err((
@@ -165,6 +173,7 @@ impl Parser<'_> {
         Ok(decl_list)
     }
 
+    #[instrument(skip_all)]
     fn type_definition(
         &mut self,
         spec: &Vec<DeclSpecifier>,
@@ -199,6 +208,7 @@ impl Parser<'_> {
         }
     }
 
+    #[instrument(skip_all)]
     fn function_definition(
         &mut self,
         spec: Option<Vec<DeclSpecifier>>,
@@ -222,6 +232,7 @@ impl Parser<'_> {
         }
     }
 
+    #[instrument(skip_all)]
     pub fn statement(&mut self) -> PR<Stmt> {
         // Declarations after statements is a C99 feature, but anyway it's
         // supported here.
@@ -256,6 +267,7 @@ impl Parser<'_> {
         }
     }
 
+    #[instrument(skip_all)]
     fn compound_statement(&mut self) -> PR<Stmt> {
         assert_eq!(self.iter.next().val(), Some(LeftCurly));
         self.symbols.enter();
@@ -273,6 +285,7 @@ impl Parser<'_> {
         })
     }
 
+    #[instrument(skip_all)]
     pub fn block(&mut self) -> PR<(Vec<Stmt>, Span)> {
         let (_, open) = require_tok!(self, LeftCurly)?;
 
@@ -287,6 +300,7 @@ impl Parser<'_> {
         Ok((stmts, Span::join(open, close)))
     }
 
+    #[instrument(skip_all)]
     fn expression_statement(&mut self) -> PR<Option<Expr>> {
         let expr = if !check_tok!(self, Semicolon) {
             Some(self.expression().inspect_err(|_| {
@@ -302,6 +316,7 @@ impl Parser<'_> {
         Ok(expr)
     }
 
+    #[instrument(skip_all)]
     fn iteration_statement(&mut self) -> PR<Stmt> {
         Ok(match self.iter.peek().val() {
             Some(While) => {
@@ -352,6 +367,7 @@ impl Parser<'_> {
         })
     }
 
+    #[instrument(skip_all)]
     fn selection_statement(&mut self) -> PR<Stmt> {
         match self.iter.peek().val() {
             Some(If) => {
@@ -381,6 +397,7 @@ impl Parser<'_> {
         }
     }
 
+    #[instrument(skip_all)]
     fn labeled_statement(&mut self) -> PR<Stmt> {
         Ok(match self.iter.peek().val() {
             Some(Identifier(_)) => {
@@ -409,6 +426,7 @@ impl Parser<'_> {
         })
     }
 
+    #[instrument(skip_all)]
     fn jump_statement(&mut self) -> PR<Stmt> {
         match self.iter.peek().val() {
             Some(Goto) => {
@@ -451,6 +469,7 @@ impl Parser<'_> {
         }
     }
 
+    #[instrument(skip_all)]
     fn decl(
         &mut self,
         spec: Vec<DeclSpecifier>,
@@ -461,6 +480,7 @@ impl Parser<'_> {
         Ok(DeclTag::Var { spec, decl_list })
     }
 
+    #[instrument(skip_all)]
     fn decl_specifier(&mut self) -> PR<Vec<DeclSpecifier>> {
         let mut specs = Vec::new();
 
@@ -506,6 +526,7 @@ impl Parser<'_> {
         None
     }
 
+    #[instrument(skip_all)]
     fn is_storage_class_specifier(&mut self) -> bool {
         self.iter
             .peek()
@@ -520,6 +541,7 @@ impl Parser<'_> {
         Ok(None)
     }
 
+    #[instrument(skip_all)]
     fn type_speficier(&mut self) -> PR<TypeSpecifier> {
         match self.iter.peek().val() {
             Some(
@@ -553,6 +575,7 @@ impl Parser<'_> {
         }
     }
 
+    #[instrument(skip_all)]
     fn init_declarator_list(
         &mut self,
         tail: InitDeclarator,
@@ -567,6 +590,7 @@ impl Parser<'_> {
         Ok(init_decl_list)
     }
 
+    #[instrument(skip_all)]
     fn init_declarator(&mut self) -> PR<InitDeclarator> {
         Ok(InitDeclarator(
             self.declarator()?,
@@ -578,6 +602,7 @@ impl Parser<'_> {
         ))
     }
 
+    #[instrument(skip_all)]
     fn struct_or_union_specifier(&mut self) -> PR<TypeSpecifier> {
         require_tok!(self, Struct | Union)?;
 
@@ -601,6 +626,7 @@ impl Parser<'_> {
         ))
     }
 
+    #[instrument(skip_all)]
     fn struct_decl_list(&mut self) -> PR<Vec<FieldDecl>> {
         let mut struct_decl_list = Vec::new();
         struct_decl_list.append(&mut self.struct_decl()?);
@@ -620,6 +646,7 @@ impl Parser<'_> {
         }
     }
 
+    #[instrument(skip_all)]
     fn struct_decl(&mut self) -> PR<Vec<FieldDecl>> {
         let specs = self.specifier_qualifier_list()?;
         let decl_list = self.struct_declarator_list()?;
@@ -638,6 +665,7 @@ impl Parser<'_> {
         self.is_specifier_qualifier()
     }
 
+    #[instrument(skip_all)]
     fn specifier_qualifier_list(&mut self) -> PR<Vec<TypeSpecifier>> {
         let mut specs = vec![];
 
@@ -650,6 +678,7 @@ impl Parser<'_> {
         Ok(specs)
     }
 
+    #[instrument(skip_all)]
     fn specifier_qualifier(&mut self) -> PR<Option<TypeSpecifier>> {
         if self.maybe_type_qualifier().is_none() {
             return Ok(self.maybe_type_specifier()?);
@@ -662,6 +691,7 @@ impl Parser<'_> {
         self.is_type_qualifier() || self.is_type_specifier()
     }
 
+    #[instrument(skip_all)]
     fn struct_declarator_list(&mut self) -> PR<Vec<FieldDeclarator>> {
         let mut decl_list = Vec::new();
         decl_list.push(self.struct_declarator()?);
@@ -673,6 +703,7 @@ impl Parser<'_> {
         Ok(decl_list)
     }
 
+    #[instrument(skip_all)]
     fn struct_declarator(&mut self) -> PR<FieldDeclarator> {
         if check_tok!(self, Colon) {
             self.constant_expression()?;
@@ -689,6 +720,7 @@ impl Parser<'_> {
         }
     }
 
+    #[instrument(skip_all)]
     fn enum_specifier(&mut self) -> PR<TypeSpecifier> {
         require_tok!(self, Enum)?;
 
@@ -710,6 +742,7 @@ impl Parser<'_> {
         })))
     }
 
+    #[instrument(skip_all)]
     fn enumerator_list(&mut self) -> PR<Vec<EnumConstantDecl>> {
         let mut enum_list = Vec::new();
         enum_list.push(self.enumerator()?);
@@ -721,6 +754,7 @@ impl Parser<'_> {
         Ok(enum_list)
     }
 
+    #[instrument(skip_all)]
     fn enumerator(&mut self) -> PR<EnumConstantDecl> {
         let id = require_tok!(self, Identifier(_))?;
         let cexpr = if check_tok!(self, Assign) {
@@ -732,6 +766,7 @@ impl Parser<'_> {
         Ok(EnumConstantDecl { id, cexpr })
     }
 
+    #[instrument(skip_all)]
     fn declarator(&mut self) -> PR<Declarator> {
         let prefix = self.pointer()?;
         let inner = self.direct_declarator()?;
@@ -747,6 +782,7 @@ impl Parser<'_> {
         })
     }
 
+    #[instrument(skip_all)]
     fn direct_declarator(&mut self) -> PR<DirectDeclarator> {
         match self.iter.peek().val() {
             Some(Identifier(_)) => {
@@ -768,6 +804,7 @@ impl Parser<'_> {
         }
     }
 
+    #[instrument(skip_all)]
     fn declarator_suffix(&mut self) -> PR<DeclaratorSuffix> {
         match self.iter.next().val() {
             Some(LeftBrace) => {
@@ -805,6 +842,7 @@ impl Parser<'_> {
         matches!(self.iter.peek().val(), Some(LeftBrace | LeftParen))
     }
 
+    #[instrument(skip_all)]
     fn pointer(&mut self) -> PR<Vec<DeclaratorPrefix>> {
         let mut prefix = Vec::new();
 
@@ -821,6 +859,7 @@ impl Parser<'_> {
         Ok(prefix)
     }
 
+    #[instrument(skip_all)]
     fn type_qualifier_list(&mut self) -> Vec<Token> {
         let mut qualifiers = Vec::new();
 
@@ -843,6 +882,7 @@ impl Parser<'_> {
         matches!(self.iter.peek().val(), Some(Const | Volatile))
     }
 
+    #[instrument(skip_all)]
     fn parameter_type_list(&mut self) -> PR<ParamList> {
         let param_list = self.parameter_list()?;
 
@@ -856,6 +896,7 @@ impl Parser<'_> {
         Ok(ParamList::Type(param_list))
     }
 
+    #[instrument(skip_all)]
     fn parameter_list(&mut self) -> PR<Vec<ParamDecl>> {
         let mut param_list = Vec::new();
         param_list.push(self.parameter_decl()?);
@@ -867,6 +908,7 @@ impl Parser<'_> {
         Ok(param_list)
     }
 
+    #[instrument(skip_all)]
     fn parameter_decl(&mut self) -> PR<ParamDecl> {
         Ok(ParamDecl {
             spec: self.decl_specifier()?,
@@ -875,6 +917,7 @@ impl Parser<'_> {
     }
 
     #[allow(unused)]
+    #[instrument(skip_all)]
     fn identifier_list(&mut self) -> PR<Vec<Token>> {
         let mut id_list = Vec::new();
         id_list.push(require_tok!(self, Identifier(_))?);
@@ -890,8 +933,9 @@ impl Parser<'_> {
         Ok(id_list)
     }
 
+    #[instrument(skip_all)]
     pub(crate) fn type_name(&mut self) -> PR<TypeName> {
-        self.specifier_qualifier_list()?; // TODO
+        let specs = self.specifier_qualifier_list()?;
 
         self.declarator().and_then(|decl| {
             if !decl.inner.is_abstract() {
@@ -900,7 +944,7 @@ impl Parser<'_> {
                     decl.span(),
                 ));
             }
-            Ok(TypeName { decl })
+            Ok(TypeName { specs, decl })
         })
     }
 
@@ -914,6 +958,7 @@ impl Parser<'_> {
         }
     }
 
+    #[instrument(skip_all)]
     fn abstract_declarator_suffix(&mut self) -> PR<DeclaratorSuffix> {
         match self.iter.peek().val() {
             Some(LeftBrace) => {
@@ -948,6 +993,7 @@ impl Parser<'_> {
         matches!(self.iter.peek().val(), Some(LeftBrace | LeftParen))
     }
 
+    #[instrument(skip_all)]
     fn initializer(&mut self) -> PR<Initializer> {
         match self.iter.peek().val() {
             Some(LeftCurly) => {
@@ -961,6 +1007,7 @@ impl Parser<'_> {
         }
     }
 
+    #[instrument(skip_all)]
     fn initializer_list(&mut self) -> PR<Initializer> {
         let mut init_list = Vec::new();
         init_list.push(self.initializer()?);

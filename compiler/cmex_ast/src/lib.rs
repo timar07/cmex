@@ -450,6 +450,7 @@ pub struct TypeName {
     /// int foo(volatile int*)
     /// /*      ^~~~~~~~ specifier */
     /// ```
+    pub specs: Vec<TypeSpecifier>,
     /// An abstract declarator of type
     /// ```c
     ///   (int[]*) malloc(sizeof(int*));
@@ -467,6 +468,7 @@ impl Spannable for TypeName {
 #[derive(Debug, Clone)]
 pub enum Expr {
     Primary(Token),
+    Paren(Box<Expr>),
     BinExpr {
         op: Token,
         lhs: Box<Expr>,
@@ -516,6 +518,7 @@ pub enum Expr {
 impl Spannable for Expr {
     fn span(&self) -> Span {
         match self {
+            Self::Paren(expr) => expr.span(),
             Self::Primary(tok) => tok.1,
             Self::BinExpr { op: _, lhs, rhs } => {
                 Span::join(lhs.span(), rhs.span())
@@ -537,7 +540,7 @@ impl Spannable for Expr {
                 then: _,
                 otherwise,
             } => Span::join(cond.span(), otherwise.span()),
-            Self::Invocation(_) => todo!(),
+            Self::Invocation(tag) => tag.span(),
             Self::StmtExpr(_, span) => *span,
         }
     }
@@ -547,6 +550,14 @@ impl Spannable for Expr {
 #[derive(Debug, Clone)]
 pub enum InvocationTag {
     Bang(Token, Option<TokenTree>),
+}
+
+impl Spannable for InvocationTag {
+    fn span(&self) -> Span {
+        match self {
+            InvocationTag::Bang((_, span), _) => *span,
+        }
+    }
 }
 
 /// Abstract tokens collection, mostly used in macros
