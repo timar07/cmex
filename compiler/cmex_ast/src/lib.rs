@@ -97,7 +97,7 @@ pub enum DeclTag {
         span: Span,
     },
     Record(Option<Token>, Vec<FieldDecl>),
-    Enum(Vec<EnumConstantDecl>),
+    Enum(Option<Token>, Vec<EnumConstantDecl>),
     Func {
         /// ```c
         ///    static int foo() { /* ... */ }
@@ -138,7 +138,7 @@ impl Spannable for DeclTag {
         match self {
             DeclTag::Include { span, .. } => *span,
             DeclTag::Record(_, vec) => vec.span().unwrap(),
-            DeclTag::Enum(vec) => vec.span().unwrap(),
+            DeclTag::Enum(_, vec) => vec.span().unwrap(),
             DeclTag::Func { spec, decl, body } => Span::join(
                 spec.clone()
                     .map(|specs| specs.span().unwrap())
@@ -430,7 +430,7 @@ pub enum TypeSpecifier {
     ///  /* ^~~~~~~~~~~~~~~~~ definition */
     /// ```
     Record(Option<Token>, Vec<FieldDecl>),
-    Enum(Vec<EnumConstantDecl>),
+    Enum(Option<Token>, Vec<EnumConstantDecl>),
 }
 
 impl Spannable for TypeSpecifier {
@@ -438,7 +438,7 @@ impl Spannable for TypeSpecifier {
         match self {
             TypeSpecifier::TypeName((_, span)) => *span,
             TypeSpecifier::Record(_, vec) => vec.span().unwrap(),
-            TypeSpecifier::Enum(vec) => vec.span().unwrap(),
+            TypeSpecifier::Enum(_, vec) => vec.span().unwrap(),
         }
     }
 }

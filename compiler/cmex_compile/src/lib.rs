@@ -26,25 +26,49 @@ macro_rules! emit {
     }
 }
 
+macro_rules! emitln {
+    ($self:expr, $($arg:tt)*) => {
+        write!(
+            $self.f,
+            "{:>indent$}{}{}",
+            "",
+            format!($($arg)*),
+            if $self.options.inline {
+                ""
+            } else {
+                "\n"
+            },
+            indent = $self.indent
+        )
+    };
+}
+
 pub struct CompilerOptions {
     pub indent_width: usize,
+    pub inline: bool
 }
 
 impl Default for CompilerOptions {
     fn default() -> Self {
-        Self { indent_width: 4 }
+        Self {
+            indent_width: 4,
+            inline: false
+        }
     }
 }
 
-pub struct Compiler<'a> {
+pub struct Compiler<'a, T: std::io::Write> {
     ast: &'a TranslationUnit,
-    f: &'a mut BufWriter<File>,
+    f: &'a mut BufWriter<T>,
     options: CompilerOptions,
     indent: usize,
 }
 
-impl<'a> Compiler<'a> {
-    pub fn new(f: &'a mut BufWriter<File>, ast: &'a TranslationUnit) -> Self {
+impl<'a, T> Compiler<'a, T>
+where
+    T: std::io::Write
+{
+    pub fn new(f: &'a mut BufWriter<T>, ast: &'a TranslationUnit) -> Self {
         Self {
             f,
             ast,
@@ -79,17 +103,19 @@ impl<'a> Compiler<'a> {
                     write!(self.f, " {}", id.0.to_string());
                 }
 
-                write!(self.f, " {{\n");
+                write!(self.f, " {{");
+                self.emit_linebreak();
 
                 with_indent!(self, {
                     for field in fields {
-                        emit!(self, "{}\n", self.compile_field(field));
+                        emit!(self, "{}", self.compile_field(field));
+                        self.emit_linebreak();
                     }
                 });
 
-                emit!(self, "}};\n");
+                emitln!(self, "}};");
             }
-            DeclTag::Enum(vec) => todo!(),
+            DeclTag::Enum(_, vec) => todo!(),
             DeclTag::Func { spec, decl, body } => {
                 if let Some(spec) = spec {
                     emit!(self, "{} ", self.compile_specs(spec));
@@ -97,7 +123,7 @@ impl<'a> Compiler<'a> {
 
                 emit!(self, "{}", self.compile_declarator(decl));
 
-                emit!(self, "\n");
+                emitln!(self, "");
 
                 self.compile_stmt(body);
             }
@@ -122,7 +148,7 @@ impl<'a> Compiler<'a> {
             StmtTag::Expr(expr) => {
                 if let Some(expr) = expr {
                     if let Expr::StmtExpr(stmts, _) = &expr {
-                        emit!(self, "({{\n");
+                        emitln!(self, "({{");
                         with_indent!(self, {
                             for stmt in stmts {
                                 self.compile_stmt(stmt);
@@ -133,33 +159,63 @@ impl<'a> Compiler<'a> {
                         emit!(self, "{}", self.compile_expr(expr));
                     }
 
-                    write!(self.f, ";\n");
+                    write!(self.f, ";");
+                    self.emit_linebreak();
                 }
             }
             StmtTag::Compound(vec) => {
-                emit!(self, "{{\n");
+                emitln!(self, "{{");
                 with_indent!(self, {
                     for stmt in vec {
                         self.compile_stmt(stmt);
                     }
                 });
-                emit!(self, "}}\n");
+                emitln!(self, "}}");
             }
             StmtTag::Decl(decl) => {
                 self.compile_decl(decl);
-                write!(self.f, ";\n");
+                write!(self.f, ";");
+                self.emit_linebreak();
             }
             StmtTag::While { cond, stmt } => todo!(),
-            StmtTag::Do { cond, stmt } => todo!(),
-            StmtTag::For(expr, expr1, expr2, stmt) => todo!(),
+            StmtTag::Do { cond, stmt } => {
+                emit!(self, "do");
+                self.compile_stmt(stmt);
+                emit!(self, "while ({});", self.compile_expr(cond));
+                self.emit_linebreak();
+            },
+            StmtTag::For(expr, expr1, expr2, stmt) => {
+                emit!(
+                    self,
+                    "for ({})\n",
+                    [expr, expr1, expr2]
+                        .iter()
+                        .map(|expr| {
+                            (*expr)
+                                .clone()
+                                .map(|expr| {
+                                    self.compile_expr(&expr)
+                                })
+                                .unwrap_or_default()
+                        })
+                        .collect::<Vec<_>>()
+                        .join("; ")
+                );
+
+
+                self.compile_stmt(stmt);
+            },
             StmtTag::If(cond, then, otherwise) => {
-                emit!(self, "if {}", self.compile_expr(cond));
+                emit!(self, "if ({})", self.compile_expr(cond));
                 self.compile_stmt(then);
                 if let Some(stmt) = otherwise {
                     self.compile_stmt(stmt);
                 }
             }
-            StmtTag::Switch(expr, stmt) => todo!(),
+            StmtTag::Switch(expr, stmt) => {
+                emit!(self, "switch ({})", self.compile_expr(expr));
+                self.compile_stmt(stmt);
+            },
             StmtTag::Case(expr, stmt) => {
                 emit!(self, "case {}:", self.compile_expr(expr));
 
@@ -168,32 +224,33 @@ impl<'a> Compiler<'a> {
                 });
             }
             StmtTag::Label((label, _), stmt) => {
-                write!(self.f, "{label}:\n");
+                writeln!(self.f, "{label}:");
                 self.compile_stmt(stmt);
             }
             StmtTag::Default(stmt) => {
-                emit!(self, "default:\n");
+                emitln!(self, "default:");
                 with_indent!(self, {
                     self.compile_stmt(stmt);
                 });
             }
             StmtTag::Break => {
-                emit!(self, "break;\n");
+                emitln!(self, "break;");
             }
             StmtTag::Continue => {
-                emit!(self, "continue;\n");
+                emitln!(self, "continue;");
             }
             StmtTag::Return(_, expr) => {
-                emit!(
+                emitln!(
                     self,
-                    "return {};\n",
+                    "return {};",
                     expr.clone()
                         .map(|expr| self.compile_expr(&expr))
                         .unwrap_or_default()
                 );
             }
             StmtTag::Goto((label, _)) => {
-                emit!(self, "goto {label};\n");
+                emit!(self, "goto {label};");
+                self.emit_linebreak();
             }
         }
     }
@@ -202,6 +259,9 @@ impl<'a> Compiler<'a> {
         match &expr {
             Expr::Primary((tok, _)) => {
                 format!("{tok}")
+            }
+            Expr::Paren(expr) => {
+                format!("({})", self.compile_expr(expr))
             }
             Expr::BinExpr { op, lhs, rhs } => {
                 format!(
@@ -232,7 +292,7 @@ impl<'a> Compiler<'a> {
                 format!("({}).{}", self.compile_expr(&expr), member.0)
             }
             Expr::SizeofType { r#type } => {
-                format!("sizeof({})", self.compile_declarator(&r#type.decl))
+                format!("sizeof({})", self.compile_type_name(&r#type))
             }
             Expr::SizeofExpr { expr } => {
                 format!("sizeof({})", self.compile_expr(&expr))
@@ -240,7 +300,7 @@ impl<'a> Compiler<'a> {
             Expr::CastExpr { r#type, expr } => {
                 format!(
                     "({}) {}",
-                    self.compile_declarator(&r#type.decl),
+                    self.compile_type_name(r#type),
                     self.compile_expr(&expr)
                 )
             }
@@ -259,8 +319,33 @@ impl<'a> Compiler<'a> {
             Expr::Invocation(_) => {
                 panic!("attempted to compile macro invocation")
             }
-            Expr::StmtExpr(_, _) => unreachable!(),
+            Expr::StmtExpr(stmts, _) => {
+                let mut buf = BufWriter::new(Vec::new());
+                let mut compiler = Compiler::new(&mut buf, self.ast);
+                compiler.options.inline = true;
+
+                stmts
+                    .iter()
+                    .for_each(|stmt| compiler.compile_stmt(stmt));
+
+                format!(
+                    "({{{}}})",
+                    String::from_utf8(buf.into_inner().unwrap()).unwrap()
+                )
+            },
         }
+    }
+
+    fn compile_type_name(&self, r#type: &TypeName) -> String {
+        format!(
+            "{} {}",
+            r#type.specs
+                .iter()
+                .map(|spec| self.compile_type_specifier(spec))
+                .collect::<Vec<_>>()
+                .join(" "),
+            self.compile_declarator(&r#type.decl),
+        )
     }
 
     fn compile_declarator(&self, decl: &Declarator) -> String {
@@ -370,8 +455,36 @@ impl<'a> Compiler<'a> {
                     }
                 )
             }
-            TypeSpecifier::Enum(vec) => todo!(),
+            TypeSpecifier::Enum(id, vec) => {
+                format!(
+                    "enum {}{}",
+                    id.clone().map(|id| id.0.to_string()).unwrap_or_default(),
+                    if !vec.is_empty() {
+                        format!(
+                            "{{{}}}",
+                            vec.iter()
+                                .map(|const_decl| self.compile_enum_const(const_decl))
+                                .collect::<Vec<String>>()
+                                .join(" ")
+                        )
+                    } else {
+                        "".into()
+                    }
+                )
+            },
         }
+    }
+
+    fn compile_enum_const(&self, decl: &EnumConstantDecl) -> String {
+        format!(
+            "{}{}",
+            decl.id.0.to_string(),
+            if let Some(cexpr) = &decl.cexpr {
+                format!(" = {}", self.compile_expr(&cexpr))
+            } else {
+                "".into()
+            }
+        )
     }
 
     fn compile_field(&self, field: &FieldDecl) -> String {
@@ -410,6 +523,13 @@ impl<'a> Compiler<'a> {
                 })
                 .collect::<Vec<String>>()
                 .join(", "),
+        }
+    }
+
+    #[inline(always)]
+    fn emit_linebreak(&mut self) {
+        if !self.options.inline {
+            write!(self.f, "\n");
         }
     }
 }

@@ -1,9 +1,9 @@
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct Span(pub usize, pub usize);
 
 impl Span {
     pub fn placeholder() -> Self {
-        Self(0, 0)
+        Self::default()
     }
 
     pub fn lo(self) -> Self {
@@ -24,6 +24,15 @@ impl Span {
         } else {
             self
         }
+    }
+}
+
+impl<T: Spannable> From<&Vec<T>> for Span {
+    fn from(vec: &Vec<T>) -> Self {
+        vec.iter()
+            .map(|i| i.span())
+            .reduce(Span::join)
+            .unwrap_or_default()
     }
 }
 

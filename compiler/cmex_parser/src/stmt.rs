@@ -180,7 +180,7 @@ impl Parser<'_> {
     ) -> PR<Option<DeclTag>> {
         if let Some(DeclSpecifier::TypeSpecifier(t)) = spec.last() {
             match t {
-                TypeSpecifier::Enum(consts) => {
+                TypeSpecifier::Enum(id, consts) => {
                     for decl in consts {
                         if let Identifier(name) = &decl.id.0 {
                             self.symbols
@@ -196,7 +196,7 @@ impl Parser<'_> {
                         }
                     }
 
-                    Ok(Some(DeclTag::Enum(consts.to_vec())))
+                    Ok(Some(DeclTag::Enum(id.clone(), consts.to_vec())))
                 }
                 TypeSpecifier::Record(id, r) => {
                     Ok(Some(DeclTag::Record(id.clone(), r.to_vec())))
@@ -734,12 +734,15 @@ impl Parser<'_> {
                 ));
             }
 
-            return Ok(TypeSpecifier::Enum(vec![]));
+            return Ok(TypeSpecifier::Enum(maybe_id, vec![]));
         }
 
-        Ok(TypeSpecifier::Enum(curly_wrapped!(self, {
-            self.enumerator_list()?
-        })))
+        Ok(TypeSpecifier::Enum(
+            maybe_id,
+            curly_wrapped!(self, {
+                self.enumerator_list()?
+            })
+        ))
     }
 
     #[instrument(skip_all)]

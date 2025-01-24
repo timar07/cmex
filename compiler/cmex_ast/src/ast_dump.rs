@@ -159,7 +159,7 @@ impl AstNodeDump for DeclTag {
                 decls.iter().for_each(|decl| decl.dump(tb));
                 tb.close();
             }
-            DeclTag::Enum(decls) => {
+            DeclTag::Enum(_, decls) => {
                 tb.open("EnumDecl".into());
                 decls.iter().for_each(|d| d.dump(tb));
                 tb.close();
