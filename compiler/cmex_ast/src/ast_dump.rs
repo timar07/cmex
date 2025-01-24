@@ -40,6 +40,19 @@ impl AstNodeDump for TranslationUnit {
     }
 }
 
+impl AstNodeDump for Item {
+    fn dump(&self, tb: &mut TreeBuilder) {
+        match self {
+            Item::Invocation(_) => {
+                tb.append_leaf("Invocation".into());
+            }
+            Item::Decl(decl_tag) => {
+                decl_tag.dump(tb);
+            }
+        }
+    }
+}
+
 impl AstNodeDump for StmtTag {
     fn dump(&self, tb: &mut TreeBuilder) {
         match self {
@@ -135,42 +148,40 @@ impl AstNodeDump for StmtTag {
     }
 }
 
-impl AstNodeDump for Decl {
+impl AstNodeDump for DeclTag {
     fn dump(&self, tb: &mut TreeBuilder) {
         match self {
-            Decl::Record(decls) => {
+            DeclTag::Include { path, .. } => {
+                tb.append_leaf(format!("Include `{path}`"));
+            }
+            DeclTag::Record(_, decls) => {
                 tb.open("RecordDecl".into());
                 decls.iter().for_each(|decl| decl.dump(tb));
                 tb.close();
             }
-            Decl::Enum(decls) => {
+            DeclTag::Enum(decls) => {
                 tb.open("EnumDecl".into());
                 decls.iter().for_each(|d| d.dump(tb));
                 tb.close();
             }
-            Decl::Func {
+            DeclTag::Func {
                 spec: _,
                 decl,
                 body,
-                params,
             } => {
-                tb.open(format!("FuncDecl `{}`", decl));
-
-                if let Some(params) = params {
-                    params.dump(tb);
-                }
+                tb.open(format!("FuncDecl"));
 
                 body.tag.dump(tb);
                 tb.close();
             }
-            Decl::Var { spec: _, decl_list } => {
+            DeclTag::Var { spec: _, decl_list } => {
                 decl_list.iter().for_each(|decl| {
                     tb.open("VarDecl".into());
                     decl.dump(tb);
                     tb.close();
                 });
             }
-            Decl::Macro { id, .. } => {
+            DeclTag::Macro { id, .. } => {
                 tb.append_leaf(format!("Macro `{}`", id.0));
             }
         }
@@ -235,49 +246,46 @@ impl AstNodeDump for ParamDecl {
 
 impl AstNodeDump for Expr {
     fn dump(&self, tb: &mut TreeBuilder) {
-        self.tag.dump(tb);
-    }
-}
-
-impl AstNodeDump for ExprTag {
-    fn dump(&self, tb: &mut TreeBuilder) {
         match self {
-            ExprTag::Primary(tok) => {
+            Expr::Paren(expr) => {
+                expr.dump(tb);
+            }
+            Expr::Primary(tok) => {
                 tb.append_leaf(format!("PrimaryExpr `{}`", tok.0));
             }
-            ExprTag::BinExpr { op, lhs, rhs } => {
+            Expr::BinExpr { op, lhs, rhs } => {
                 tb.open(format!("BinaryOperator `{}`", op.0));
                 lhs.dump(tb);
                 rhs.dump(tb);
                 tb.close();
             }
-            ExprTag::UnExpr { op, rhs } => {
+            Expr::UnExpr { op, rhs } => {
                 tb.open(format!("UnaryOperator `{}`", op.0));
                 rhs.dump(tb);
                 tb.close();
             }
-            ExprTag::Call { calle: _, args } => {
+            Expr::Call { calle: _, args } => {
                 tb.open("CallExpr".into());
                 args.iter().for_each(|arg| arg.dump(tb));
                 tb.close();
             }
-            ExprTag::MemberAccess { expr: _, member: _ } => {
+            Expr::MemberAccess { expr: _, member: _ } => {
                 tb.append_leaf("MemberExpr".into());
             }
-            ExprTag::SizeofType { r#type: _ } => {
+            Expr::SizeofType { r#type: _ } => {
                 tb.append_leaf("SizeofType".into());
             }
-            ExprTag::SizeofExpr { expr } => {
+            Expr::SizeofExpr { expr } => {
                 tb.open("SizeofExpr".into());
                 expr.dump(tb);
                 tb.close();
             }
-            ExprTag::CastExpr { r#type: _, expr } => {
+            Expr::CastExpr { r#type: _, expr } => {
                 tb.open("CastExpr".into());
                 expr.dump(tb);
                 tb.close();
             }
-            ExprTag::Conditional {
+            Expr::Conditional {
                 cond,
                 then,
                 otherwise,
@@ -288,10 +296,10 @@ impl AstNodeDump for ExprTag {
                 otherwise.dump(tb);
                 tb.close();
             }
-            ExprTag::Invocation(_) => {
+            Expr::Invocation(_) => {
                 tb.append_leaf("Invocation".into());
             }
-            ExprTag::StmtExpr(vec, _) => {
+            Expr::StmtExpr(vec, _) => {
                 tb.open("StmtExpr".into());
                 vec.iter().for_each(|stmt| stmt.tag.dump(tb));
                 tb.close();
