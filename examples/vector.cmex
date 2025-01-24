@@ -1,0 +1,80 @@
+#include <stdio.h>
+#include <stdlib.h>
+
+struct vec {
+    int *data;
+    int size;
+    int capacity;
+};
+
+void vec_init_with_cap(struct vec *vec, int cap) {
+    vec->size = 0;
+    vec->capacity = cap;
+    vec->data = (int *)malloc(vec->capacity * sizeof(int));
+    if (vec->data == NULL) {
+        fprintf(stderr, "Memory allocation failed!\n");
+        exit(1);
+    }
+}
+
+void vec_init(struct vec *vec) {
+    vec->size = 0;
+    vec->capacity = 4;
+    vec->data = (int *)malloc(vec->capacity * sizeof(int));
+    if (vec->data == NULL) {
+        fprintf(stderr, "Memory allocation failed!\n");
+        exit(1);
+    }
+}
+void vec_resize(struct vec *vec) {
+    vec->capacity *= 2;
+    vec->data = (int *)realloc(vec->data, vec->capacity * sizeof(int));
+    if (vec->data == NULL) {
+        fprintf(stderr, "Memory reallocation failed!\n");
+        exit(1);
+    }
+}
+
+void vec_push(struct vec *vec, int value) {
+    if (vec->size == vec->capacity) {
+        vec_resize(vec);
+    }
+    vec->data[vec->size++] = value;
+}
+
+int vec_get(struct vec *vec, int index) {
+    if (index >= vec->size) {
+        fprintf(stderr, "Index out of bounds!\n");
+        exit(1);
+    }
+    return vec->data[index];
+}
+
+void vector_free(struct vec *vec) {
+    free(vec->data);
+}
+
+void vec_print(struct vec *vec) {
+    int i = 0;
+    for (i = 0; i < vec->size; i++) {
+        printf("%d ", vec->data[i]);
+    }
+    printf("\n");
+}
+
+macro_rules! vec {
+    [$($x:expr),*] => {
+        ({
+            struct vec v;
+            vec_init(&v);
+            $(vec_push(&v, $x);)*
+            v;
+        })
+    }
+}
+
+int main(void) {
+    struct vec a = vec![1, 2, 3];
+    vec_print(&a);
+    return 0;
+}
