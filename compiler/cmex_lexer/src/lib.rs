@@ -364,14 +364,10 @@ impl<'src, 'a> NumberLiteralCollector<'src, 'a> {
 
     pub fn collect(&mut self) -> Result<TokenTag, LexError> {
         let prefix = match self.src.peek() {
-            Some('0') => {
-                match self.src.lookahead(1) {
-                    Some('x' | 'o' | 'b') => {
-                        self.parse_prefix()
-                    }
-                    _ => None
-                }
-            }
+            Some('0') => match self.src.lookahead(1) {
+                Some('x' | 'o' | 'b') => self.parse_prefix(),
+                _ => None,
+            },
             _ => None,
         };
 
