@@ -39,7 +39,7 @@ macro_rules! emitln {
                 "\n"
             },
             indent = $self.indent
-        )
+        ).unwrap()
     };
 }
 
@@ -114,6 +114,7 @@ where
                 });
 
                 emitln!(self, "}};");
+                self.emit_linebreak();
             }
             DeclTag::Enum(id, consts) => {
                 emit!(self, "enum");
@@ -133,6 +134,7 @@ where
                 });
 
                 emitln!(self, "}};");
+                self.emit_linebreak();
             }
             DeclTag::Func { spec, decl, body } => {
                 if let Some(spec) = spec {
@@ -144,6 +146,7 @@ where
                 emitln!(self, "");
 
                 self.compile_stmt(body);
+                self.emit_linebreak();
             }
             DeclTag::Var { spec, decl_list } => {
                 emit!(
@@ -290,7 +293,7 @@ where
                 )
             }
             Expr::UnExpr { op, rhs } => {
-                format!("{} {}", op.0, self.compile_expr(rhs))
+                format!("{}{}", op.0, self.compile_expr(rhs))
             }
             Expr::Call { calle, args } => {
                 format!(
@@ -556,7 +559,7 @@ where
         }
     }
 
-    #[inline(always)]
+    #[inline]
     fn emit_linebreak(&mut self) {
         if !self.options.inline {
             writeln!(self.f, "");
