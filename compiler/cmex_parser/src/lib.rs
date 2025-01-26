@@ -5,7 +5,7 @@ mod stmt;
 
 use cmex_ast::{token::TokenTag, Nonterminal, NtTag};
 use cmex_lexer::{Tokens, TokensIter};
-use cmex_span::{Span, Unspan};
+use cmex_span::{MaybeSpannable, Span, Unspan};
 use cmex_symtable::SymTable;
 pub use lookahead::Lookahead;
 
@@ -53,7 +53,7 @@ impl<'a> Parser<'a> {
                 ) => Ok(Nonterminal::Literal(self.iter.next().unwrap())),
                 _ => Err((
                     ParseErrorTag::Expected("literal".into()),
-                    self.iter.peek().unwrap().1,
+                    self.iter.peek().span().unwrap(),
                 )),
             },
             NtTag::Ident => match self.iter.peek().val() {
@@ -62,7 +62,7 @@ impl<'a> Parser<'a> {
                 }
                 _ => Err((
                     ParseErrorTag::Expected("identifier".into()),
-                    self.iter.peek().unwrap().1,
+                    self.iter.peek().span().unwrap(),
                 )),
             },
             NtTag::Tt => {

@@ -3,7 +3,7 @@ use std::collections::{hash_map::Entry, HashMap};
 use cmex_ast::token::Token;
 use cmex_ast::{Nonterminal, NtTag};
 use cmex_parser::Parser;
-use cmex_span::Span;
+use cmex_span::{MaybeSpannable, Span};
 
 use crate::{MacroTokenTree, RepOpTag};
 
@@ -160,7 +160,7 @@ impl TtMatcher {
                                 .map(|(tok, _)| tok.to_string())
                                 .unwrap_or_default()
                         ),
-                        parser.iter.peek().unwrap().1,
+                        parser.iter.peek().span().unwrap()
                     );
                 }
                 (_, 0) => {
@@ -187,7 +187,7 @@ impl TtMatcher {
                             Ok(nt) => nt,
                             Err(_) => return MatchResult::Error(
                                 format!("error occured while parsing nonterminal `{tag}`"),
-                                parser.iter.peek().unwrap().1
+                                parser.iter.peek().span().unwrap()
                             )
                         };
 

@@ -1,7 +1,7 @@
 use crate::{tt_cursor::TtCursor, DelimMtt};
 use cmex_ast::token::TokenTag::{self, *};
 use cmex_ast::{DelimTag, NtTag, TokenTree};
-use cmex_span::{Span, Spannable};
+use cmex_span::{MaybeSpannable, Span, Spannable};
 
 use crate::{MacroMatcher, MacroRule, MacroTokenTree, RepOpTag};
 
@@ -154,7 +154,7 @@ impl<'a> MacroTtParser<'a> {
                             _ => {
                                 return Err((
                                     "expected `+`, `*` or `?`".into(),
-                                    self.iter.next().unwrap().1,
+                                    self.iter.next().span().unwrap()
                                 ))
                             }
                         }

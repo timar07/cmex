@@ -5,7 +5,7 @@
 use crate::{require_tok, ParseErrorTag, Parser, PR};
 use cmex_ast::token::TokenTag::*;
 use cmex_ast::{DeclTag, DelimSpan, DelimTag, TokenTree};
-use cmex_span::{Span, Unspan};
+use cmex_span::{MaybeSpannable, Span, Unspan};
 
 impl Parser<'_> {
     /// Parse `macro_rules!`. The pre-expansion parsing is implemented in
@@ -35,19 +35,19 @@ impl Parser<'_> {
                         "delimited token tree".into(),
                         self.iter.peek().val(),
                     ),
-                    self.iter.peek().unwrap().1,
+                    self.iter.peek().span().unwrap(),
                 ))
             }
             _ => panic!(),
         };
 
-        let start_span = self.iter.next().unwrap().1;
+        let start_span = self.iter.next().span().unwrap();
 
         while self.iter.peek().val() != Some(end.clone()) {
             subtree.push(self.token_tree()?);
         }
 
-        let end_span = self.iter.peek().unwrap().1;
+        let end_span = self.iter.peek().span().unwrap();
 
         assert_eq!(self.iter.next().val(), Some(end));
 
@@ -66,6 +66,7 @@ impl Parser<'_> {
         }
     }
 
+    /// Parse original C-style macros e.g. `#include`, `#define`
     pub(crate) fn deprecated_macro(&mut self) -> PR<DeclTag> {
         assert_eq!(self.iter.next().val(), Some(Hash));
 
@@ -86,7 +87,7 @@ impl Parser<'_> {
             },
             _ => Err((
                 ParseErrorTag::Expected("macro directive".into()),
-                self.iter.next().unwrap().1,
+                self.iter.next().span().unwrap(),
             )),
         }
     }
@@ -103,12 +104,11 @@ impl Parser<'_> {
                     .map(|tok| tok.0.to_string())
                     .collect::<Vec<String>>()
                     .join("");
-                require_tok!(self, Gt)?;
                 Ok(path)
             }
             Some(tok) => Err((
                 ParseErrorTag::ExpectedGot("path".into(), Some(tok)),
-                self.iter.next().unwrap().1,
+                self.iter.next().span().unwrap(),
             )),
             _ => panic!("unexpected eof"),
         }

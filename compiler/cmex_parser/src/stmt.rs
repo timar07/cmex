@@ -74,7 +74,7 @@ impl Parser<'_> {
                 _ => {
                     return Err((
                         ParseErrorTag::InterpolationFailed(*nt),
-                        self.iter.next().unwrap().1,
+                        self.iter.next().span().unwrap(),
                     ))
                 }
             }
@@ -222,7 +222,7 @@ impl Parser<'_> {
             )),
             _ => Err((
                 ParseErrorTag::Expected("parameter list".into()),
-                self.iter.peek().unwrap().1,
+                self.iter.peek().span().unwrap(),
             )),
         }
     }
@@ -550,7 +550,7 @@ impl Parser<'_> {
             }
             Some(_) => Err((
                 ParseErrorTag::Expected("type specifier".into()),
-                self.iter.peek().unwrap().1,
+                self.iter.peek().span().unwrap(),
             )),
             _ => panic!(),
         }
@@ -608,7 +608,7 @@ impl Parser<'_> {
             if maybe_id.is_none() {
                 return Err((
                     ParseErrorTag::DeclarationHasNoIdentifier,
-                    self.iter.peek().unwrap().1,
+                    self.iter.peek().span().unwrap(),
                 ));
             }
 
@@ -725,7 +725,7 @@ impl Parser<'_> {
             if maybe_id.is_none() {
                 return Err((
                     ParseErrorTag::DeclarationHasNoInitializer,
-                    self.iter.peek().unwrap().1,
+                    self.iter.peek().span().unwrap(),
                 ));
             }
 

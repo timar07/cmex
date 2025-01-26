@@ -8,7 +8,7 @@ use cmex_ast::{
     token::{NumberLiteralKind, TokenTag::*},
     Expr, InvocationTag, Nonterminal,
 };
-use cmex_span::{Span, Spannable, Unspan};
+use cmex_span::{MaybeSpannable, Span, Spannable, Unspan};
 
 impl Parser<'_> {
     pub fn constant_expression(&mut self) -> PR<Expr> {
@@ -370,7 +370,7 @@ impl Parser<'_> {
                     Nonterminal::Expr(expr) => Ok(expr),
                     _ => Err((
                         ParseErrorTag::InterpolationFailed(*nt),
-                        self.iter.next().unwrap().1,
+                        self.iter.next().span().unwrap(),
                     )),
                 }
             }
@@ -380,7 +380,7 @@ impl Parser<'_> {
             }
             Some(t) => Err((
                 ParseErrorTag::UnexpectedToken(t),
-                self.iter.peek().unwrap().1,
+                self.iter.peek().span().unwrap(),
             )),
             _ => panic!(),
         }
