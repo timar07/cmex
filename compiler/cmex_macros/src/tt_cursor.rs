@@ -14,14 +14,18 @@ impl<'a> TtCursor<'a> {
         }
     }
 
+    #[inline]
     pub fn next_tree(&mut self) -> Option<TokenTree> {
         self.iter.next_tree()
     }
 
+    #[inline]
     pub fn peek_tree(&mut self) -> Option<TokenTree> {
         self.iter.peek_tree().cloned()
     }
 
+    #[inline]
+    #[allow(dead_code)]
     pub fn peek(&mut self) -> Option<Token> {
         let iter = &mut self.iter;
         self.peeked.get_or_insert_with(|| iter.next()).clone()
@@ -31,6 +35,7 @@ impl<'a> TtCursor<'a> {
 impl Iterator for TtCursor<'_> {
     type Item = Token;
 
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         match self.peeked.take() {
             Some(v) => v,
@@ -55,6 +60,7 @@ impl<'a> TtIter<'a> {
         }
     }
 
+    #[inline]
     pub fn next_tree(&mut self) -> Option<TokenTree> {
         self.stack
             .pop()

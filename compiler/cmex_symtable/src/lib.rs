@@ -67,7 +67,7 @@ impl<T, V> Default for Scope<T, V> {
         Self {
             index: Default::default(),
             inner: Default::default(),
-            parent: Default::default()
+            parent: Default::default(),
         }
     }
 }

@@ -65,13 +65,16 @@ pub fn main() {
             })
             .collect(),
     );
-    let mut parser = Parser::new(&tokens, ParseOptions {
-        allow_comma_op: true
-    });
+    let mut parser = Parser::new(
+        &tokens,
+        ParseOptions {
+            allow_comma_op: true,
+        },
+    );
 
     match &mut parser.parse() {
         Ok(ast) => {
-            if args.contains(&"-E".into()) {
+            if args.contains(&"-E".into()) || args.contains(&"-o".into()) {
                 if let Err(err) = MacroExpander::new().expand_ast(ast) {
                     eprintln!(
                         "{}",
@@ -92,8 +95,11 @@ pub fn main() {
             }
 
             let mut iter = args.iter();
-            if let Some(_) =
-                iter.by_ref().skip_while(|flag| **flag != "-o").next()
+            if iter
+                .by_ref()
+                .skip_while(|flag| **flag != "-o")
+                .next()
+                .is_some()
             {
                 match iter.next() {
                     Some(path) => {

@@ -1,11 +1,11 @@
 use crate::{tt_cursor::TtCursor, DelimMtt};
 use cmex_ast::token::TokenTag::{self, *};
 use cmex_ast::{DelimTag, NtTag, TokenTree};
-use cmex_span::{Span, Unspan};
+use cmex_span::{Span, Spannable};
 
 use crate::{MacroMatcher, MacroRule, MacroTokenTree, RepOpTag};
 
-type PR<T> = Result<T, (ParseErrorTag, Span)>;
+type PR<T> = Result<T, (String, Span)>;
 
 macro_rules! require_tok {
     ($iter:expr, $pat:pat) => {
@@ -40,23 +40,23 @@ impl MacroParser {
 
     /// Parse macro body as an iterator over tokens
     pub fn parse(&mut self) -> PR<Vec<MacroRule>> {
-        Ok(self.macro_rules_def()?)
+        self.macro_rules_def()
     }
 
     fn macro_rules_def(&mut self) -> PR<Vec<MacroRule>> {
         match &self.tt {
-            TokenTree::Delim(_, tt, _) => Ok(self.macro_rules(tt.to_vec())),
+            TokenTree::Delim(_, tt, _) => Ok(self.macro_rules(tt.to_vec())?),
             TokenTree::Token(_) => panic!("expected macro rules body"),
         }
     }
 
-    fn macro_rules(&mut self, tt: Vec<TokenTree>) -> Vec<MacroRule> {
+    fn macro_rules(&mut self, tt: Vec<TokenTree>) -> PR<Vec<MacroRule>> {
         let mut iter = tt.iter().peekable();
         let mut rules = Vec::new();
 
         while iter.peek().is_some() {
             let rule =
-                self.macro_rule(iter.by_ref().take(3).cloned().collect());
+                self.macro_rule(iter.by_ref().take(3).cloned().collect())?;
             rules.push(rule);
 
             if iter.peek().is_some() {
@@ -64,18 +64,19 @@ impl MacroParser {
             }
         }
 
-        rules
+        Ok(rules)
     }
 
-    fn macro_rule(&mut self, tt: Vec<TokenTree>) -> MacroRule {
+    fn macro_rule(&mut self, tt: Vec<TokenTree>) -> PR<MacroRule> {
         let mut iter = tt.iter().peekable();
 
         let matcher = match iter.next() {
             Some(TokenTree::Delim(_, tt, _)) => {
                 self.macro_matcher(&mut TtCursor::new(tt))
             }
-            _ => panic!("expected macro matcher"),
-        };
+            Some(tt) => Err(("expected macro matcher".into(), tt.span())),
+            None => panic!(),
+        }?;
 
         require_tok!(iter, FatArrow);
 
@@ -84,21 +85,21 @@ impl MacroParser {
                 let cursor = &mut TtCursor::new(&body);
                 DelimMtt {
                     delim,
-                    mtt: MacroTtParser::new(cursor).parse_mtt(),
+                    mtt: MacroTtParser::new(cursor).parse_mtt()?,
                     span,
                 }
             }
             _ => panic!("expected delimited token tree"),
         };
 
-        MacroRule(matcher, rhs)
+        Ok(MacroRule(matcher, rhs))
     }
 
     fn macro_matcher<'a>(
         &mut self,
         iter: &'a mut TtCursor<'a>,
-    ) -> MacroMatcher {
-        MacroMatcher(MacroTtParser::new(iter).parse_mtt())
+    ) -> PR<MacroMatcher> {
+        Ok(MacroMatcher(MacroTtParser::new(iter).parse_mtt()?))
     }
 }
 
@@ -111,22 +112,22 @@ impl<'a> MacroTtParser<'a> {
         Self { iter }
     }
 
-    pub fn parse_mtt(&mut self) -> Vec<MacroTokenTree> {
+    pub fn parse_mtt(&mut self) -> PR<Vec<MacroTokenTree>> {
         let mut mtts = Vec::new();
 
-        while let Some(mtt) = self.parse_item() {
+        while let Some(mtt) = self.parse_item()? {
             mtts.push(mtt);
         }
 
-        mtts
+        Ok(mtts)
     }
 
-    fn parse_item(&mut self) -> Option<MacroTokenTree> {
-        match self.iter.next_tree() {
+    fn parse_item(&mut self) -> PR<Option<MacroTokenTree>> {
+        Ok(match self.iter.next_tree() {
             Some(TokenTree::Token((TokenTag::Dollar, _))) => {
                 match self.iter.peek_tree() {
                     Some(TokenTree::Delim(DelimTag::Paren, inner, _)) => {
-                        let matcher = subparse(&inner);
+                        let matcher = subparse(&inner)?;
 
                         self.iter.next_tree();
 
@@ -139,7 +140,7 @@ impl<'a> MacroTtParser<'a> {
                             ))) => Some(MacroTokenTree::Rep(
                                 matcher,
                                 None,
-                                self.rep_op(),
+                                self.rep_op()?,
                             )),
                             Some(TokenTree::Token(tok)) => {
                                 self.iter.next_tree();
@@ -147,10 +148,15 @@ impl<'a> MacroTtParser<'a> {
                                 Some(MacroTokenTree::Rep(
                                     matcher,
                                     Some(tok),
-                                    self.rep_op(),
+                                    self.rep_op()?,
                                 ))
                             }
-                            _ => panic!("expected `+`, `*` or `?`"),
+                            _ => {
+                                return Err((
+                                    "expected `+`, `*` or `?`".into(),
+                                    self.iter.next().unwrap().1,
+                                ))
+                            }
                         }
                     }
                     _ => self.macro_frag(),
@@ -163,20 +169,26 @@ impl<'a> MacroTtParser<'a> {
                 Some(MacroTokenTree::Delim(DelimMtt {
                     delim,
                     span,
-                    mtt: subparse(&inner),
+                    mtt: subparse(&inner)?,
                 }))
             }
             _ => None,
-        }
+        })
     }
 
-    fn rep_op(&mut self) -> RepOpTag {
-        match self.iter.next().val() {
-            Some(TokenTag::Plus) => RepOpTag::Plus,
-            Some(TokenTag::Asterisk) => RepOpTag::Asterisk,
-            Some(TokenTag::Quest) => RepOpTag::Quest,
-            tok => panic!("unknown repetition operator {:?}", tok),
-        }
+    fn rep_op(&mut self) -> PR<RepOpTag> {
+        Ok(match self.iter.next() {
+            Some((TokenTag::Plus, _)) => RepOpTag::Plus,
+            Some((TokenTag::Asterisk, _)) => RepOpTag::Asterisk,
+            Some((TokenTag::Quest, _)) => RepOpTag::Quest,
+            Some((tok, span)) => {
+                return Err((
+                    format!("unknown repetition operator {:?}", tok),
+                    span,
+                ))
+            }
+            _ => panic!(),
+        })
     }
 
     fn macro_frag(&mut self) -> Option<MacroTokenTree> {
@@ -188,7 +200,7 @@ impl<'a> MacroTtParser<'a> {
                     self.iter.next_tree();
                     Some(MacroTokenTree::Frag(
                         tok.clone(),
-                        Some(self.macro_frag_spec()),
+                        self.macro_frag_spec().ok(),
                     ))
                 } else {
                     Some(MacroTokenTree::Frag(tok.clone(), None))
@@ -198,11 +210,11 @@ impl<'a> MacroTtParser<'a> {
         }
     }
 
-    fn macro_frag_spec(&mut self) -> NtTag {
-        if let Some(TokenTree::Token((Identifier(spec), _))) =
+    fn macro_frag_spec(&mut self) -> PR<NtTag> {
+        if let Some(TokenTree::Token((Identifier(spec), span))) =
             self.iter.next_tree()
         {
-            match spec.as_str() {
+            Ok(match spec.as_str() {
                 "block" => NtTag::Block,
                 "literal" => NtTag::Literal,
                 "ident" => NtTag::Ident,
@@ -211,21 +223,14 @@ impl<'a> MacroTtParser<'a> {
                 "expr" => NtTag::Expr,
                 "tt" => NtTag::Tt,
                 "pat" => todo!(),
-                _ => panic!("incorrect fragment specifier"),
-            }
+                _ => return Err(("expected fragment specifier".into(), span)),
+            })
         } else {
             panic!("expected fragment specifier")
         }
     }
 }
 
-fn subparse(inner: &Vec<TokenTree>) -> Vec<MacroTokenTree> {
+fn subparse(inner: &Vec<TokenTree>) -> PR<Vec<MacroTokenTree>> {
     MacroTtParser::new(&mut TtCursor::new(inner)).parse_mtt()
-}
-
-#[derive(Debug)]
-pub enum ParseErrorTag {
-    Expected(String),
-    ExpectedGot(String, Option<TokenTag>),
-    ExpectedValidTokenTree,
 }

@@ -44,12 +44,7 @@ impl Parser<'_> {
                     decls.append(&mut decl);
                 }
                 Err(err) => {
-                    while !check_tok!(
-                        self,
-                        Comma
-                        | Semicolon
-                        | RightCurly
-                    ) {
+                    while !check_tok!(self, Comma | Semicolon | RightCurly) {
                         self.iter.next();
                     }
 
@@ -123,7 +118,7 @@ impl Parser<'_> {
         // TODO: hotfix, refactor
         if check_tok!(self, Semicolon) {
             if let Some(ref spec) = spec {
-                if let Some(decl) = self.type_definition(&spec)? {
+                if let Some(decl) = self.type_definition(spec)? {
                     decl_list.push(decl);
                     return Ok(decl_list);
                 }
@@ -176,7 +171,7 @@ impl Parser<'_> {
     #[instrument(skip_all)]
     fn type_definition(
         &mut self,
-        spec: &Vec<DeclSpecifier>,
+        spec: &[DeclSpecifier],
     ) -> PR<Option<DeclTag>> {
         if let Some(DeclSpecifier::TypeSpecifier(t)) = spec.last() {
             match t {
@@ -681,7 +676,7 @@ impl Parser<'_> {
     #[instrument(skip_all)]
     fn specifier_qualifier(&mut self) -> PR<Option<TypeSpecifier>> {
         if self.maybe_type_qualifier().is_none() {
-            return Ok(self.maybe_type_specifier()?);
+            return self.maybe_type_specifier();
         }
 
         Ok(None)
@@ -739,9 +734,7 @@ impl Parser<'_> {
 
         Ok(TypeSpecifier::Enum(
             maybe_id,
-            curly_wrapped!(self, {
-                self.enumerator_list()?
-            })
+            curly_wrapped!(self, { self.enumerator_list()? }),
         ))
     }
 

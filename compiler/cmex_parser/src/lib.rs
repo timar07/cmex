@@ -13,13 +13,13 @@ pub(crate) type PR<T> = Result<T, ParseError>;
 
 pub struct ParseOptions {
     /// Whether to parse comma operator
-    pub allow_comma_op: bool
+    pub allow_comma_op: bool,
 }
 
 pub struct Parser<'a> {
     pub iter: Lookahead<TokensIter<'a>>,
     symbols: SymTable<String, Span>,
-    opts: ParseOptions
+    opts: ParseOptions,
 }
 
 impl<'a> Parser<'a> {
@@ -27,7 +27,7 @@ impl<'a> Parser<'a> {
         Self {
             iter: Lookahead::from(TokensIter::from(iter)),
             symbols: SymTable::new(),
-            opts
+            opts,
         }
     }
 

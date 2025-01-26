@@ -44,6 +44,12 @@ pub trait MaybeSpannable {
     fn span(&self) -> Option<Span>;
 }
 
+impl<T: Spannable + Clone> MaybeSpannable for Option<T> {
+    fn span(&self) -> Option<Span> {
+        self.clone().map(|val| val.span())
+    }
+}
+
 impl<T: Spannable> MaybeSpannable for Vec<T> {
     fn span(&self) -> Option<Span> {
         self.iter().map(|item| item.span()).reduce(Span::join)

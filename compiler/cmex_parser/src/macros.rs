@@ -76,7 +76,7 @@ impl Parser<'_> {
 
                     Ok(DeclTag::Include {
                         path: self.parse_path()?,
-                        span: span,
+                        span,
                     })
                 }
                 _ => Err((
@@ -103,7 +103,7 @@ impl Parser<'_> {
                     .map(|tok| tok.0.to_string())
                     .collect::<Vec<String>>()
                     .join("");
-                require_tok!(self, Gt);
+                require_tok!(self, Gt)?;
                 Ok(path)
             }
             Some(tok) => Err((

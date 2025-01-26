@@ -164,12 +164,8 @@ impl AstNodeDump for DeclTag {
                 decls.iter().for_each(|d| d.dump(tb));
                 tb.close();
             }
-            DeclTag::Func {
-                spec: _,
-                decl,
-                body,
-            } => {
-                tb.open(format!("FuncDecl"));
+            DeclTag::Func { spec: _, body, .. } => {
+                tb.open("FuncDecl".into());
 
                 body.tag.dump(tb);
                 tb.close();

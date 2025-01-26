@@ -7,6 +7,9 @@ use cmex_span::Span;
 
 use crate::{MacroTokenTree, RepOpTag};
 
+/// Early parser position.
+/// For more information, see:
+/// <https://en.wikipedia.org/wiki/Earley_parser#The_algorithm>
 #[derive(Debug, Clone)]
 pub struct MatcherPos {
     i: usize,
@@ -58,6 +61,7 @@ pub enum BoundMatch {
 }
 
 /// Represents current matcher state
+#[derive(Debug)]
 pub enum MatcherState {
     /// Single token
     Token(Token),
@@ -134,8 +138,7 @@ impl TtMatcher {
             self.next_mps.clear();
             self.nt_mps.clear();
 
-            let res =
-                self.parse_tt_inner(parser.iter.peek().as_ref(), matcher, span);
+            let res = self.predict(parser.iter.peek().as_ref(), matcher, span);
 
             // Result emited
             if let Some(res) = res {
@@ -169,7 +172,7 @@ impl TtMatcher {
                 }
                 (0, 1) => {
                     // No possible terminal transitions and we got a
-                    // non terminal in queue -- call the parser
+                    // nonterminal in queue -- call the parser
                     let mut mp = self.nt_mps.pop().unwrap();
                     let loc = &matcher[mp.i];
 
@@ -199,13 +202,13 @@ impl TtMatcher {
                     self.curr_mps.push(mp);
                 }
                 (_, _) => {
-                    return MatchResult::Error("ambiguity error".into(), span)
+                    return MatchResult::Error("ambiguity error".into(), span);
                 }
             }
         }
     }
 
-    fn parse_tt_inner(
+    fn predict(
         &mut self,
         token: Option<&Token>,
         matcher: &[MatcherState],
@@ -257,7 +260,7 @@ impl TtMatcher {
                         matches: mp.matches.clone(),
                     };
                     self.curr_mps.push(end);
-                    // TODO
+
                     if tag != RepOpTag::Quest {
                         // Try another repetition.
                         mp.i = index_first;

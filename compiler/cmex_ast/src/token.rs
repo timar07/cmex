@@ -40,7 +40,6 @@ pub enum TokenTag {
     Goto,
     Ge,
     Gt,
-    #[allow(dead_code)]
     Hash,
     Identifier(String),
     Increment,

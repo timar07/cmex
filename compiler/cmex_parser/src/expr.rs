@@ -4,8 +4,11 @@
 
 use super::{ParseErrorTag, Parser, PR};
 use crate::{check_tok, match_tok, require_tok};
-use cmex_ast::{token::{NumberLiteralKind, TokenTag::*}, Expr, InvocationTag, Nonterminal};
-use cmex_span::{Spannable, Span, Unspan};
+use cmex_ast::{
+    token::{NumberLiteralKind, TokenTag::*},
+    Expr, InvocationTag, Nonterminal,
+};
+use cmex_span::{Span, Spannable, Unspan};
 
 impl Parser<'_> {
     pub fn constant_expression(&mut self) -> PR<Expr> {
@@ -270,66 +273,53 @@ impl Parser<'_> {
                 | Increment
                 | Decrement
         ) {
-
             let span = Span::join(expr.span(), tok.1);
 
             expr = match tok.0 {
                 LeftBrace => {
                     let idx = self.expression()?;
-                    require_tok!(self, RightBrace);
+                    require_tok!(self, RightBrace)?;
 
                     Expr::UnExpr {
                         op: (Asterisk, span),
-                        rhs: Box::new(Expr::Paren(
-                            Box::new(Expr::BinExpr{
-                                op: (Plus, span),
-                                lhs: Box::new(expr),
-                                rhs: Box::new(idx)
-                            })
-                        ))
+                        rhs: Box::new(Expr::Paren(Box::new(Expr::BinExpr {
+                            op: (Plus, span),
+                            lhs: Box::new(expr),
+                            rhs: Box::new(idx),
+                        }))),
                     }
                 }
                 Not => match expr {
-                    Expr::Primary(id @ (Identifier(_), _)) => {
-                        Expr::Invocation(
+                    Expr::Primary(id @ (Identifier(_), _)) => Expr::Invocation(
                         InvocationTag::Bang(id, Some(self.delim_token_tree()?)),
-                    )
-                    },
+                    ),
                     _ => panic!("expected identifier before macro invocation"),
                 },
                 LeftParen => self.parse_call(expr)?,
-                Dot => {
-                    Expr::MemberAccess {
-                        expr: Box::new(expr),
-                        member: require_tok!(self, Identifier(_))?
-                    }
+                Dot => Expr::MemberAccess {
+                    expr: Box::new(expr),
+                    member: require_tok!(self, Identifier(_))?,
                 },
-                ArrowRight => {
-                    Expr::MemberAccess {
-                        expr: Box::new(Expr::UnExpr {
-                            op: (Asterisk, span),
-                            rhs: Box::new(expr.clone())
-                        }),
-                        member: require_tok!(self, Identifier(_))?,
-                    }
-                }
-                Increment | Decrement => {
-                    Expr::Paren(Box::new(
-                        Expr::BinExpr {
-                            op: (AddAssign, span),
-                            lhs: Box::new(expr.clone()),
-                            rhs: Box::new(Expr::Primary((
-                                NumberLiteral {
-                                    literal: "1".into(),
-                                    prefix: None,
-                                    suffix: None,
-                                    kind: NumberLiteralKind::Int
-                                },
-                                span
-                            )))
-                        }
-                    ))
-                }
+                ArrowRight => Expr::MemberAccess {
+                    expr: Box::new(Expr::UnExpr {
+                        op: (Asterisk, span),
+                        rhs: Box::new(expr.clone()),
+                    }),
+                    member: require_tok!(self, Identifier(_))?,
+                },
+                Increment | Decrement => Expr::Paren(Box::new(Expr::BinExpr {
+                    op: (AddAssign, span),
+                    lhs: Box::new(expr.clone()),
+                    rhs: Box::new(Expr::Primary((
+                        NumberLiteral {
+                            literal: "1".into(),
+                            prefix: None,
+                            suffix: None,
+                            kind: NumberLiteralKind::Int,
+                        },
+                        span,
+                    ))),
+                })),
                 _ => panic!(),
             }
         }

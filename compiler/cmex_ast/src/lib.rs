@@ -83,7 +83,7 @@ impl Spannable for StmtTag {
             Self::Default(stmt) => stmt.tag.span(),
             Self::Break => todo!(),
             Self::Continue => todo!(),
-            Self::Return((_, span), expr) => *span,
+            Self::Return((_, span), _) => *span,
             Self::Goto(tok) => tok.1,
         }
     }
@@ -594,6 +594,15 @@ impl TokenTree {
     }
 }
 
+impl Spannable for TokenTree {
+    fn span(&self) -> Span {
+        match self {
+            Self::Token(tok) => tok.1,
+            Self::Delim(_, _, span) => span.span(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DelimTag {
     /// Curly braces `{` `}`
@@ -616,6 +625,12 @@ impl DelimTag {
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct DelimSpan(pub Span, pub Span);
+
+impl Spannable for DelimSpan {
+    fn span(&self) -> Span {
+        Span::join(self.0, self.1)
+    }
+}
 
 #[derive(Debug, Clone)]
 pub enum Nonterminal {

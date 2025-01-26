@@ -206,9 +206,12 @@ impl MacroExpander {
                         .map(|tt| TtCursor::new(&vec![tt]).collect())
                         .unwrap_or(Vec::new()),
                 );
-                let mut parser = Parser::new(&toks, ParseOptions {
-                    allow_comma_op: false // We may want to parse , as a delimiter
-                });
+                let mut parser = Parser::new(
+                    &toks,
+                    ParseOptions {
+                        allow_comma_op: false, // We may want to parse , as a delimiter
+                    },
+                );
                 let decl =
                     self.decls.lookup(&id.0.to_string()).ok_or_else(|| {
                         (ExpError::UseOfUndeclaredMacro(id.0.to_string()), id.1)
@@ -227,21 +230,23 @@ impl MacroExpander {
                         .iter()
                         .map(|tt| tt.flatten())
                         .reduce(|a, b| [a, b].concat())
-                        .unwrap_or_else(Vec::new)
+                        .unwrap_or_else(Vec::new),
                 );
 
-                let mut parser = Parser::new(&tokens, ParseOptions {
-                    allow_comma_op: true
-                });
+                let mut parser = Parser::new(
+                    &tokens,
+                    ParseOptions {
+                        allow_comma_op: true,
+                    },
+                );
 
-                let mut expr =
-                    match parser.parse_nt(NtTag::Expr) {
-                        Ok(Nonterminal::Expr(exp)) => exp,
-                        Err((e, span)) => {
-                            return Err((ExpError::NtParseError(e), span))
-                        }
-                        _ => unreachable!(),
-                    };
+                let mut expr = match parser.parse_nt(NtTag::Expr) {
+                    Ok(Nonterminal::Expr(exp)) => exp,
+                    Err((e, span)) => {
+                        return Err((ExpError::NtParseError(e), span))
+                    }
+                    _ => unreachable!(),
+                };
 
                 self.expand_expr(&mut expr)?;
 
@@ -259,6 +264,7 @@ struct Frame<'a> {
 
 enum FrameTag {
     Delim(DelimTag, DelimSpan),
+    #[allow(dead_code)]
     Rep(Option<Token>, RepOpTag),
 }
 
@@ -434,12 +440,14 @@ fn lookup_current_match(
         })
 }
 
+type BoundMatches = HashMap<String, Option<BoundMatch>>;
+
 /// Returns matched arm index and hashmap with bound matches.
 fn match_macro(
     matchers: &[MacroMatcher],
     parser: &mut Parser,
     span: Span,
-) -> Result<(usize, HashMap<String, Option<BoundMatch>>), (String, Span)> {
+) -> Result<(usize, BoundMatches), (String, Span)> {
     let mut tt_matcher = TtMatcher::new();
     let mut last_error = None;
 
