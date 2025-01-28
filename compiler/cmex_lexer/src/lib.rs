@@ -152,6 +152,10 @@ impl Lexer<'_> {
             c if Self::is_ident_char(c) => Some(self.parse_keyword_or_ident()),
             '\"' => Some(StringLiteralCollector::new(&mut self.src).collect()),
             '\'' => Some(CharLiteralCollector::new(&mut self.src).collect()),
+            '/' if self.src.lookahead(1) == Some('/') => {
+                self.line_comment();
+                self.lex_token()
+            }
             '/' if self.src.lookahead(1) == Some('*') => {
                 self.skip_comment();
                 self.lex_token()
@@ -160,6 +164,12 @@ impl Lexer<'_> {
                 Some(NumberLiteralCollector::new(&mut self.src).collect())
             }
             _ => self.parse_single_char(),
+        }
+    }
+
+    fn line_comment(&mut self) {
+        while !matches!(self.src.peek(), Some('\n')) {
+            self.src.next();
         }
     }
 
