@@ -144,26 +144,33 @@ impl Lexer<'_> {
     }
 
     fn lex_token(&mut self) -> Option<Result<TokenTag, LexError>> {
+        self.skip_ignored();
+
         match self.src.peek()? {
-            c if c.is_ascii_whitespace() => {
-                self.src.next();
-                self.lex_token()
-            }
             c if Self::is_ident_char(c) => Some(self.parse_keyword_or_ident()),
             '\"' => Some(StringLiteralCollector::new(&mut self.src).collect()),
             '\'' => Some(CharLiteralCollector::new(&mut self.src).collect()),
-            '/' if self.src.lookahead(1) == Some('/') => {
-                self.line_comment();
-                self.lex_token()
-            }
-            '/' if self.src.lookahead(1) == Some('*') => {
-                self.skip_comment();
-                self.lex_token()
-            }
             '0'..='9' => {
                 Some(NumberLiteralCollector::new(&mut self.src).collect())
             }
             _ => self.parse_single_char(),
+        }
+    }
+
+    fn skip_ignored(&mut self) {
+        while let Some(c) = self.src.peek() {
+            match c {
+                c if c.is_ascii_whitespace() => {
+                    self.src.next();
+                }
+                '/' if self.src.lookahead(1) == Some('/') => {
+                    self.line_comment();
+                }
+                '/' if self.src.lookahead(1) == Some('*') => {
+                    self.skip_comment();
+                }
+                _ => break
+            }
         }
     }
 
