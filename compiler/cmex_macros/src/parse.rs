@@ -1,11 +1,11 @@
 use crate::{tt_cursor::TtCursor, DelimMtt};
 use cmex_ast::token::TokenTag::{self, *};
 use cmex_ast::{DelimTag, NtTag, TokenTree};
-use cmex_span::{MaybeSpannable, Span, Spannable};
+use cmex_span::{MaybeSpannable, Spannable, Spanned};
 
 use crate::{MacroMatcher, MacroRule, MacroTokenTree, RepOpTag};
 
-type PR<T> = Result<T, (String, Span)>;
+type PR<T> = Result<T, Spanned<String>>;
 
 macro_rules! require_tok {
     ($iter:expr, $pat:pat) => {
@@ -74,7 +74,10 @@ impl MacroParser {
             Some(TokenTree::Delim(_, tt, _)) => {
                 self.macro_matcher(&mut TtCursor::new(tt))
             }
-            Some(tt) => Err(("expected macro matcher".into(), tt.span())),
+            Some(tt) => Err(Spanned(
+                "expected macro matcher".into(),
+                tt.span()
+            )),
             None => panic!(),
         }?;
 
@@ -152,9 +155,9 @@ impl<'a> MacroTtParser<'a> {
                                 ))
                             }
                             _ => {
-                                return Err((
+                                return Err(Spanned(
                                     "expected `+`, `*` or `?`".into(),
-                                    self.iter.next().span().unwrap()
+                                    self.iter.next().span().unwrap(),
                                 ))
                             }
                         }
@@ -182,7 +185,7 @@ impl<'a> MacroTtParser<'a> {
             Some((TokenTag::Asterisk, _)) => RepOpTag::Asterisk,
             Some((TokenTag::Quest, _)) => RepOpTag::Quest,
             Some((tok, span)) => {
-                return Err((
+                return Err(Spanned(
                     format!("unknown repetition operator {:?}", tok),
                     span,
                 ))
@@ -223,7 +226,9 @@ impl<'a> MacroTtParser<'a> {
                 "expr" => NtTag::Expr,
                 "tt" => NtTag::Tt,
                 "pat" => todo!(),
-                _ => return Err(("expected fragment specifier".into(), span)),
+                _ => return Err(Spanned(
+                    "expected fragment specifier".into(), span
+                )),
             })
         } else {
             panic!("expected fragment specifier")

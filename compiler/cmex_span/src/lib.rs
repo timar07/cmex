@@ -1,3 +1,26 @@
+use std::fmt::{Display, Debug};
+
+#[derive(Clone)]
+pub struct Spanned<T>(pub T, pub Span);
+
+impl<T> Spannable for Spanned<T> {
+    fn span(&self) -> Span {
+        self.1
+    }
+}
+
+impl<T: Display> Display for Spanned<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl<T: Debug> Debug for Spanned<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?} {}", self.0, self.1)
+    }
+}
+
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct Span(pub usize, pub usize);
 
@@ -24,6 +47,12 @@ impl Span {
         } else {
             self
         }
+    }
+}
+
+impl std::fmt::Display for Span {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}..{}", self.0, self.1)
     }
 }
 
@@ -81,11 +110,5 @@ impl<T: Clone> Unspan<T> for Option<&(T, Span)> {
 impl From<usize> for Span {
     fn from(pos: usize) -> Self {
         Self(pos, pos)
-    }
-}
-
-impl std::fmt::Display for Span {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!("{}:{}", self.0, self.1))
     }
 }

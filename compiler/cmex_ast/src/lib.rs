@@ -207,7 +207,7 @@ pub struct Declarator {
 
 impl Spannable for Declarator {
     fn span(&self) -> Span {
-        let inner_span = self.inner.span().unwrap();
+        let inner_span = self.inner.span().unwrap_or_default();
 
         Span::join(
             inner_span,

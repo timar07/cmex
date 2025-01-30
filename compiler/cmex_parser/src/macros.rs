@@ -5,7 +5,7 @@
 use crate::{require_tok, ParseErrorTag, Parser, PR};
 use cmex_ast::token::TokenTag::*;
 use cmex_ast::{DeclTag, DelimSpan, DelimTag, TokenTree};
-use cmex_span::{MaybeSpannable, Span, Unspan};
+use cmex_span::{MaybeSpannable, Span, Spanned, Unspan};
 
 impl Parser<'_> {
     /// Parse `macro_rules!`. The pre-expansion parsing is implemented in
@@ -30,7 +30,7 @@ impl Parser<'_> {
             Some(LeftParen) => (RightParen, DelimTag::Paren),
             Some(LeftBrace) => (RightBrace, DelimTag::Square),
             Some(_) => {
-                return Err((
+                return Err(Spanned(
                     ParseErrorTag::ExpectedGot(
                         "delimited token tree".into(),
                         self.iter.peek().val(),
@@ -80,12 +80,12 @@ impl Parser<'_> {
                         span,
                     })
                 }
-                _ => Err((
+                _ => Err(Spanned(
                     ParseErrorTag::Expected("macro directive".into()),
                     span,
                 )),
             },
-            _ => Err((
+            _ => Err(Spanned(
                 ParseErrorTag::Expected("macro directive".into()),
                 self.iter.next().span().unwrap(),
             )),
@@ -106,7 +106,7 @@ impl Parser<'_> {
                     .join("");
                 Ok(path)
             }
-            Some(tok) => Err((
+            Some(tok) => Err(Spanned(
                 ParseErrorTag::ExpectedGot("path".into(), Some(tok)),
                 self.iter.next().span().unwrap(),
             )),

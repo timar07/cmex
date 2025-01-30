@@ -1,11 +1,14 @@
 mod display;
+mod emitter;
 
 use cmex_source::Source;
 use cmex_span::Span;
 use colored::Colorize;
 use display::LineFormat;
 
-#[derive(Default)]
+pub use emitter::ErrorEmitter;
+
+#[derive(Clone, Default)]
 pub struct ErrorBuilder {
     fname: Option<String>,
     tag: Option<&'static str>,
@@ -38,9 +41,10 @@ impl ErrorBuilder {
         let start = source
             .get_line_containing_index(span.0)
             .unwrap_or_else(|| panic!("unexisting source index {}", span.0));
-        let end = source.get_line_containing_index(span.1).unwrap_or(start);
+        let end = source.get_line_containing_index(span.1)
+            .unwrap_or_else(|| start.clone());
 
-        let snippet = (start..=end)
+        let snippet = (start.0..=end.0)
             .map(|index| {
                 LineFormat::new(
                     index + 1,

@@ -6,7 +6,7 @@ use tracing_subscriber::EnvFilter;
 use cmex_ast::token::TokenTag;
 use cmex_ast::{ast_dump::AstDumper, TranslationUnit};
 use cmex_compile::Compiler;
-use cmex_errors::ErrorBuilder;
+use cmex_errors::{ErrorBuilder, ErrorEmitter};
 use cmex_lexer::{Lexer, Tokens};
 use cmex_macros::MacroExpander;
 use cmex_parser::{ParseOptions, Parser};
@@ -45,6 +45,8 @@ pub fn main() {
     let file = fs::read_to_string(&args[1])
         .unwrap_or_else(|_| panic!("unable to read file `{}`", args[0]));
     let lexer = Lexer::from(file.as_str());
+    let emitter =
+        ErrorEmitter::new(ErrorBuilder::new().filename(args[1].clone()));
     let tokens = Tokens(
         lexer
             .spanned()
@@ -67,15 +69,17 @@ pub fn main() {
     );
     let mut parser = Parser::new(
         &tokens,
+        &emitter,
         ParseOptions {
             allow_comma_op: true,
         },
     );
+    let mut expander = MacroExpander::new(&emitter);
 
     match &mut parser.parse() {
         Ok(ast) => {
             if args.contains(&"-E".into()) || args.contains(&"-o".into()) {
-                if let Err(err) = MacroExpander::new().expand_ast(ast) {
+                if let Err(err) = expander.expand_ast(ast) {
                     eprintln!(
                         "{}",
                         ErrorBuilder::new()

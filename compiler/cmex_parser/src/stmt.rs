@@ -7,7 +7,7 @@ use super::{ParseError, ParseErrorTag, Parser, PR};
 use crate::{check_tok, lookahead, match_tok, require_tok};
 use cmex_ast::token::{Token, TokenTag::*};
 use cmex_ast::*;
-use cmex_span::{MaybeSpannable, Span, Spannable, Unspan};
+use cmex_span::{MaybeSpannable, Span, Spanned, Spannable, Unspan};
 use tracing::{debug, instrument};
 
 macro_rules! curly_wrapped {
@@ -45,7 +45,9 @@ impl Parser<'_> {
                 }
                 Err(err) => {
                     while !check_tok!(self, Comma | Semicolon | RightCurly) {
-                        self.iter.next();
+                        if self.iter.next().is_none() {
+                            break;
+                        }
                     }
 
                     debug!("Synchronize parser");
@@ -72,7 +74,7 @@ impl Parser<'_> {
             match *nt {
                 Nonterminal::Item(decl) => return Ok(decl),
                 _ => {
-                    return Err((
+                    return Err(Spanned(
                         ParseErrorTag::InterpolationFailed(*nt),
                         self.iter.next().span().unwrap(),
                     ))
@@ -97,14 +99,14 @@ impl Parser<'_> {
                         decl_list.push(decl);
                         Ok(decl_list)
                     } else {
-                        Err((
+                        Err(Spanned(
                             ParseErrorTag::Expected("type definition".into()),
                             specs.span().unwrap_or(tok.1),
                         ))
                     }
                 })
                 .unwrap_or_else(|| {
-                    Err((
+                    Err(Spanned(
                         ParseErrorTag::Expected(
                             "declaration specifiers".into(),
                         ),
@@ -130,10 +132,15 @@ impl Parser<'_> {
 
             // Declator has an initializer e.g. `int foo = bar, ...`
             if decl.1.is_some() {
-                let decl_spec = spec.clone().map(Ok).unwrap_or(Err((
-                    ParseErrorTag::Expected("declaration specifiers".into()),
-                    decl.span(),
-                )))?;
+                let decl_spec = spec.clone().unwrap_or_else(|| {
+                    self.errors.emit(&Spanned(
+                        ParseErrorTag::Expected("declaration specifiers".into()),
+                        decl.span(),
+                    ));
+                    // Push an `int` specifier as a dummy, I believe this will
+                    // help error recovery later
+                    vec![DeclSpecifier::TypeQualifier((Int, decl.span()))]
+                });
 
                 // Push this declaration just like it was seperate declaration
                 // e.g. `int a = 5, b = 7;` would be `int a = 5; int b = 7;`
@@ -143,12 +150,12 @@ impl Parser<'_> {
             // A function definition
             if matches!(self.iter.peek().val(), Some(LeftCurly)) {
                 // There was a declarations before. So you can't
-                // write `int foo = 5, bar() { return 0 }` because
+                // write `int foo = 5, bar() { return 0; }` because
                 // function is a top-level declaration in grammar
                 if !decl_list.is_empty() {
-                    return Err((
+                    return Err(Spanned(
                         ParseErrorTag::Expected(
-                            "`;` after top level declaration".into(),
+                            "`;` after top level declarator".into(),
                         ),
                         decl_list.span().unwrap(),
                     ));
@@ -181,7 +188,7 @@ impl Parser<'_> {
                             self.symbols
                                 .define(name.clone(), decl.id.1)
                                 .map_err(|_| {
-                                    (
+                                    Spanned(
                                         ParseErrorTag::NameAlreadyDefined(
                                             name.clone(),
                                         ),
@@ -216,11 +223,11 @@ impl Parser<'_> {
                 body: Box::new(self.compound_statement()?),
             }),
             // Function has a array suffix e.g. `int foo[100]() { ... }`
-            Some(DeclaratorSuffix::Array(suffix)) => Err((
+            Some(DeclaratorSuffix::Array(suffix)) => Err(Spanned(
                 ParseErrorTag::UnexpectedDeclarationSuffix,
                 suffix.unwrap().span(),
             )),
-            _ => Err((
+            _ => Err(Spanned(
                 ParseErrorTag::Expected("parameter list".into()),
                 self.iter.peek().span().unwrap(),
             )),
@@ -548,7 +555,7 @@ impl Parser<'_> {
             Some(Identifier(_)) if self.is_type_specifier() => {
                 Ok(TypeSpecifier::TypeName(self.iter.next().unwrap()))
             }
-            Some(_) => Err((
+            Some(_) => Err(Spanned(
                 ParseErrorTag::Expected("type specifier".into()),
                 self.iter.peek().span().unwrap(),
             )),
@@ -606,7 +613,7 @@ impl Parser<'_> {
         // Bodyless struct/union
         if !matches!(self.iter.peek().val(), Some(LeftCurly)) {
             if maybe_id.is_none() {
-                return Err((
+                return Err(Spanned(
                     ParseErrorTag::DeclarationHasNoIdentifier,
                     self.iter.peek().span().unwrap(),
                 ));
@@ -723,7 +730,7 @@ impl Parser<'_> {
 
         if !matches!(self.iter.peek().val(), Some(LeftCurly)) {
             if maybe_id.is_none() {
-                return Err((
+                return Err(Spanned(
                     ParseErrorTag::DeclarationHasNoInitializer,
                     self.iter.peek().span().unwrap(),
                 ));
@@ -935,7 +942,7 @@ impl Parser<'_> {
 
         self.declarator().and_then(|decl| {
             if !decl.inner.is_abstract() {
-                return Err((
+                return Err(Spanned(
                     ParseErrorTag::Expected("abstract declarator".into()),
                     decl.span(),
                 ));

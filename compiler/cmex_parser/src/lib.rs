@@ -4,27 +4,36 @@ mod macros;
 mod stmt;
 
 use cmex_ast::{token::TokenTag, Nonterminal, NtTag};
+use cmex_errors::ErrorEmitter;
 use cmex_lexer::{Tokens, TokensIter};
-use cmex_span::{MaybeSpannable, Span, Unspan};
+use cmex_span::{MaybeSpannable, Span, Spanned, Unspan};
 use cmex_symtable::SymTable;
 pub use lookahead::Lookahead;
 
 pub(crate) type PR<T> = Result<T, ParseError>;
 
 pub struct ParseOptions {
-    /// Whether to parse comma operator
+    /// Whether to parse comma operator.
+    /// Especially useful when comma is expected to be
+    /// a delimimiter rather then an operator, e.g. in macros.
     pub allow_comma_op: bool,
 }
 
 pub struct Parser<'a> {
+    errors: &'a ErrorEmitter,
     pub iter: Lookahead<TokensIter<'a>>,
     symbols: SymTable<String, Span>,
     opts: ParseOptions,
 }
 
 impl<'a> Parser<'a> {
-    pub fn new(iter: &'a Tokens, opts: ParseOptions) -> Self {
+    pub fn new(
+        iter: &'a Tokens,
+        emitter: &'a ErrorEmitter,
+        opts: ParseOptions,
+    ) -> Self {
         Self {
+            errors: emitter,
             iter: Lookahead::from(TokensIter::from(iter)),
             symbols: SymTable::new(),
             opts,
@@ -51,7 +60,7 @@ impl<'a> Parser<'a> {
                     | TokenTag::CharLiteral
                     | TokenTag::StringLiteral(_),
                 ) => Ok(Nonterminal::Literal(self.iter.next().unwrap())),
-                _ => Err((
+                _ => Err(Spanned(
                     ParseErrorTag::Expected("literal".into()),
                     self.iter.peek().span().unwrap(),
                 )),
@@ -60,7 +69,7 @@ impl<'a> Parser<'a> {
                 Some(TokenTag::Identifier(_)) => {
                     Ok(Nonterminal::Ident(self.iter.next().unwrap()))
                 }
-                _ => Err((
+                _ => Err(Spanned(
                     ParseErrorTag::Expected("identifier".into()),
                     self.iter.peek().span().unwrap(),
                 )),
@@ -79,7 +88,7 @@ impl<'a> Parser<'a> {
     }
 }
 
-type ParseError = (ParseErrorTag, Span);
+type ParseError = Spanned<ParseErrorTag>;
 
 #[derive(Debug)]
 pub enum ParseErrorTag {
@@ -167,7 +176,7 @@ macro_rules! require_tok {
     ($p:expr, $pat:pat) => {
         match $p.iter.peek() {
             Some(($pat, _)) => Ok($p.iter.next().unwrap()),
-            _ => Err((
+            _ => Err(Spanned(
                 ParseErrorTag::ExpectedGot(
                     stringify!($pat).into(),
                     $p.iter.peek().val(),

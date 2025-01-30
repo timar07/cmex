@@ -5,9 +5,10 @@ use cmex_ast::{
     DeclTag, DelimSpan, DelimTag, Expr, Initializer, InvocationTag,
     Nonterminal, NtTag, Stmt, StmtTag, TokenTree, TranslationUnit,
 };
+use cmex_errors::ErrorEmitter;
 use cmex_lexer::Tokens;
 use cmex_parser::{ParseErrorTag, ParseOptions, Parser};
-use cmex_span::{MaybeSpannable, Span};
+use cmex_span::{MaybeSpannable, Span, Spanned};
 use cmex_symtable::SymTable;
 use tracing::debug;
 
@@ -43,14 +44,17 @@ impl std::fmt::Display for ExpError {
     }
 }
 
-#[derive(Default)]
-pub struct MacroExpander {
+pub struct MacroExpander<'a> {
     decls: SymTable<String, Vec<MacroRule>>,
+    emitter: &'a ErrorEmitter,
 }
 
-impl MacroExpander {
-    pub fn new() -> Self {
-        Self::default()
+impl<'a> MacroExpander<'a> {
+    pub fn new(emitter: &'a ErrorEmitter) -> Self {
+        Self {
+            emitter,
+            decls: SymTable::default(),
+        }
     }
 
     pub fn expand_ast(&mut self, root: &mut TranslationUnit) -> ExpRes<()> {
@@ -208,6 +212,7 @@ impl MacroExpander {
                 );
                 let mut parser = Parser::new(
                     &toks,
+                    &self.emitter,
                     ParseOptions {
                         allow_comma_op: false, // We may want to parse , as a delimiter
                     },
@@ -235,6 +240,7 @@ impl MacroExpander {
 
                 let mut parser = Parser::new(
                     &tokens,
+                    &self.emitter,
                     ParseOptions {
                         allow_comma_op: true,
                     },
@@ -242,7 +248,7 @@ impl MacroExpander {
 
                 let mut expr = match parser.parse_nt(NtTag::Expr) {
                     Ok(Nonterminal::Expr(exp)) => exp,
-                    Err((e, span)) => {
+                    Err(Spanned(e, span)) => {
                         return Err((ExpError::NtParseError(e), span))
                     }
                     _ => unreachable!(),
