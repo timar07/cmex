@@ -1,5 +1,6 @@
 use std::cmp::Ordering;
 
+#[derive(Clone)]
 pub struct Source<'src> {
     src: &'src str,
     lines: Vec<Line>,
@@ -25,26 +26,28 @@ impl<'a> Source<'a> {
 
     /// Convert unicode character index to its line and column numbers
     pub fn get_line_col(&self, index: usize) -> Option<(usize, usize)> {
-        self.get_line_containing_index(index).map(|line_index| {
-            let offset = self.lines[line_index].offset;
-            (line_index + 1, offset - index)
-        })
+        self.get_line_containing_index(index)
+            .map(|(idx, line)| (idx + 1, line.offset - index))
     }
 
-    /// Get line index by its character index in O(log n).
+    /// Get line and its index by its character index in O(log n).
     /// Note that `index` is *not* a byte offset
-    pub fn get_line_containing_index(&self, index: usize) -> Option<usize> {
+    pub fn get_line_containing_index(
+        &self,
+        index: usize,
+    ) -> Option<(usize, Line)> {
         self.lines
             .binary_search_by(|line| {
                 if line.contains(index) {
                     Ordering::Equal
-                } else if index < line.offset {
+                } else if index <= line.offset {
                     Ordering::Greater
                 } else {
                     Ordering::Less
                 }
             })
             .ok()
+            .map(|idx| (idx, self.lines[idx].clone()))
     }
 
     /// TODO: Handle all types of end-of-line sequences
@@ -74,10 +77,10 @@ impl<'a> Source<'a> {
     }
 }
 
-#[derive(Debug)]
-struct Line {
-    width: usize,
-    offset: usize,
+#[derive(Debug, Clone)]
+pub struct Line {
+    pub width: usize,
+    pub offset: usize,
     byte_width: usize,
     byte_offset: usize,
 }
@@ -99,7 +102,9 @@ mod tests {
 
         assert_eq!(
             source
-                .get_line_contents(source.get_line_containing_index(6).unwrap())
+                .get_line_contents(
+                    source.get_line_containing_index(6).unwrap().0
+                )
                 .unwrap(),
             "world".to_owned()
         );
@@ -107,7 +112,7 @@ mod tests {
         assert_eq!(
             source
                 .get_line_contents(
-                    source.get_line_containing_index(15).unwrap()
+                    source.get_line_containing_index(15).unwrap().0
                 )
                 .unwrap(),
             "test".to_owned()

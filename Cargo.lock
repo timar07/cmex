@@ -67,6 +67,7 @@ version = "0.1.0"
 dependencies = [
  "cmex_ast",
  "cmex_span",
+ "tracing",
 ]
 
 [[package]]
@@ -74,6 +75,7 @@ name = "cmex_macros"
 version = "0.1.0"
 dependencies = [
  "cmex_ast",
+ "cmex_errors",
  "cmex_lexer",
  "cmex_parser",
  "cmex_span",

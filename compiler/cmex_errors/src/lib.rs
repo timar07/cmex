@@ -8,17 +8,24 @@ use display::LineFormat;
 
 pub use emitter::ErrorEmitter;
 
-#[derive(Clone, Default)]
-pub struct ErrorBuilder {
+#[derive(Clone)]
+pub struct ErrorBuilder<'a> {
     fname: Option<String>,
     tag: Option<&'static str>,
     info: Option<String>,
     context: Option<String>,
+    src: Source<'a>
 }
 
-impl ErrorBuilder {
-    pub fn new() -> Self {
-        Self::default()
+impl<'a> ErrorBuilder<'a> {
+    pub fn new(src: &'a str) -> Self {
+        Self {
+            src: Source::from(src),
+            fname: None,
+            tag: None,
+            info: None,
+            context: None,
+        }
     }
 
     pub fn filename(mut self, fname: String) -> Self {
@@ -36,19 +43,19 @@ impl ErrorBuilder {
         self
     }
 
-    pub fn context(mut self, src: &str, span: Span) -> Self {
-        let source = Source::from(src);
-        let start = source
+    pub fn context(mut self, span: Span) -> Self {
+        let start = self.src
             .get_line_containing_index(span.0)
             .unwrap_or_else(|| panic!("unexisting source index {}", span.0));
-        let end = source.get_line_containing_index(span.1)
+        let end = self.src
+            .get_line_containing_index(span.1)
             .unwrap_or_else(|| start.clone());
 
         let snippet = (start.0..=end.0)
             .map(|index| {
                 LineFormat::new(
                     index + 1,
-                    &source.get_line_contents(index).unwrap(),
+                    &self.src.get_line_contents(index).unwrap(),
                     None,
                 )
                 .to_string()

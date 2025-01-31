@@ -19,7 +19,7 @@ use crate::{
     DelimMtt, MacroMatcher, MacroRule, MacroTokenTree, RepOpTag,
 };
 
-type ExpRes<T> = Result<T, (ExpError, Span)>;
+type ExpRes<T> = Result<T, Spanned<ExpError>>;
 
 #[derive(Debug)]
 pub enum ExpError {
@@ -46,7 +46,7 @@ impl std::fmt::Display for ExpError {
 
 pub struct MacroExpander<'a> {
     decls: SymTable<String, Vec<MacroRule>>,
-    emitter: &'a ErrorEmitter,
+    emitter: &'a ErrorEmitter<'a>,
 }
 
 impl<'a> MacroExpander<'a> {
@@ -219,14 +219,14 @@ impl<'a> MacroExpander<'a> {
                 );
                 let decl =
                     self.decls.lookup(&id.0.to_string()).ok_or_else(|| {
-                        (ExpError::UseOfUndeclaredMacro(id.0.to_string()), id.1)
+                        Spanned(ExpError::UseOfUndeclaredMacro(id.0.to_string()), id.1)
                     })?;
 
                 let matchers: Vec<MacroMatcher> =
                     decl.iter().map(|rule| rule.0.clone()).collect();
 
                 let (idx, captures) = match_macro(&matchers, &mut parser, id.1)
-                    .map_err(|err| (ExpError::MatchError(err.0), err.1))?;
+                    .map_err(|err| Spanned(ExpError::MatchError(err.0), err.1))?;
 
                 let rhs = &decl[idx].1;
                 let tokens = Tokens(
@@ -249,7 +249,7 @@ impl<'a> MacroExpander<'a> {
                 let mut expr = match parser.parse_nt(NtTag::Expr) {
                     Ok(Nonterminal::Expr(exp)) => exp,
                     Err(Spanned(e, span)) => {
-                        return Err((ExpError::NtParseError(e), span))
+                        return Err(Spanned(ExpError::NtParseError(e), span))
                     }
                     _ => unreachable!(),
                 };

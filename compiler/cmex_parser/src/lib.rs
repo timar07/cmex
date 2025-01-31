@@ -20,7 +20,7 @@ pub struct ParseOptions {
 }
 
 pub struct Parser<'a> {
-    errors: &'a ErrorEmitter,
+    errors: &'a ErrorEmitter<'a>,
     pub iter: Lookahead<TokensIter<'a>>,
     symbols: SymTable<String, Span>,
     opts: ParseOptions,

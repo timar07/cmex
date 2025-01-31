@@ -45,8 +45,10 @@ pub fn main() {
     let file = fs::read_to_string(&args[1])
         .unwrap_or_else(|_| panic!("unable to read file `{}`", args[0]));
     let lexer = Lexer::from(file.as_str());
-    let emitter =
-        ErrorEmitter::new(ErrorBuilder::new().filename(args[1].clone()));
+    let emitter = ErrorEmitter::new(
+        ErrorBuilder::new(file.as_str())
+            .filename(args[1].clone())
+    );
     let tokens = Tokens(
         lexer
             .spanned()
@@ -56,7 +58,7 @@ pub fn main() {
                     // TODO: context
                     eprintln!(
                         "{}",
-                        ErrorBuilder::new()
+                        ErrorBuilder::new(file.as_str())
                             .filename(args[1].clone())
                             .tag("LexError")
                             .info(format!("{}", e))
@@ -80,15 +82,7 @@ pub fn main() {
         Ok(ast) => {
             if args.contains(&"-E".into()) || args.contains(&"-o".into()) {
                 if let Err(err) = expander.expand_ast(ast) {
-                    eprintln!(
-                        "{}",
-                        ErrorBuilder::new()
-                            .filename(args[1].clone())
-                            .tag("MacroError")
-                            .info(format!("{}", err.0))
-                            .context(file.as_str(), err.1)
-                            .build()
-                    );
+                    emitter.emit(&err);
                     return;
                 }
             }
@@ -117,15 +111,7 @@ pub fn main() {
         }
         Err(errors) => {
             errors.iter().for_each(|err| {
-                eprintln!(
-                    "{}",
-                    ErrorBuilder::new()
-                        .filename(args[1].clone())
-                        .tag("ParseError")
-                        .info(format!("{}", err.0))
-                        .context(file.as_str(), err.1)
-                        .build()
-                )
+                emitter.emit(err);
             });
         }
     }
