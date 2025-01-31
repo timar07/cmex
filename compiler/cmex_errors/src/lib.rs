@@ -14,7 +14,7 @@ pub struct ErrorBuilder<'a> {
     tag: Option<&'static str>,
     info: Option<String>,
     context: Option<String>,
-    src: Source<'a>
+    src: Source<'a>,
 }
 
 impl<'a> ErrorBuilder<'a> {
@@ -44,10 +44,12 @@ impl<'a> ErrorBuilder<'a> {
     }
 
     pub fn context(mut self, span: Span) -> Self {
-        let start = self.src
+        let start = self
+            .src
             .get_line_containing_index(span.0)
             .unwrap_or_else(|| panic!("unexisting source index {}", span.0));
-        let end = self.src
+        let end = self
+            .src
             .get_line_containing_index(span.1)
             .unwrap_or_else(|| start.clone());
 

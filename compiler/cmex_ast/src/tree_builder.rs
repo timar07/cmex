@@ -84,16 +84,16 @@ impl TreePrinter {
                 .children
                 .iter()
                 .enumerate()
-                .map(|(n, c)| {
+                .map(|(n, child)| {
                     if n == entry.children.len() - 1 {
                         Self::print_entry(
-                            &c.clone(),
+                            &child,
                             format!("{indent: <shift_width$}",),
                             "`-",
                         )
                     } else {
                         Self::print_entry(
-                            &c.clone(),
+                            &child,
                             format!("{indent: <shift_width$}|",),
                             "-",
                         )

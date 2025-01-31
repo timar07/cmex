@@ -216,7 +216,7 @@ where
                         .iter()
                         .map(|expr| {
                             (*expr)
-                                .clone()
+                                .as_ref()
                                 .map(|expr| self.compile_expr(&expr))
                                 .unwrap_or_default()
                         })
@@ -264,7 +264,7 @@ where
                 emitln!(
                     self,
                     "return {};",
-                    expr.clone()
+                    expr.as_ref()
                         .map(|expr| self.compile_expr(&expr))
                         .unwrap_or_default()
                 );
@@ -461,7 +461,7 @@ where
             TypeSpecifier::Record(id, vec) => {
                 format!(
                     "struct {}{}",
-                    id.clone().map(|id| id.0.to_string()).unwrap_or_default(),
+                    id.as_ref().map(|id| id.0.to_string()).unwrap_or_default(),
                     if !vec.is_empty() {
                         format!(
                             "{{{}}}",
@@ -478,7 +478,7 @@ where
             TypeSpecifier::Enum(id, vec) => {
                 format!(
                     "enum {}{}",
-                    id.clone().map(|id| id.0.to_string()).unwrap_or_default(),
+                    id.as_ref().map(|id| id.0.to_string()).unwrap_or_default(),
                     if !vec.is_empty() {
                         format!(
                             "{{{}}}",
@@ -562,7 +562,7 @@ where
     #[inline]
     fn emit_linebreak(&mut self) {
         if !self.options.inline {
-            writeln!(self.f, "");
+            writeln!(self.f);
         }
     }
 }

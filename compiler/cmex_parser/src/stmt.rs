@@ -7,7 +7,7 @@ use super::{ParseError, ParseErrorTag, Parser, PR};
 use crate::{check_tok, lookahead, match_tok, require_tok};
 use cmex_ast::token::{Token, TokenTag::*};
 use cmex_ast::*;
-use cmex_span::{MaybeSpannable, Span, Spanned, Spannable, Unspan};
+use cmex_span::{MaybeSpannable, Span, Spannable, Spanned, Unspan};
 use tracing::{debug, instrument};
 
 macro_rules! curly_wrapped {
@@ -134,7 +134,9 @@ impl Parser<'_> {
             if decl.1.is_some() {
                 let decl_spec = spec.clone().unwrap_or_else(|| {
                     self.errors.emit(&Spanned(
-                        ParseErrorTag::Expected("declaration specifiers".into()),
+                        ParseErrorTag::Expected(
+                            "declaration specifiers".into(),
+                        ),
                         decl.span(),
                     ));
                     // Push an `int` specifier as a dummy, I believe this will

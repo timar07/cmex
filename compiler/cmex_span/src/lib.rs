@@ -1,4 +1,4 @@
-use std::fmt::{Display, Debug};
+use std::fmt::{Debug, Display};
 
 #[derive(Clone)]
 pub struct Spanned<T>(pub T, pub Span);

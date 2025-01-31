@@ -160,7 +160,7 @@ impl TtMatcher {
                                 .map(|(tok, _)| tok.to_string())
                                 .unwrap_or_default()
                         ),
-                        parser.iter.peek().span().unwrap()
+                        parser.iter.peek().span().unwrap(),
                     );
                 }
                 (_, 0) => {

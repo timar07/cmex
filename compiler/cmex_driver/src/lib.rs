@@ -46,8 +46,7 @@ pub fn main() {
         .unwrap_or_else(|_| panic!("unable to read file `{}`", args[0]));
     let lexer = Lexer::from(file.as_str());
     let emitter = ErrorEmitter::new(
-        ErrorBuilder::new(file.as_str())
-            .filename(args[1].clone())
+        ErrorBuilder::new(file.as_str()).filename(args[1].clone()),
     );
     let tokens = Tokens(
         lexer

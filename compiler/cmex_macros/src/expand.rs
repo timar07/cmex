@@ -206,27 +206,32 @@ impl<'a> MacroExpander<'a> {
         match mac {
             InvocationTag::Bang(id, tt) => {
                 let toks = Tokens(
-                    tt.clone()
-                        .map(|tt| TtCursor::new(&vec![tt]).collect())
+                    tt.as_ref()
+                        .map(|tt| TtCursor::new(&vec![tt.clone()]).collect())
                         .unwrap_or(Vec::new()),
                 );
                 let mut parser = Parser::new(
                     &toks,
-                    &self.emitter,
+                    self.emitter,
                     ParseOptions {
                         allow_comma_op: false, // We may want to parse , as a delimiter
                     },
                 );
                 let decl =
                     self.decls.lookup(&id.0.to_string()).ok_or_else(|| {
-                        Spanned(ExpError::UseOfUndeclaredMacro(id.0.to_string()), id.1)
+                        Spanned(
+                            ExpError::UseOfUndeclaredMacro(id.0.to_string()),
+                            id.1,
+                        )
                     })?;
 
                 let matchers: Vec<MacroMatcher> =
                     decl.iter().map(|rule| rule.0.clone()).collect();
 
                 let (idx, captures) = match_macro(&matchers, &mut parser, id.1)
-                    .map_err(|err| Spanned(ExpError::MatchError(err.0), err.1))?;
+                    .map_err(|err| {
+                        Spanned(ExpError::MatchError(err.0), err.1)
+                    })?;
 
                 let rhs = &decl[idx].1;
                 let tokens = Tokens(
@@ -240,7 +245,7 @@ impl<'a> MacroExpander<'a> {
 
                 let mut parser = Parser::new(
                     &tokens,
-                    &self.emitter,
+                    self.emitter,
                     ParseOptions {
                         allow_comma_op: true,
                     },
@@ -312,7 +317,7 @@ fn expand(
 ) -> Result<Vec<TokenTree>, ()> {
     let mut result = Vec::new();
     let mut result_stack = Vec::new();
-    let mut stack = vec![Frame::delim(rhs, rhs.span.clone())];
+    let mut stack = vec![Frame::delim(rhs, rhs.span)];
     let mut repeats: Vec<(usize, usize)> = Vec::new();
 
     loop {
@@ -386,7 +391,7 @@ fn expand(
                 }
             }
             MacroTokenTree::Delim(delim) => {
-                stack.push(Frame::delim(delim, delim.span.clone()));
+                stack.push(Frame::delim(delim, delim.span));
                 result_stack.push(std::mem::take(&mut result));
             }
             MacroTokenTree::Token(tok) => {

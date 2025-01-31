@@ -62,7 +62,7 @@ pub enum StmtTag {
 impl Spannable for StmtTag {
     fn span(&self) -> Span {
         match self {
-            Self::Expr(expr) => expr.clone().unwrap().span(),
+            Self::Expr(expr) => expr.as_ref().unwrap().span(),
             Self::Compound(vec) => vec.span().unwrap(),
             Self::Decl(decl) => decl.span(),
             Self::While { cond: _, stmt } => stmt.tag.span(),
@@ -140,7 +140,7 @@ impl Spannable for DeclTag {
             DeclTag::Record(_, vec) => vec.span().unwrap(),
             DeclTag::Enum(_, vec) => vec.span().unwrap(),
             DeclTag::Func { spec, decl, body } => Span::join(
-                spec.clone()
+                spec.as_ref()
                     .map(|specs| specs.span().unwrap())
                     .unwrap_or_else(|| decl.span()),
                 body.tag.span(),
@@ -191,7 +191,7 @@ impl Spannable for InitDeclarator {
         Span::join(
             self.0.span(),
             self.1
-                .clone()
+                .as_ref()
                 .map(|init| init.span())
                 .unwrap_or(self.0.span()),
         )
@@ -212,7 +212,7 @@ impl Spannable for Declarator {
         Span::join(
             inner_span,
             self.suffix
-                .clone()
+                .as_ref()
                 .map(|suffix| suffix.span().unwrap_or(inner_span))
                 .unwrap_or(inner_span),
         )
@@ -297,9 +297,9 @@ pub enum DeclaratorSuffix {
 impl MaybeSpannable for DeclaratorSuffix {
     fn span(&self) -> Option<Span> {
         match self {
-            DeclaratorSuffix::Array(expr) => expr.clone().map(|e| e.span()),
+            DeclaratorSuffix::Array(expr) => expr.as_ref().map(|e| e.span()),
             DeclaratorSuffix::Func(param_list) => {
-                param_list.clone().map(|list| list.span())
+                param_list.as_ref().map(|list| list.span())
             }
         }
     }
@@ -345,7 +345,7 @@ impl Spannable for FieldDeclarator {
         Span::join(
             decl_span,
             self.width
-                .clone()
+                .as_ref()
                 .map(|expr| expr.span())
                 .unwrap_or(decl_span),
         )
@@ -371,7 +371,7 @@ impl Spannable for EnumConstantDecl {
         Span::join(
             self.id.1,
             self.cexpr
-                .clone()
+                .as_ref()
                 .map(|expr| expr.span())
                 .unwrap_or(self.id.1),
         )
@@ -577,7 +577,7 @@ impl TokenTree {
             TokenTree::Delim(delim_tag, vec, delim_span) => {
                 let mut toks = vec![];
                 let (l, r) = delim_tag.get_delims();
-                let DelimSpan(lspan, rspan) = delim_span.clone();
+                let DelimSpan(lspan, rspan) = delim_span.to_owned();
                 toks.push((l, lspan));
                 toks.append(
                     &mut vec
@@ -623,7 +623,7 @@ impl DelimTag {
     }
 }
 
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct DelimSpan(pub Span, pub Span);
 
 impl Spannable for DelimSpan {

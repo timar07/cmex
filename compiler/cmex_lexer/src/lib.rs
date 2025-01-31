@@ -169,7 +169,7 @@ impl Lexer<'_> {
                 '/' if self.src.lookahead(1) == Some('*') => {
                     self.skip_comment();
                 }
-                _ => break
+                _ => break,
             }
         }
     }

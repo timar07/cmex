@@ -74,10 +74,9 @@ impl MacroParser {
             Some(TokenTree::Delim(_, tt, _)) => {
                 self.macro_matcher(&mut TtCursor::new(tt))
             }
-            Some(tt) => Err(Spanned(
-                "expected macro matcher".into(),
-                tt.span()
-            )),
+            Some(tt) => {
+                Err(Spanned("expected macro matcher".into(), tt.span()))
+            }
             None => panic!(),
         }?;
 
@@ -226,9 +225,12 @@ impl<'a> MacroTtParser<'a> {
                 "expr" => NtTag::Expr,
                 "tt" => NtTag::Tt,
                 "pat" => todo!(),
-                _ => return Err(Spanned(
-                    "expected fragment specifier".into(), span
-                )),
+                _ => {
+                    return Err(Spanned(
+                        "expected fragment specifier".into(),
+                        span,
+                    ))
+                }
             })
         } else {
             panic!("expected fragment specifier")

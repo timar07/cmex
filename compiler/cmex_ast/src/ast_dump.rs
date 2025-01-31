@@ -32,7 +32,7 @@ impl AstNodeDump for TranslationUnit {
     fn dump(&self, tb: &mut TreeBuilder) {
         tb.open("TranslationUnit".into());
 
-        for decl in self.0.clone() {
+        for decl in &self.0 {
             decl.dump(tb);
         }
 
@@ -213,7 +213,7 @@ impl AstNodeDump for EnumConstantDecl {
     fn dump(&self, tb: &mut TreeBuilder) {
         tb.open("EnumConstantDecl".into());
 
-        if let Some(expr) = self.cexpr.clone() {
+        if let Some(expr) = &self.cexpr {
             expr.dump(tb);
         }
 

@@ -8,7 +8,7 @@ use cmex_ast::{
     token::{NumberLiteralKind, TokenTag::*},
     Expr, InvocationTag, Nonterminal,
 };
-use cmex_span::{MaybeSpannable, Span, Spanned, Spannable, Unspan};
+use cmex_span::{MaybeSpannable, Span, Spannable, Spanned, Unspan};
 
 impl Parser<'_> {
     pub fn constant_expression(&mut self) -> PR<Expr> {

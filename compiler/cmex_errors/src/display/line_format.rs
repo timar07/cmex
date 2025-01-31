@@ -18,7 +18,7 @@ impl<'a> LineFormat<'a> {
 
 impl std::fmt::Display for LineFormat<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let snippet_prefix = format!("    {} {} ", self.number, "|");
+        let snippet_prefix = format!("{:>6} {} ", self.number, "|");
 
         write!(
             f,
