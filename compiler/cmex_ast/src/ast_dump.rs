@@ -128,10 +128,10 @@ impl AstNodeDump for StmtTag {
                 stmt.tag.dump(tb);
                 tb.close();
             }
-            StmtTag::Break => {
+            StmtTag::Break(_) => {
                 tb.append_leaf("BreakStmt".into());
             }
-            StmtTag::Continue => {
+            StmtTag::Continue(_) => {
                 tb.append_leaf("ContinueStmt".into());
             }
             StmtTag::Return(_, expr) => {

@@ -254,10 +254,10 @@ where
                     self.compile_stmt(stmt);
                 });
             }
-            StmtTag::Break => {
+            StmtTag::Break(_) => {
                 emitln!(self, "break;");
             }
-            StmtTag::Continue => {
+            StmtTag::Continue(_) => {
                 emitln!(self, "continue;");
             }
             StmtTag::Return(_, expr) => {

@@ -442,17 +442,17 @@ impl Parser<'_> {
                 })
             }
             Some(Continue) => {
-                self.iter.next();
+                let span = self.iter.next().span().unwrap();
                 require_tok!(self, Semicolon)?;
                 Ok(Stmt {
-                    tag: StmtTag::Continue,
+                    tag: StmtTag::Continue(span),
                 })
             }
             Some(Break) => {
-                self.iter.next();
+                let span = self.iter.next().span().unwrap();
                 require_tok!(self, Semicolon)?;
                 Ok(Stmt {
-                    tag: StmtTag::Break,
+                    tag: StmtTag::Break(span),
                 })
             }
             Some(Return) => {

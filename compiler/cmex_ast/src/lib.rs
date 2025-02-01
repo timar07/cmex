@@ -53,8 +53,8 @@ pub enum StmtTag {
     Label(Token, Box<Stmt>),
     /// default: stmt
     Default(Box<Stmt>),
-    Break,
-    Continue,
+    Break(Span),
+    Continue(Span),
     Return(Token, Option<Expr>),
     Goto(Token),
 }
@@ -81,8 +81,8 @@ impl Spannable for StmtTag {
             Self::Case(_, stmt) => stmt.tag.span(),
             Self::Label(_, stmt) => stmt.tag.span(),
             Self::Default(stmt) => stmt.tag.span(),
-            Self::Break => todo!(),
-            Self::Continue => todo!(),
+            Self::Break(span) => *span,
+            Self::Continue(span) => *span,
             Self::Return((_, span), _) => *span,
             Self::Goto(tok) => tok.1,
         }
