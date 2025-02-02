@@ -1,6 +1,7 @@
 use std::fs::File;
 use std::io::BufWriter;
 use std::{env, fs};
+use cmex_span::Spanned;
 use tracing_subscriber::EnvFilter;
 
 use cmex_ast::token::TokenTag;
@@ -46,7 +47,8 @@ pub fn main() {
         .unwrap_or_else(|_| panic!("unable to read file `{}`", args[0]));
     let lexer = Lexer::from(file.as_str());
     let emitter = ErrorEmitter::new(
-        ErrorBuilder::new(file.as_str()).filename(args[1].clone()),
+        file.as_str(),
+        ErrorBuilder::new().filename(args[1].clone())
     );
     let tokens = Tokens(
         lexer
@@ -54,15 +56,7 @@ pub fn main() {
             .map(|(res, span)| match res {
                 Ok(tok) => (tok, span),
                 Err(e) => {
-                    // TODO: context
-                    eprintln!(
-                        "{}",
-                        ErrorBuilder::new(file.as_str())
-                            .filename(args[1].clone())
-                            .tag("LexError")
-                            .info(format!("{}", e))
-                            .build()
-                    );
+                    emitter.emit(&Spanned(e, span));
                     (TokenTag::Error, span)
                 }
             })

@@ -12,17 +12,17 @@ use errors::LexError::*;
 use tracing::debug;
 
 #[derive(Clone)]
-pub struct Spanned<I> {
+pub struct SpannedIter<I> {
     pub iter: I,
 }
 
-impl<I> Spanned<I> {
+impl<I> SpannedIter<I> {
     pub fn new(iter: I) -> Self {
         Self { iter }
     }
 }
 
-impl<I> Iterator for Spanned<I>
+impl<I> Iterator for SpannedIter<I>
 where
     I: Positioned + Iterator,
 {
@@ -105,11 +105,11 @@ impl Positioned for Lexer<'_> {
 
 /// Iterator over tokens' lexemes
 pub struct Lexemes<'a> {
-    iter: Spanned<Lexer<'a>>,
+    iter: SpannedIter<Lexer<'a>>,
 }
 
 impl<'a> Lexemes<'a> {
-    pub fn new(iter: Spanned<Lexer<'a>>) -> Self {
+    pub fn new(iter: SpannedIter<Lexer<'a>>) -> Self {
         Self { iter }
     }
 }
@@ -124,7 +124,7 @@ impl Iterator for Lexemes<'_> {
     }
 }
 
-impl<'a> Spanned<Lexer<'a>> {
+impl<'a> SpannedIter<Lexer<'a>> {
     pub fn lexemes(self) -> Lexemes<'a> {
         Lexemes::new(self)
     }
@@ -139,8 +139,8 @@ macro_rules! consume {
 }
 
 impl Lexer<'_> {
-    pub fn spanned(self) -> Spanned<Self> {
-        Spanned::new(self)
+    pub fn spanned(self) -> SpannedIter<Self> {
+        SpannedIter::new(self)
     }
 
     fn lex_token(&mut self) -> Option<Result<TokenTag, LexError>> {
