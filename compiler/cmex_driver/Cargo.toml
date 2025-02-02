@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 cmex_ast = { path = "../cmex_ast" }
+cmex_span = { path = "../cmex_span" }
 cmex_errors = { path = "../cmex_errors" }
 cmex_lexer = { path = "../cmex_lexer" }
 cmex_parser = { path = "../cmex_parser" }
