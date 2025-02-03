@@ -151,7 +151,7 @@ where
             DeclTag::Var { spec, decl_list } => {
                 emit!(
                     self,
-                    "{} {}",
+                    "{} {};",
                     self.compile_specs(spec),
                     decl_list
                         .iter()
