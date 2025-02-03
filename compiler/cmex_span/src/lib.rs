@@ -75,13 +75,13 @@ pub trait MaybeSpannable {
 
 impl<T: Clone> MaybeSpannable for Option<(T, Span)> {
     fn span(&self) -> Option<Span> {
-        self.clone().map(|val| val.1)
+        self.as_ref().map(|val| val.1)
     }
 }
 
 impl<T: Spannable + Clone> MaybeSpannable for Option<T> {
     fn span(&self) -> Option<Span> {
-        self.clone().map(|val| val.span())
+        self.as_ref().map(|val| val.span())
     }
 }
 

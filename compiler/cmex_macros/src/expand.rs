@@ -214,7 +214,7 @@ impl<'a> MacroExpander<'a> {
                     &toks,
                     self.emitter,
                     ParseOptions {
-                        allow_comma_op: false, // We may want to parse , as a delimiter
+                        allow_comma_op: false, // We may want to parse `,` as a delimiter
                     },
                 );
                 let decl =

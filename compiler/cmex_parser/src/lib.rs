@@ -126,7 +126,7 @@ impl std::fmt::Display for ParseErrorTag {
                 write!(
                     f,
                     "expected {exp}, got {}",
-                    tok.clone()
+                    tok.as_ref()
                         .map(|tok| format!("`{tok}`"))
                         .unwrap_or("end of file".into())
                 )

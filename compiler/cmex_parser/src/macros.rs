@@ -43,7 +43,7 @@ impl Parser<'_> {
 
         let start_span = self.iter.next().span().unwrap();
 
-        while self.iter.peek().val() != Some(end.clone()) {
+        while self.iter.peek().val().as_ref() != Some(&end) {
             subtree.push(self.token_tree()?);
         }
 

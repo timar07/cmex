@@ -221,7 +221,7 @@ impl Parser<'_> {
         match decl.0.suffix {
             Some(DeclaratorSuffix::Func(_)) => Ok(DeclTag::Func {
                 spec,
-                decl: Box::new(decl.0.clone()),
+                decl: Box::new(decl.0),
                 body: Box::new(self.compound_statement()?),
             }),
             // Function has a array suffix e.g. `int foo[100]() { ... }`

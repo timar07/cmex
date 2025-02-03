@@ -303,13 +303,13 @@ impl Parser<'_> {
                 ArrowRight => Expr::MemberAccess {
                     expr: Box::new(Expr::UnExpr {
                         op: (Asterisk, span),
-                        rhs: Box::new(expr.clone()),
+                        rhs: Box::new(expr),
                     }),
                     member: require_tok!(self, Identifier(_))?,
                 },
                 Increment | Decrement => Expr::Paren(Box::new(Expr::BinExpr {
                     op: (AddAssign, span),
-                    lhs: Box::new(expr.clone()),
+                    lhs: Box::new(expr),
                     rhs: Box::new(Expr::Primary((
                         NumberLiteral {
                             literal: "1".into(),
