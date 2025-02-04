@@ -8,7 +8,7 @@ use cmex_ast::{
 use cmex_errors::ErrorEmitter;
 use cmex_lexer::Tokens;
 use cmex_parser::{ParseErrorTag, ParseOptions, Parser};
-use cmex_span::{MaybeSpannable, Span, Spanned};
+use cmex_span::{MaybeSpannable, Span, Spanned, Spannable};
 use cmex_symtable::SymTable;
 use tracing::debug;
 
@@ -26,6 +26,9 @@ pub enum ExpError {
     NtParseError(ParseErrorTag),
     UseOfUndeclaredMacro(String),
     MatchError(String),
+    VariableIsStillRepeating(String),
+    UndeclaredMetavar(String),
+    NothingToUnwind,
 }
 
 impl std::fmt::Display for ExpError {
@@ -39,6 +42,15 @@ impl std::fmt::Display for ExpError {
             }
             Self::MatchError(msg) => {
                 write!(f, "match error: {msg}")
+            }
+            Self::VariableIsStillRepeating(name) => {
+                write!(f, "metavar `{name}` is still repeating")
+            }
+            Self::UndeclaredMetavar(name) => {
+                write!(f, "use of undeclared metavar `{name}`")
+            }
+            Self::NothingToUnwind => {
+                write!(f, "nothing to unwind here")
             }
         }
     }
@@ -235,8 +247,7 @@ impl<'a> MacroExpander<'a> {
 
                 let rhs = &decl[idx].1;
                 let tokens = Tokens(
-                    expand(captures, rhs)
-                        .unwrap()
+                    expand(captures, rhs)?
                         .iter()
                         .map(|tt| tt.flatten())
                         .reduce(|a, b| [a, b].concat())
@@ -314,7 +325,7 @@ impl<'a> Iterator for Frame<'a> {
 fn expand(
     captures: HashMap<String, Option<BoundMatch>>,
     rhs: &DelimMtt,
-) -> Result<Vec<TokenTree>, ()> {
+) -> ExpRes<Vec<TokenTree>> {
     let mut result = Vec::new();
     let mut result_stack = Vec::new();
     let mut stack = vec![Frame::delim(rhs, rhs.span)];
@@ -372,13 +383,21 @@ fn expand(
                             ))
                         }
                         BoundMatch::Seq(..) => {
-                            panic!("variable is still repeating")
+                            return Err(Spanned(
+                                ExpError::VariableIsStillRepeating(
+                                    id.0.to_string(),
+                                ),
+                                id.1,
+                            ))
                         }
                     };
 
                     result.push(tt);
                 } else {
-                    todo!()
+                    return Err(Spanned(
+                        ExpError::UndeclaredMetavar(id.0.to_string()),
+                        id.1,
+                    ));
                 }
             }
             mtt @ MacroTokenTree::Rep(seq, sep, rep) => {
@@ -387,7 +406,12 @@ fn expand(
                         repeats.push((0, len));
                         stack.push(Frame::rep(seq, sep.clone(), *rep))
                     }
-                    None => todo!(),
+                    None => {
+                        return Err(Spanned(
+                            ExpError::NothingToUnwind,
+                            mtt.span(),
+                        ))
+                    }
                 }
             }
             MacroTokenTree::Delim(delim) => {
@@ -435,7 +459,7 @@ fn lookup_current_match(
 ) -> Option<BoundMatch> {
     captures
         .get(&id.0.to_string())
-        .unwrap()
+        .unwrap_or(&None)
         .as_ref()
         .map(|mut bound_match| {
             for &(index, _) in repeats {

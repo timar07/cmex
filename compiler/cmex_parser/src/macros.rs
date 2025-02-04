@@ -62,7 +62,9 @@ impl Parser<'_> {
         match self.iter.peek().val() {
             Some(LeftCurly | LeftParen | LeftBrace) => self.delim_token_tree(),
             Some(_) => Ok(TokenTree::Token(self.iter.next().unwrap())),
-            None => todo!(),
+            None => {
+                Err(Spanned(ParseErrorTag::UnexpectedEof, Span::placeholder()))
+            }
         }
     }
 

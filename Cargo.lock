@@ -48,6 +48,7 @@ dependencies = [
  "cmex_lexer",
  "cmex_macros",
  "cmex_parser",
+ "cmex_span",
  "tracing",
  "tracing-subscriber",
 ]
