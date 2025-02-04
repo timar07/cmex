@@ -433,7 +433,21 @@ where
             Initializer::Assign(expr) => {
                 format!("= {}", self.compile_expr(expr))
             }
-            Initializer::List(_) => todo!(),
+            Initializer::List(list) => {
+                format!(
+                    "= {{{}}}",
+                    list
+                        .iter()
+                        .map(|item| match item {
+                            Initializer::Assign(expr) => {
+                                self.compile_expr(expr)
+                            }
+                            _ => unreachable!()
+                        })
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                )
+            },
         }
     }
 
