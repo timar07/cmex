@@ -1,6 +1,6 @@
 //! This file implements AST compiling to ANSI C language.
 
-use std::io::{BufWriter, Write};
+use std::io::{self, BufWriter, Write};
 
 use cmex_ast::*;
 
@@ -22,7 +22,7 @@ macro_rules! emit {
             "",
             format!($($arg)*),
             indent = $self.indent
-        ).unwrap()
+        )?
     }
 }
 
@@ -79,7 +79,7 @@ where
 
     pub fn compile(&mut self) {
         for decl in &self.ast.0 {
-            self.compile_decl(decl);
+            self.compile_decl(decl).unwrap();
         }
     }
 
@@ -91,50 +91,50 @@ where
         self.indent -= self.options.indent_width;
     }
 
-    fn compile_decl(&mut self, decl: &DeclTag) {
+    fn compile_decl(&mut self, decl: &DeclTag) -> io::Result<()> {
         match decl {
             DeclTag::Include { path, .. } => {
-                writeln!(self.f, "#include <{path}>");
+                writeln!(self.f, "#include <{path}>")?;
             }
             DeclTag::Record(id, fields) => {
                 emit!(self, "struct");
 
                 if let Some(id) = id {
-                    write!(self.f, " {}", id.0);
+                    write!(self.f, " {}", id.0)?;
                 }
 
-                write!(self.f, " {{");
-                self.emit_linebreak();
+                write!(self.f, " {{")?;
+                self.emit_linebreak()?;
 
                 with_indent!(self, {
                     for field in fields {
                         emit!(self, "{}", self.compile_field(field));
-                        self.emit_linebreak();
+                        self.emit_linebreak()?;
                     }
                 });
 
                 emitln!(self, "}};");
-                self.emit_linebreak();
+                self.emit_linebreak()?;
             }
             DeclTag::Enum(id, consts) => {
                 emit!(self, "enum");
 
                 if let Some(id) = id {
-                    write!(self.f, " {}", id.0);
+                    write!(self.f, " {}", id.0)?;
                 }
 
-                write!(self.f, " {{");
-                self.emit_linebreak();
+                write!(self.f, " {{")?;
+                self.emit_linebreak()?;
 
                 with_indent!(self, {
                     for cdecl in consts {
                         emit!(self, "{}", self.compile_constant(cdecl));
-                        self.emit_linebreak();
+                        self.emit_linebreak()?;
                     }
                 });
 
                 emitln!(self, "}};");
-                self.emit_linebreak();
+                self.emit_linebreak()?;
             }
             DeclTag::Func { spec, decl, body } => {
                 if let Some(spec) = spec {
@@ -145,8 +145,8 @@ where
 
                 emitln!(self, "");
 
-                self.compile_stmt(body);
-                self.emit_linebreak();
+                self.compile_stmt(body)?;
+                self.emit_linebreak()?;
             }
             DeclTag::Var { spec, decl_list } => {
                 emit!(
@@ -162,9 +162,11 @@ where
             }
             DeclTag::Macro { .. } => { /* Macros are not compiled */ }
         }
+
+        Ok(())
     }
 
-    fn compile_stmt(&mut self, stmt: &Stmt) {
+    fn compile_stmt(&mut self, stmt: &Stmt) -> io::Result<()> {
         match &stmt.tag {
             StmtTag::Expr(expr) => {
                 if let Some(expr) = expr {
@@ -172,7 +174,7 @@ where
                         emitln!(self, "({{");
                         with_indent!(self, {
                             for stmt in stmts {
-                                self.compile_stmt(stmt);
+                                self.compile_stmt(stmt)?;
                             }
                         });
                         emit!(self, "}})");
@@ -180,33 +182,33 @@ where
                         emit!(self, "{}", self.compile_expr(expr));
                     }
 
-                    write!(self.f, ";");
-                    self.emit_linebreak();
+                    write!(self.f, ";")?;
+                    self.emit_linebreak()?;
                 }
             }
             StmtTag::Compound(vec) => {
                 emitln!(self, "{{");
                 with_indent!(self, {
                     for stmt in vec {
-                        self.compile_stmt(stmt);
+                        self.compile_stmt(stmt)?;
                     }
                 });
                 emitln!(self, "}}");
             }
             StmtTag::Decl(decl) => {
-                self.compile_decl(decl);
-                write!(self.f, ";");
-                self.emit_linebreak();
+                self.compile_decl(decl)?;
+                write!(self.f, ";")?;
+                self.emit_linebreak()?;
             }
             StmtTag::While { cond, stmt } => {
                 emit!(self, "while ({})", self.compile_expr(cond));
-                self.compile_stmt(stmt);
+                self.compile_stmt(stmt)?;
             }
             StmtTag::Do { cond, stmt } => {
                 emit!(self, "do");
-                self.compile_stmt(stmt);
+                self.compile_stmt(stmt)?;
                 emit!(self, "while ({});", self.compile_expr(cond));
-                self.emit_linebreak();
+                self.emit_linebreak()?;
             }
             StmtTag::For(expr, expr1, expr2, stmt) => {
                 emit!(
@@ -217,41 +219,41 @@ where
                         .map(|expr| {
                             (*expr)
                                 .as_ref()
-                                .map(|expr| self.compile_expr(&expr))
+                                .map(|expr| self.compile_expr(expr))
                                 .unwrap_or_default()
                         })
                         .collect::<Vec<_>>()
                         .join("; ")
                 );
 
-                self.compile_stmt(stmt);
+                self.compile_stmt(stmt)?;
             }
             StmtTag::If(cond, then, otherwise) => {
                 emit!(self, "if ({})", self.compile_expr(cond));
-                self.compile_stmt(then);
+                self.compile_stmt(then)?;
                 if let Some(stmt) = otherwise {
-                    self.compile_stmt(stmt);
+                    self.compile_stmt(stmt)?;
                 }
             }
             StmtTag::Switch(expr, stmt) => {
                 emit!(self, "switch ({})", self.compile_expr(expr));
-                self.compile_stmt(stmt);
+                self.compile_stmt(stmt)?;
             }
             StmtTag::Case(expr, stmt) => {
                 emit!(self, "case {}:", self.compile_expr(expr));
 
                 with_indent!(self, {
-                    self.compile_stmt(stmt);
+                    self.compile_stmt(stmt)?;
                 });
             }
             StmtTag::Label((label, _), stmt) => {
-                writeln!(self.f, "{label}:");
-                self.compile_stmt(stmt);
+                writeln!(self.f, "{label}:")?;
+                self.compile_stmt(stmt)?;
             }
             StmtTag::Default(stmt) => {
                 emitln!(self, "default:");
                 with_indent!(self, {
-                    self.compile_stmt(stmt);
+                    self.compile_stmt(stmt)?;
                 });
             }
             StmtTag::Break(_) => {
@@ -265,15 +267,17 @@ where
                     self,
                     "return {};",
                     expr.as_ref()
-                        .map(|expr| self.compile_expr(&expr))
+                        .map(|expr| self.compile_expr(expr))
                         .unwrap_or_default()
                 );
             }
             StmtTag::Goto((label, _)) => {
                 emit!(self, "goto {label};");
-                self.emit_linebreak();
+                self.emit_linebreak()?;
             }
         }
+
+        Ok(())
     }
 
     fn compile_expr(&self, expr: &Expr) -> String {
@@ -345,7 +349,9 @@ where
                 let mut compiler = Compiler::new(&mut buf, self.ast);
                 compiler.options.inline = true;
 
-                stmts.iter().for_each(|stmt| compiler.compile_stmt(stmt));
+                stmts
+                    .iter()
+                    .for_each(|stmt| compiler.compile_stmt(stmt).unwrap());
 
                 format!(
                     "({{{}}})",
@@ -436,18 +442,17 @@ where
             Initializer::List(list) => {
                 format!(
                     "= {{{}}}",
-                    list
-                        .iter()
+                    list.iter()
                         .map(|item| match item {
                             Initializer::Assign(expr) => {
                                 self.compile_expr(expr)
                             }
-                            _ => unreachable!()
+                            _ => unreachable!(),
                         })
                         .collect::<Vec<_>>()
                         .join(", ")
                 )
-            },
+            }
         }
     }
 
@@ -574,9 +579,11 @@ where
     }
 
     #[inline]
-    fn emit_linebreak(&mut self) {
+    fn emit_linebreak(&mut self) -> io::Result<()> {
         if !self.options.inline {
-            writeln!(self.f);
+            writeln!(self.f)?;
         }
+
+        Ok(())
     }
 }

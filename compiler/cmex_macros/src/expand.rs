@@ -8,7 +8,7 @@ use cmex_ast::{
 use cmex_errors::ErrorEmitter;
 use cmex_lexer::Tokens;
 use cmex_parser::{ParseErrorTag, ParseOptions, Parser};
-use cmex_span::{MaybeSpannable, Span, Spanned, Spannable};
+use cmex_span::{MaybeSpannable, Span, Spannable, Spanned};
 use cmex_symtable::SymTable;
 use tracing::debug;
 

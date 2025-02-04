@@ -1,16 +1,15 @@
 use std::fs::File;
 use std::io::BufWriter;
 use std::{env, fs};
-use cmex_span::Spanned;
 use tracing_subscriber::EnvFilter;
 
-use cmex_ast::token::TokenTag;
-use cmex_ast::{ast_dump::AstDumper, TranslationUnit};
+use cmex_ast::{ast_dump::AstDumper, token::TokenTag, TranslationUnit};
 use cmex_compile::Compiler;
 use cmex_errors::{ErrorBuilder, ErrorEmitter};
 use cmex_lexer::{Lexer, Tokens};
 use cmex_macros::MacroExpander;
 use cmex_parser::{ParseOptions, Parser};
+use cmex_span::Spanned;
 
 /// TODO: maybe it worth using clap?
 fn print_help() {
@@ -48,7 +47,7 @@ pub fn main() {
     let lexer = Lexer::from(file.as_str());
     let emitter = ErrorEmitter::new(
         file.as_str(),
-        ErrorBuilder::new().filename(args[1].clone())
+        ErrorBuilder::new().filename(args[1].clone()),
     );
     let tokens = Tokens(
         lexer
@@ -86,12 +85,7 @@ pub fn main() {
             }
 
             let mut iter = args.iter();
-            if iter
-                .by_ref()
-                .skip_while(|flag| **flag != "-o")
-                .next()
-                .is_some()
-            {
+            if iter.any(|flag| *flag == "-o") {
                 match iter.next() {
                     Some(path) => {
                         compile_file(path, ast).unwrap();
