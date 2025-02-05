@@ -4,7 +4,7 @@
 //! <https://github.com/antlr/grammars-v3/blob/master/ANSI-C/C.g>
 
 use super::{ParseError, ParseErrorTag, Parser, PR};
-use crate::{check_tok, lookahead, match_tok, require_tok, SymbolTag};
+use crate::{check_tok, lookahead, match_tok, require_tok};
 use cmex_ast::token::{Token, TokenTag::*};
 use cmex_ast::*;
 use cmex_span::{MaybeSpannable, Span, Spannable, Spanned, Unspan};
@@ -29,12 +29,10 @@ macro_rules! paren_wrapped {
 }
 
 impl Parser<'_> {
-    pub fn parse(&mut self) -> Result<TranslationUnit, Vec<ParseError>> {
-        self.translation_unit()
-    }
-
     #[instrument(skip_all)]
-    fn translation_unit(&mut self) -> Result<TranslationUnit, Vec<ParseError>> {
+    pub(crate) fn translation_unit(
+        &mut self,
+    ) -> Result<TranslationUnit, Vec<ParseError>> {
         let mut decls = Vec::new();
         let mut errors = Vec::new();
 
@@ -61,193 +59,6 @@ impl Parser<'_> {
             Ok(TranslationUnit(decls))
         } else {
             Err(errors)
-        }
-    }
-
-    /// External declaration is a top level declaration (e.g. functions)
-    /// or a regular declaration
-    #[instrument(skip_all)]
-    pub(crate) fn external_decl(&mut self) -> PR<Vec<DeclTag>> {
-        let mut decl_list = Vec::with_capacity(1);
-
-        if let Some(Interpolated(nt)) = self.iter.peek().val() {
-            match *nt {
-                Nonterminal::Item(decl) => return Ok(decl),
-                _ => {
-                    return Err(Spanned(
-                        ParseErrorTag::InterpolationFailed(*nt),
-                        self.iter.next().span().unwrap(),
-                    ))
-                }
-            }
-        }
-
-        match self.iter.peek().val() {
-            Some(MacroRules) => {
-                decl_list.push(self.macro_rules_definition()?);
-                return Ok(decl_list);
-            }
-            Some(Hash) => return Ok(vec![self.deprecated_macro()?]),
-            _ => {}
-        }
-
-        if let Some(tok) = match_tok!(self, Typedef) {
-            decl_list.push(self.typedef(tok)?);
-            return Ok(decl_list);
-        }
-
-        let spec = self.maybe_decl_specifiers()?;
-
-        // TODO: hotfix, refactor
-        if check_tok!(self, Semicolon) {
-            if let Some(ref spec) = spec {
-                if let Some(decl) = self.type_definition(spec)? {
-                    decl_list.push(decl);
-                    return Ok(decl_list);
-                }
-            }
-        }
-
-        while !matches!(self.iter.peek().val(), Some(Semicolon) | None) {
-            let decl = self.init_declarator()?;
-
-            // Declator has an initializer e.g. `int foo = bar, ...`
-            if decl.1.is_some() {
-                let decl_spec = spec.clone().unwrap_or_else(|| {
-                    self.errors.emit(&Spanned(
-                        ParseErrorTag::Expected(
-                            "declaration specifiers".into(),
-                        ),
-                        decl.span(),
-                    ));
-                    // Push an `int` specifier as a dummy, I believe this will
-                    // help error recovery later
-                    vec![DeclSpecifier::TypeQualifier((Int, decl.span()))]
-                });
-
-                // Push this declaration just like it was seperate declaration
-                // e.g. `int a = 5, b = 7;` would be `int a = 5; int b = 7;`
-                decl_list.push(self.decl(decl_spec, decl.clone())?);
-            }
-
-            // A function definition
-            if matches!(self.iter.peek().val(), Some(LeftCurly)) {
-                // There was a declarations before. So you can't
-                // write `int foo = 5, bar() { return 0; }` because
-                // function is a top-level declaration in grammar
-                if !decl_list.is_empty() {
-                    return Err(Spanned(
-                        ParseErrorTag::Expected(
-                            "`;` after top level declarator".into(),
-                        ),
-                        decl_list.span().unwrap(),
-                    ));
-                }
-
-                decl_list.push(self.function_definition(spec, decl)?);
-                return Ok(decl_list);
-            }
-
-            // Declarations listed `int foo = 5, bar = 7, ...`
-            if !check_tok!(self, Comma) {
-                break;
-            }
-        }
-
-        require_tok!(self, Semicolon)?;
-        Ok(decl_list)
-    }
-
-    fn typedef(&mut self, keyword: Token) -> PR<DeclTag> {
-        let specs = self.maybe_decl_specifiers()?.ok_or_else(|| {
-            Spanned(
-                ParseErrorTag::Expected("declaration specifiers".into()),
-                keyword.1,
-            )
-        })?;
-
-        if let Some(decl) = self.type_definition(specs.as_ref())? {
-            let name = require_tok!(self, Identifier(_))?;
-            self.symbols
-                .define(
-                    name.0.to_string(),
-                    Spanned(SymbolTag::Type, Span::join(keyword.1, name.1)),
-                )
-                .map_err(|_| {
-                    Spanned(
-                        ParseErrorTag::NameAlreadyDefined(name.0.to_string()),
-                        name.1,
-                    )
-                })?;
-            require_tok!(self, Semicolon)?;
-            Ok(decl)
-        } else {
-            Err(Spanned(
-                ParseErrorTag::Expected("type definition".into()),
-                specs.span().unwrap_or(keyword.1),
-            ))
-        }
-    }
-
-    #[instrument(skip_all)]
-    fn type_definition(
-        &mut self,
-        spec: &[DeclSpecifier],
-    ) -> PR<Option<DeclTag>> {
-        if let Some(DeclSpecifier::TypeSpecifier(t)) = spec.last() {
-            match t {
-                TypeSpecifier::Enum(id, consts) => {
-                    for decl in consts {
-                        if let Identifier(name) = &decl.id.0 {
-                            self.symbols
-                                .define(
-                                    name.clone(),
-                                    Spanned(SymbolTag::Name, decl.id.1),
-                                )
-                                .map_err(|_| {
-                                    Spanned(
-                                        ParseErrorTag::NameAlreadyDefined(
-                                            name.clone(),
-                                        ),
-                                        decl.id.1,
-                                    )
-                                })?;
-                        }
-                    }
-
-                    Ok(Some(DeclTag::Enum(id.clone(), consts.to_vec())))
-                }
-                TypeSpecifier::Record(id, r) => {
-                    Ok(Some(DeclTag::Record(id.clone(), r.to_vec())))
-                }
-                TypeSpecifier::TypeName(_) => Ok(None),
-            }
-        } else {
-            Ok(None)
-        }
-    }
-
-    #[instrument(skip_all)]
-    fn function_definition(
-        &mut self,
-        spec: Option<Vec<DeclSpecifier>>,
-        decl: InitDeclarator,
-    ) -> PR<DeclTag> {
-        match decl.0.suffix {
-            Some(DeclaratorSuffix::Func(_)) => Ok(DeclTag::Func {
-                spec,
-                decl: Box::new(decl.0),
-                body: Box::new(self.compound_statement()?),
-            }),
-            // Function has a array suffix e.g. `int foo[100]() { ... }`
-            Some(DeclaratorSuffix::Array(suffix)) => Err(Spanned(
-                ParseErrorTag::UnexpectedDeclarationSuffix,
-                suffix.unwrap().span(),
-            )),
-            _ => Err(Spanned(
-                ParseErrorTag::Expected("parameter list".into()),
-                self.iter.peek().span().unwrap(),
-            )),
         }
     }
 
@@ -287,7 +98,7 @@ impl Parser<'_> {
     }
 
     #[instrument(skip_all)]
-    fn compound_statement(&mut self) -> PR<Stmt> {
+    pub(crate) fn compound_statement(&mut self) -> PR<Stmt> {
         assert_eq!(self.iter.next().val(), Some(LeftCurly));
         self.symbols.enter();
 
@@ -489,7 +300,7 @@ impl Parser<'_> {
     }
 
     #[instrument(skip_all)]
-    fn decl(
+    pub(crate) fn decl(
         &mut self,
         spec: Vec<DeclSpecifier>,
         init_decl: InitDeclarator,
@@ -510,7 +321,9 @@ impl Parser<'_> {
         Ok(specs)
     }
 
-    fn maybe_decl_specifiers(&mut self) -> PR<Option<Vec<DeclSpecifier>>> {
+    pub(crate) fn maybe_decl_specifiers(
+        &mut self,
+    ) -> PR<Option<Vec<DeclSpecifier>>> {
         let mut spec_list = Vec::with_capacity(0);
 
         while let Some(spec) = self.maybe_decl_specifier()? {
@@ -610,7 +423,7 @@ impl Parser<'_> {
     }
 
     #[instrument(skip_all)]
-    fn init_declarator(&mut self) -> PR<InitDeclarator> {
+    pub(crate) fn init_declarator(&mut self) -> PR<InitDeclarator> {
         Ok(InitDeclarator(
             self.declarator()?,
             if check_tok!(self, Assign) {
