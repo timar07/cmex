@@ -10,7 +10,14 @@ type PR<T> = Result<T, Spanned<String>>;
 macro_rules! require_tok {
     ($iter:expr, $pat:pat) => {
         if !match_tok!($iter, $pat) {
-            panic!("expected {}, got {:?}", stringify!($pat), $iter.peek());
+            return Err(Spanned(
+                format!(
+                    "expected {}, got {:?}",
+                    stringify!($pat),
+                    $iter.peek()
+                ),
+                $iter.peek().unwrap().span(),
+            ));
         }
     };
 }
@@ -46,7 +53,9 @@ impl MacroParser {
     fn macro_rules_def(&mut self) -> PR<Vec<MacroRule>> {
         match &self.tt {
             TokenTree::Delim(_, tt, _) => Ok(self.macro_rules(tt.to_vec())?),
-            TokenTree::Token(_) => panic!("expected macro rules body"),
+            TokenTree::Token(tok) => {
+                Err(Spanned("expected macro rules body".into(), tok.1))
+            }
         }
     }
 
@@ -91,7 +100,12 @@ impl MacroParser {
                     span,
                 }
             }
-            _ => panic!("expected delimited token tree"),
+            tt => {
+                return Err(Spanned(
+                    "expected delimited token tree".into(),
+                    tt.span(),
+                ))
+            }
         };
 
         Ok(MacroRule(matcher, rhs))
