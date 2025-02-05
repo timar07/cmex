@@ -2,10 +2,11 @@
 //! For information about grammar, see:
 //! <https://doc.rust-lang.org/reference/macros-by-example.html#r-macro.decl.syntax>
 
-use crate::{require_tok, ParseErrorTag, Parser, PR};
 use cmex_ast::token::TokenTag::*;
 use cmex_ast::{DeclTag, DelimSpan, DelimTag, TokenTree};
 use cmex_span::{MaybeSpannable, Span, Spanned, Unspan};
+
+use crate::{require_tok, ParseErrorTag, Parser, PR};
 
 impl Parser<'_> {
     /// Parse `macro_rules!`. The pre-expansion parsing is implemented in

@@ -1,12 +1,14 @@
+mod decl;
 mod expr;
 mod lookahead;
 mod macros;
+mod nonterminal;
 mod stmt;
 
-use cmex_ast::{token::TokenTag, Nonterminal, NtTag};
+use cmex_ast::{token::TokenTag, Nonterminal, TranslationUnit};
 use cmex_errors::ErrorEmitter;
 use cmex_lexer::{Tokens, TokensIter};
-use cmex_span::{MaybeSpannable, Spanned, Unspan};
+use cmex_span::Spanned;
 use cmex_symtable::SymTable;
 pub use lookahead::Lookahead;
 
@@ -40,51 +42,18 @@ impl<'a> Parser<'a> {
         }
     }
 
+    pub fn parse(&mut self) -> Result<TranslationUnit, Vec<ParseError>> {
+        self.translation_unit()
+    }
+
     pub fn get_pos(&mut self) -> usize {
         self.iter.peek().map(|(_, span)| span.0).unwrap_or(0)
     }
 
+    /// Bump the parser
+    #[inline]
     pub fn next(&mut self) {
         self.iter.next();
-    }
-
-    /// Parse nonterminal. There is only on usage case so far so the function
-    /// is inlined.
-    #[inline]
-    pub fn parse_nt(&mut self, tag: NtTag) -> PR<Nonterminal> {
-        match tag {
-            NtTag::Block => Ok(Nonterminal::Block(self.block()?.0)),
-            NtTag::Literal => match self.iter.peek().val() {
-                Some(
-                    TokenTag::NumberLiteral { .. }
-                    | TokenTag::CharLiteral
-                    | TokenTag::StringLiteral(_),
-                ) => Ok(Nonterminal::Literal(self.iter.next().unwrap())),
-                _ => Err(Spanned(
-                    ParseErrorTag::Expected("literal".into()),
-                    self.iter.peek().span().unwrap(),
-                )),
-            },
-            NtTag::Ident => match self.iter.peek().val() {
-                Some(TokenTag::Identifier(_)) => {
-                    Ok(Nonterminal::Ident(self.iter.next().unwrap()))
-                }
-                _ => Err(Spanned(
-                    ParseErrorTag::Expected("identifier".into()),
-                    self.iter.peek().span().unwrap(),
-                )),
-            },
-            NtTag::Tt => {
-                let mut tt = vec![];
-                while self.iter.peek().is_some() {
-                    tt.push(self.token_tree()?);
-                }
-                Ok(Nonterminal::Tt(tt))
-            }
-            NtTag::Item => Ok(Nonterminal::Item(self.external_decl()?)),
-            NtTag::Ty => Ok(Nonterminal::Ty(self.type_name()?)),
-            NtTag::Expr => Ok(Nonterminal::Expr(self.expression()?)),
-        }
     }
 }
 
