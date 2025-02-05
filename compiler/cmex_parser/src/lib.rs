@@ -6,7 +6,7 @@ mod stmt;
 use cmex_ast::{token::TokenTag, Nonterminal, NtTag};
 use cmex_errors::ErrorEmitter;
 use cmex_lexer::{Tokens, TokensIter};
-use cmex_span::{MaybeSpannable, Span, Spanned, Unspan};
+use cmex_span::{MaybeSpannable, Spanned, Unspan};
 use cmex_symtable::SymTable;
 pub use lookahead::Lookahead;
 
@@ -22,7 +22,7 @@ pub struct ParseOptions {
 pub struct Parser<'a> {
     errors: &'a ErrorEmitter<'a>,
     pub iter: Lookahead<TokensIter<'a>>,
-    symbols: SymTable<String, Span>,
+    symbols: SymTable<String, Spanned<SymbolTag>>,
     opts: ParseOptions,
 }
 
@@ -86,6 +86,12 @@ impl<'a> Parser<'a> {
             NtTag::Expr => Ok(Nonterminal::Expr(self.expression()?)),
         }
     }
+}
+
+#[derive(Clone)]
+pub enum SymbolTag {
+    Type,
+    Name,
 }
 
 type ParseError = Spanned<ParseErrorTag>;

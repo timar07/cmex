@@ -4,7 +4,7 @@
 //! <https://github.com/antlr/grammars-v3/blob/master/ANSI-C/C.g>
 
 use super::{ParseError, ParseErrorTag, Parser, PR};
-use crate::{check_tok, lookahead, match_tok, require_tok};
+use crate::{check_tok, lookahead, match_tok, require_tok, SymbolTag};
 use cmex_ast::token::{Token, TokenTag::*};
 use cmex_ast::*;
 use cmex_span::{MaybeSpannable, Span, Spannable, Spanned, Unspan};
@@ -92,27 +92,8 @@ impl Parser<'_> {
         }
 
         if let Some(tok) = match_tok!(self, Typedef) {
-            return self
-                .maybe_decl_specifiers()?
-                .map(|specs| {
-                    if let Some(decl) = self.type_definition(specs.as_ref())? {
-                        decl_list.push(decl);
-                        Ok(decl_list)
-                    } else {
-                        Err(Spanned(
-                            ParseErrorTag::Expected("type definition".into()),
-                            specs.span().unwrap_or(tok.1),
-                        ))
-                    }
-                })
-                .unwrap_or_else(|| {
-                    Err(Spanned(
-                        ParseErrorTag::Expected(
-                            "declaration specifiers".into(),
-                        ),
-                        tok.1,
-                    ))
-                });
+            decl_list.push(self.typedef(tok)?);
+            return Ok(decl_list);
         }
 
         let spec = self.maybe_decl_specifiers()?;
@@ -177,6 +158,37 @@ impl Parser<'_> {
         Ok(decl_list)
     }
 
+    fn typedef(&mut self, keyword: Token) -> PR<DeclTag> {
+        let specs = self.maybe_decl_specifiers()?.ok_or_else(|| {
+            Spanned(
+                ParseErrorTag::Expected("declaration specifiers".into()),
+                keyword.1,
+            )
+        })?;
+
+        if let Some(decl) = self.type_definition(specs.as_ref())? {
+            let name = require_tok!(self, Identifier(_))?;
+            self.symbols
+                .define(
+                    name.0.to_string(),
+                    Spanned(SymbolTag::Type, Span::join(keyword.1, name.1)),
+                )
+                .map_err(|_| {
+                    Spanned(
+                        ParseErrorTag::NameAlreadyDefined(name.0.to_string()),
+                        name.1,
+                    )
+                })?;
+            require_tok!(self, Semicolon)?;
+            Ok(decl)
+        } else {
+            Err(Spanned(
+                ParseErrorTag::Expected("type definition".into()),
+                specs.span().unwrap_or(keyword.1),
+            ))
+        }
+    }
+
     #[instrument(skip_all)]
     fn type_definition(
         &mut self,
@@ -188,7 +200,10 @@ impl Parser<'_> {
                     for decl in consts {
                         if let Identifier(name) = &decl.id.0 {
                             self.symbols
-                                .define(name.clone(), decl.id.1)
+                                .define(
+                                    name.clone(),
+                                    Spanned(SymbolTag::Name, decl.id.1),
+                                )
                                 .map_err(|_| {
                                     Spanned(
                                         ParseErrorTag::NameAlreadyDefined(
@@ -205,7 +220,7 @@ impl Parser<'_> {
                 TypeSpecifier::Record(id, r) => {
                     Ok(Some(DeclTag::Record(id.clone(), r.to_vec())))
                 }
-                _ => Ok(None),
+                TypeSpecifier::TypeName(_) => Ok(None),
             }
         } else {
             Ok(None)
