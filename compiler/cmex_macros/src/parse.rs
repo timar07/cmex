@@ -1,7 +1,7 @@
 use crate::{tt_cursor::TtCursor, DelimMtt};
 use cmex_ast::token::TokenTag::{self, *};
 use cmex_ast::{DelimTag, NtTag, TokenTree};
-use cmex_span::{MaybeSpannable, Spannable, Spanned};
+use cmex_span::{MaybeSpannable, Spannable, Spanned, Unspan};
 
 use crate::{MacroMatcher, MacroRule, MacroTokenTree, RepOpTag};
 
@@ -24,7 +24,7 @@ macro_rules! require_tok {
 
 macro_rules! match_tok {
     ($iter:expr, $pat:pat) => {
-        if matches!($iter.peek(), Some(TokenTree::Token(($pat, _)))) {
+        if matches!($iter.peek(), Some(TokenTree::Token(Spanned($pat, _)))) {
             $iter.next();
             true
         } else {
@@ -140,7 +140,7 @@ impl<'a> MacroTtParser<'a> {
 
     fn parse_item(&mut self) -> PR<Option<MacroTokenTree>> {
         Ok(match self.iter.next_tree() {
-            Some(TokenTree::Token((TokenTag::Dollar, _))) => {
+            Some(TokenTree::Token(Spanned(TokenTag::Dollar, _))) => {
                 match self.iter.peek_tree() {
                     Some(TokenTree::Delim(DelimTag::Paren, inner, _)) => {
                         let matcher = subparse(&inner)?;
@@ -148,7 +148,7 @@ impl<'a> MacroTtParser<'a> {
                         self.iter.next_tree();
 
                         match self.iter.peek_tree() {
-                            Some(TokenTree::Token((
+                            Some(TokenTree::Token(Spanned(
                                 TokenTag::Plus
                                 | TokenTag::Asterisk
                                 | TokenTag::Quest,
@@ -193,14 +193,14 @@ impl<'a> MacroTtParser<'a> {
     }
 
     fn rep_op(&mut self) -> PR<RepOpTag> {
-        Ok(match self.iter.next() {
-            Some((TokenTag::Plus, _)) => RepOpTag::Plus,
-            Some((TokenTag::Asterisk, _)) => RepOpTag::Asterisk,
-            Some((TokenTag::Quest, _)) => RepOpTag::Quest,
-            Some((tok, span)) => {
+        Ok(match self.iter.next().val() {
+            Some(TokenTag::Plus) => RepOpTag::Plus,
+            Some(TokenTag::Asterisk) => RepOpTag::Asterisk,
+            Some(TokenTag::Quest) => RepOpTag::Quest,
+            Some(tok) => {
                 return Err(Spanned(
                     format!("unknown repetition operator {:?}", tok),
-                    span,
+                    self.iter.peek().span().unwrap(),
                 ))
             }
             _ => panic!(),
@@ -210,7 +210,7 @@ impl<'a> MacroTtParser<'a> {
     fn macro_frag(&mut self) -> Option<MacroTokenTree> {
         match self.iter.next_tree() {
             Some(TokenTree::Token(tok)) if tok.0.is_keyword_or_id() => {
-                if let Some(TokenTree::Token((Colon, _))) =
+                if let Some(TokenTree::Token(Spanned(Colon, _))) =
                     self.iter.peek_tree()
                 {
                     self.iter.next_tree();
@@ -227,7 +227,7 @@ impl<'a> MacroTtParser<'a> {
     }
 
     fn macro_frag_spec(&mut self) -> PR<NtTag> {
-        if let Some(TokenTree::Token((Identifier(spec), span))) =
+        if let Some(TokenTree::Token(Spanned(Identifier(spec), span))) =
             self.iter.next_tree()
         {
             Ok(match spec.as_str() {

@@ -3,6 +3,22 @@ use std::fmt::{Debug, Display};
 #[derive(Clone)]
 pub struct Spanned<T>(pub T, pub Span);
 
+impl<T> Spanned<T> {
+    /// Create dummy-spanned value
+    ///
+    /// ```
+    /// use cmex_span::{Span, Spanned, Spannable};
+    ///
+    /// assert_eq!(
+    ///     Spanned::dummy("foo").span(),
+    ///     Span(0, 0)
+    /// );
+    /// ```
+    pub fn dummy(val: T) -> Self {
+        Self(val, Span::dummy())
+    }
+}
+
 impl<T> Spannable for Spanned<T> {
     fn span(&self) -> Span {
         self.1
@@ -25,7 +41,7 @@ impl<T: Debug> Debug for Spanned<T> {
 pub struct Span(pub usize, pub usize);
 
 impl Span {
-    pub fn placeholder() -> Self {
+    pub fn dummy() -> Self {
         Self::default()
     }
 
@@ -95,9 +111,9 @@ pub trait Unspan<T> {
     fn val(self) -> Option<T>;
 }
 
-impl<T> Unspan<T> for Option<(T, Span)> {
+impl<T> Unspan<T> for Option<Spanned<T>> {
     fn val(self) -> Option<T> {
-        self.map(|(val, _)| val)
+        self.map(|Spanned(val, _)| val)
     }
 }
 

@@ -288,24 +288,29 @@ impl Parser<'_> {
                     require_tok!(self, RightBrace)?;
 
                     Expr::UnExpr {
-                        op: (Asterisk, span),
+                        op: Spanned(Asterisk, span),
                         rhs: Box::new(Expr::Paren(Box::new(Expr::BinExpr {
-                            op: (Plus, span),
+                            op: Spanned(Plus, span),
                             lhs: Box::new(expr),
                             rhs: Box::new(idx),
                         }))),
                     }
                 }
                 Not => match expr {
-                    Expr::Primary(id @ (Identifier(_), _)) => Expr::Invocation(
-                        InvocationTag::Bang(id, Some(self.delim_token_tree()?)),
-                    ),
-                    _ => return Err(Spanned(
-                        ParseErrorTag::Expected(
-                            "identifier before macro invocation".into()
-                        ),
-                        self.iter.peek().unwrap().1
-                    ))
+                    Expr::Primary(id @ Spanned(Identifier(_), _)) => {
+                        Expr::Invocation(InvocationTag::Bang(
+                            id,
+                            Some(self.delim_token_tree()?),
+                        ))
+                    }
+                    _ => {
+                        return Err(Spanned(
+                            ParseErrorTag::Expected(
+                                "identifier before macro invocation".into(),
+                            ),
+                            self.iter.peek().unwrap().1,
+                        ))
+                    }
                 },
                 LeftParen => self.parse_call(expr)?,
                 Dot => Expr::MemberAccess {
@@ -314,15 +319,15 @@ impl Parser<'_> {
                 },
                 ArrowRight => Expr::MemberAccess {
                     expr: Box::new(Expr::UnExpr {
-                        op: (Asterisk, span),
+                        op: Spanned(Asterisk, span),
                         rhs: Box::new(expr),
                     }),
                     member: require_tok!(self, Identifier(_))?,
                 },
                 Increment | Decrement => Expr::Paren(Box::new(Expr::BinExpr {
-                    op: (AddAssign, span),
+                    op: Spanned(AddAssign, span),
                     lhs: Box::new(expr),
-                    rhs: Box::new(Expr::Primary((
+                    rhs: Box::new(Expr::Primary(Spanned(
                         NumberLiteral {
                             literal: "1".into(),
                             prefix: None,

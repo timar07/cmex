@@ -15,11 +15,9 @@ impl Parser<'_> {
         match tag {
             NtTag::Block => Ok(Nonterminal::Block(self.block()?.0)),
             NtTag::Literal => match self.iter.peek().val() {
-                Some(
-                    NumberLiteral { .. }
-                    | CharLiteral
-                    | StringLiteral(_),
-                ) => Ok(Nonterminal::Literal(self.iter.next().unwrap())),
+                Some(NumberLiteral { .. } | CharLiteral | StringLiteral(_)) => {
+                    Ok(Nonterminal::Literal(self.iter.next().unwrap()))
+                }
                 _ => Err(Spanned(
                     ParseErrorTag::Expected("literal".into()),
                     self.iter.peek().span().unwrap(),
@@ -49,7 +47,7 @@ impl Parser<'_> {
 
     #[instrument(skip_all)]
     pub fn block(&mut self) -> PR<(Vec<Stmt>, Span)> {
-        let (_, open) = require_tok!(self, LeftCurly)?;
+        let Spanned(_, open) = require_tok!(self, LeftCurly)?;
 
         let mut stmts = Vec::new();
 
@@ -57,7 +55,7 @@ impl Parser<'_> {
             stmts.push(self.statement()?);
         }
 
-        let (_, close) = self.iter.next().unwrap();
+        let Spanned(_, close) = self.iter.next().unwrap();
 
         Ok((stmts, Span::join(open, close)))
     }

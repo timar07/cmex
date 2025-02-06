@@ -5,3 +5,4 @@ edition = "2021"
 
 [dependencies]
 cmex_ast = { path = "../cmex_ast" }
+cmex_span = { path = "../cmex_span" }

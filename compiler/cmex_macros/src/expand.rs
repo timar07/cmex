@@ -377,7 +377,7 @@ fn expand(
                             Nonterminal::Literal(tok) | Nonterminal::Ident(tok),
                         ) => TokenTree::Token(tok),
                         BoundMatch::Single(t) => {
-                            TokenTree::Token((
+                            TokenTree::Token(Spanned(
                                 TokenTag::Interpolated(Box::new(t)),
                                 id.1, // Use metavar span for it
                             ))

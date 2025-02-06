@@ -47,7 +47,7 @@ impl<'a> Parser<'a> {
     }
 
     pub fn get_pos(&mut self) -> usize {
-        self.iter.peek().map(|(_, span)| span.0).unwrap_or(0)
+        self.iter.peek().map(|Spanned(_, span)| span.0).unwrap_or(0)
     }
 
     /// Bump the parser
@@ -118,6 +118,7 @@ impl std::fmt::Display for ParseErrorTag {
     }
 }
 
+/// Check if kth token ahead matches `$pat`
 #[macro_export]
 macro_rules! lookahead {
     ($parser:expr, $k:expr, $pat:pat) => {
@@ -129,7 +130,7 @@ macro_rules! lookahead {
 #[macro_export]
 macro_rules! match_tok {
     ($parser:expr, $pat:pat) => {
-        if matches!($parser.iter.peek(), Some(($pat, _))) {
+        if matches!($parser.iter.peek().val(), Some($pat)) {
             $parser.iter.next()
         } else {
             None
@@ -148,15 +149,15 @@ macro_rules! check_tok {
 /// Check if the next token matches $pat, raises a panic if it doesn't
 #[macro_export]
 macro_rules! require_tok {
-    ($p:expr, $pat:pat) => {
-        match $p.iter.peek() {
-            Some(($pat, _)) => Ok($p.iter.next().unwrap()),
+    ($parser:expr, $pat:pat) => {
+        match $parser.iter.peek().val() {
+            Some($pat) => Ok($parser.iter.next().unwrap()),
             _ => Err(Spanned(
                 ParseErrorTag::ExpectedGot(
                     stringify!($pat).into(),
-                    $p.iter.peek().val(),
+                    $parser.iter.peek().val(),
                 ),
-                Span::from($p.get_pos()),
+                Span::from($parser.get_pos()),
             )),
         }
     };

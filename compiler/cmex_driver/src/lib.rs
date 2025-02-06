@@ -53,10 +53,10 @@ pub fn main() {
         lexer
             .spanned()
             .map(|(res, span)| match res {
-                Ok(tok) => (tok, span),
+                Ok(tok) => Spanned(tok, span),
                 Err(e) => {
                     emitter.emit(&Spanned(e, span));
-                    (TokenTag::Error, span)
+                    Spanned(TokenTag::Error, span)
                 }
             })
             .collect(),

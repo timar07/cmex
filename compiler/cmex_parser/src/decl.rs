@@ -64,7 +64,10 @@ impl Parser<'_> {
                     ));
                     // Push an `int` specifier as a dummy, I believe this will
                     // help error recovery later
-                    vec![DeclSpecifier::TypeQualifier((Int, decl.span()))]
+                    vec![DeclSpecifier::TypeQualifier(Spanned(
+                        Int,
+                        decl.span(),
+                    ))]
                 });
 
                 // Push this declaration just like it was seperate declaration

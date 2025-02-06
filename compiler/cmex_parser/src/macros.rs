@@ -63,9 +63,7 @@ impl Parser<'_> {
         match self.iter.peek().val() {
             Some(LeftCurly | LeftParen | LeftBrace) => self.delim_token_tree(),
             Some(_) => Ok(TokenTree::Token(self.iter.next().unwrap())),
-            None => {
-                Err(Spanned(ParseErrorTag::UnexpectedEof, Span::placeholder()))
-            }
+            None => Err(Spanned::dummy(ParseErrorTag::UnexpectedEof)),
         }
     }
 
@@ -74,20 +72,22 @@ impl Parser<'_> {
         assert_eq!(self.iter.next().val(), Some(Hash));
 
         match self.iter.peek() {
-            Some((Identifier(directive), span)) => match directive.as_ref() {
-                "include" => {
-                    self.iter.next();
+            Some(Spanned(Identifier(directive), span)) => {
+                match directive.as_ref() {
+                    "include" => {
+                        self.iter.next();
 
-                    Ok(DeclTag::Include {
-                        path: self.parse_path()?,
+                        Ok(DeclTag::Include {
+                            path: self.parse_path()?,
+                            span,
+                        })
+                    }
+                    _ => Err(Spanned(
+                        ParseErrorTag::Expected("macro directive".into()),
                         span,
-                    })
+                    )),
                 }
-                _ => Err(Spanned(
-                    ParseErrorTag::Expected("macro directive".into()),
-                    span,
-                )),
-            },
+            }
             _ => Err(Spanned(
                 ParseErrorTag::Expected("macro directive".into()),
                 self.iter.next().span().unwrap(),

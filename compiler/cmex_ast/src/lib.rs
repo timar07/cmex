@@ -2,7 +2,7 @@ pub mod ast_dump;
 pub mod token;
 mod tree_builder;
 
-use cmex_span::{MaybeSpannable, Span, Spannable};
+use cmex_span::{MaybeSpannable, Span, Spannable, Spanned};
 
 use token::{Token, TokenTag};
 
@@ -83,7 +83,7 @@ impl Spannable for StmtTag {
             Self::Default(stmt) => stmt.tag.span(),
             Self::Break(span) => *span,
             Self::Continue(span) => *span,
-            Self::Return((_, span), _) => *span,
+            Self::Return(tok, _) => tok.span(),
             Self::Goto(tok) => tok.1,
         }
     }
@@ -165,8 +165,8 @@ impl Spannable for DeclSpecifier {
     fn span(&self) -> Span {
         match self {
             DeclSpecifier::TypeSpecifier(spec) => spec.span(),
-            DeclSpecifier::TypeQualifier((_, span)) => *span,
-            DeclSpecifier::StorageClass((_, span)) => *span,
+            DeclSpecifier::TypeQualifier(tok) => tok.span(),
+            DeclSpecifier::StorageClass(tok) => tok.span(),
         }
     }
 }
@@ -242,24 +242,12 @@ impl DirectDeclarator {
 impl MaybeSpannable for DirectDeclarator {
     fn span(&self) -> Option<Span> {
         match self {
-            DirectDeclarator::Identifier((_, span)) => Some(*span),
+            DirectDeclarator::Identifier(tok) => Some(tok.span()),
             DirectDeclarator::Paren(decl) => Some(decl.span()),
             DirectDeclarator::Abstract => None,
         }
     }
 }
-
-/*
-impl std::fmt::Display for DirectDeclarator {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Identifier((tok, _)) => write!(f, "{}", tok),
-            Self::Paren(decl) => write!(f, "({})", decl),
-            Self::Abstract => write!(f, ""),
-        }
-    }
-}
-    */
 
 #[derive(Debug, Clone)]
 pub enum DeclaratorPrefix {
@@ -274,7 +262,7 @@ impl std::fmt::Display for DeclaratorPrefix {
                     f,
                     "* {}",
                     vec.iter()
-                        .map(|(tok, _)| tok.to_string())
+                        .map(|tok| tok.0.to_string())
                         .collect::<Vec<String>>()
                         .join(" ")
                 )
@@ -439,7 +427,7 @@ pub enum TypeSpecifier {
 impl Spannable for TypeSpecifier {
     fn span(&self) -> Span {
         match self {
-            TypeSpecifier::TypeName((_, span)) => *span,
+            TypeSpecifier::TypeName(tok) => tok.span(),
             TypeSpecifier::Record(_, vec) => vec.span().unwrap(),
             TypeSpecifier::Enum(_, vec) => vec.span().unwrap(),
         }
@@ -558,13 +546,13 @@ pub enum InvocationTag {
 impl Spannable for InvocationTag {
     fn span(&self) -> Span {
         match self {
-            InvocationTag::Bang((_, span), _) => *span,
+            InvocationTag::Bang(tok, _) => tok.span(),
         }
     }
 }
 
 /// Abstract tokens collection, mostly used in macros
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub enum TokenTree {
     /// A primary node of the tree - the token itself
     Token(Token),
@@ -581,7 +569,7 @@ impl TokenTree {
                 let mut toks = vec![];
                 let (l, r) = delim_tag.get_delims();
                 let DelimSpan(lspan, rspan) = delim_span.to_owned();
-                toks.push((l, lspan));
+                toks.push(Spanned(l, lspan));
                 toks.append(
                     &mut vec
                         .to_vec()
@@ -590,7 +578,7 @@ impl TokenTree {
                         .reduce(|a, b| [a, b].concat())
                         .unwrap_or_else(Vec::new),
                 );
-                toks.push((r, rspan));
+                toks.push(Spanned(r, rspan));
                 toks
             }
         }
@@ -666,8 +654,8 @@ impl PartialEq for Nonterminal {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::Block(_), Self::Block(_)) => true,
-            (Self::Literal(l0), Self::Literal(r0)) => l0 == r0,
-            (Self::Ident(l0), Self::Ident(r0)) => l0 == r0,
+            (Self::Literal(l), Self::Literal(r)) => l.0 == r.0,
+            (Self::Ident(l), Self::Ident(r)) => l.0 == r.0,
             (Self::Item(_), Self::Item(_)) => true,
             (Self::Ty(_), Self::Ty(_)) => true,
             (Self::Expr(_), Self::Expr(_)) => true,

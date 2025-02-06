@@ -1,8 +1,8 @@
-use cmex_span::Span;
+use cmex_span::Spanned;
 
 use crate::Nonterminal;
 
-pub type Token = (TokenTag, Span);
+pub type Token = Spanned<TokenTag>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TokenTag {
