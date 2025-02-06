@@ -2,7 +2,7 @@ use cmex_ast::{
     token::TokenTag::*, DeclSpecifier, DeclTag, DeclaratorSuffix,
     InitDeclarator, Nonterminal, TypeSpecifier,
 };
-use cmex_span::{MaybeSpannable, Span, Spannable, Spanned, Unspan};
+use cmex_span::{MaybeSpannable, Span, Spannable, Unspan};
 use tracing::instrument;
 
 use crate::{
@@ -20,7 +20,7 @@ impl Parser<'_> {
             Some(Interpolated(nt)) => match *nt {
                 Nonterminal::Item(decl) => return Ok(decl),
                 _ => {
-                    return Err(Spanned(
+                    return Err((
                         ParseErrorTag::InterpolationFailed(*nt),
                         self.iter.next().span().unwrap(),
                     ))
@@ -56,7 +56,7 @@ impl Parser<'_> {
             // Declator has an initializer e.g. `int foo = bar, ...`
             if decl.1.is_some() {
                 let decl_spec = spec.clone().unwrap_or_else(|| {
-                    self.errors.emit(&Spanned(
+                    self.errors.emit(&(
                         ParseErrorTag::Expected(
                             "declaration specifiers".into(),
                         ),
@@ -64,10 +64,7 @@ impl Parser<'_> {
                     ));
                     // Push an `int` specifier as a dummy, I believe this will
                     // help error recovery later
-                    vec![DeclSpecifier::TypeQualifier(Spanned(
-                        Int,
-                        decl.span(),
-                    ))]
+                    vec![DeclSpecifier::TypeQualifier((Int, decl.span()))]
                 });
 
                 // Push this declaration just like it was seperate declaration
@@ -81,7 +78,7 @@ impl Parser<'_> {
                 // write `int foo = 5, bar() { return 0; }` because
                 // function is a top-level declaration in grammar
                 if !decl_list.is_empty() {
-                    return Err(Spanned(
+                    return Err((
                         ParseErrorTag::Expected(
                             "`;` after top level declarator".into(),
                         ),
@@ -106,7 +103,7 @@ impl Parser<'_> {
     fn typedef(&mut self) -> PR<DeclTag> {
         let keyword = require_tok!(self, Typedef)?;
         let specs = self.maybe_decl_specifiers()?.ok_or_else(|| {
-            Spanned(
+            (
                 ParseErrorTag::Expected("declaration specifiers".into()),
                 keyword.1,
             )
@@ -117,10 +114,10 @@ impl Parser<'_> {
             self.symbols
                 .define(
                     name.0.to_string(),
-                    Spanned(SymbolTag::Type, Span::join(keyword.1, name.1)),
+                    (SymbolTag::Type, Span::join(keyword.1, name.1)),
                 )
                 .map_err(|_| {
-                    Spanned(
+                    (
                         ParseErrorTag::NameAlreadyDefined(name.0.to_string()),
                         name.1,
                     )
@@ -128,7 +125,7 @@ impl Parser<'_> {
             require_tok!(self, Semicolon)?;
             Ok(decl)
         } else {
-            Err(Spanned(
+            Err((
                 ParseErrorTag::Expected("type definition".into()),
                 specs.span().unwrap_or(keyword.1),
             ))
@@ -148,10 +145,10 @@ impl Parser<'_> {
                             self.symbols
                                 .define(
                                     name.clone(),
-                                    Spanned(SymbolTag::Name, decl.id.1),
+                                    (SymbolTag::Name, decl.id.1),
                                 )
                                 .map_err(|_| {
-                                    Spanned(
+                                    (
                                         ParseErrorTag::NameAlreadyDefined(
                                             name.clone(),
                                         ),
@@ -186,11 +183,11 @@ impl Parser<'_> {
                 body: Box::new(self.compound_statement()?),
             }),
             // Function has a array suffix e.g. `int foo[100]() { ... }`
-            Some(DeclaratorSuffix::Array(suffix)) => Err(Spanned(
+            Some(DeclaratorSuffix::Array(suffix)) => Err((
                 ParseErrorTag::UnexpectedDeclarationSuffix,
                 suffix.unwrap().span(),
             )),
-            _ => Err(Spanned(
+            _ => Err((
                 ParseErrorTag::Expected("parameter list".into()),
                 self.iter.peek().span().unwrap(),
             )),

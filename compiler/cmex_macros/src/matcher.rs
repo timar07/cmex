@@ -3,7 +3,7 @@ use std::collections::{hash_map::Entry, HashMap};
 use cmex_ast::token::Token;
 use cmex_ast::{Nonterminal, NtTag};
 use cmex_parser::Parser;
-use cmex_span::{MaybeSpannable, Span, Spanned};
+use cmex_span::{MaybeSpannable, Span};
 
 use crate::{MacroTokenTree, RepOpTag};
 
@@ -157,7 +157,7 @@ impl TtMatcher {
                             parser
                                 .iter
                                 .peek()
-                                .map(|Spanned(tok, _)| tok.to_string())
+                                .map(|(tok, _)| tok.to_string())
                                 .unwrap_or_default()
                         ),
                         parser.iter.peek().span().unwrap(),
@@ -278,7 +278,7 @@ impl TtMatcher {
                     };
                     self.curr_mps.push(end);
 
-                    if token.is_some_and(|Spanned(t, _)| *t == sep.0) {
+                    if token.is_some_and(|(t, _)| *t == sep.0) {
                         mp.i += 1;
                         self.next_mps.push(mp);
                     } else {
@@ -401,19 +401,14 @@ impl StatesParser {
                 MacroTokenTree::Delim(mtt) => {
                     locs.push(MatcherState::Delim);
                     let (left_delim, right_delim) = mtt.delim.get_delims();
-                    locs.push(MatcherState::Token(Spanned(
-                        left_delim, mtt.span.0,
-                    )));
+                    locs.push(MatcherState::Token((left_delim, mtt.span.0)));
                     Self::substates_from_tts(
                         &mtt.mtt,
                         locs,
                         next_metavar,
                         seq_depth,
                     )?;
-                    locs.push(MatcherState::Token(Spanned(
-                        right_delim,
-                        mtt.span.1,
-                    )));
+                    locs.push(MatcherState::Token((right_delim, mtt.span.1)));
                 }
                 MacroTokenTree::Token(tok) => {
                     locs.push(MatcherState::Token(tok.clone()))

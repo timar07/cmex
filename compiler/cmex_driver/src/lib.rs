@@ -9,7 +9,6 @@ use cmex_errors::{ErrorBuilder, ErrorEmitter};
 use cmex_lexer::{Lexer, Tokens};
 use cmex_macros::MacroExpander;
 use cmex_parser::{ParseOptions, Parser};
-use cmex_span::Spanned;
 
 /// TODO: maybe it worth using clap?
 fn print_help() {
@@ -53,10 +52,10 @@ pub fn main() {
         lexer
             .spanned()
             .map(|(res, span)| match res {
-                Ok(tok) => Spanned(tok, span),
+                Ok(tok) => (tok, span),
                 Err(e) => {
-                    emitter.emit(&Spanned(e, span));
-                    Spanned(TokenTag::Error, span)
+                    emitter.emit(&(e, span));
+                    (TokenTag::Error, span)
                 }
             })
             .collect(),

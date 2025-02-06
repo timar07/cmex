@@ -4,7 +4,7 @@
 
 use cmex_ast::token::TokenTag::*;
 use cmex_ast::{DeclTag, DelimSpan, DelimTag, TokenTree};
-use cmex_span::{MaybeSpannable, Span, Spanned, Unspan};
+use cmex_span::{MaybeSpannable, Span, Unspan};
 
 use crate::{require_tok, ParseErrorTag, Parser, PR};
 
@@ -31,7 +31,7 @@ impl Parser<'_> {
             Some(LeftParen) => (RightParen, DelimTag::Paren),
             Some(LeftBrace) => (RightBrace, DelimTag::Square),
             Some(_) => {
-                return Err(Spanned(
+                return Err((
                     ParseErrorTag::ExpectedGot(
                         "delimited token tree".into(),
                         self.iter.peek().val(),
@@ -63,7 +63,7 @@ impl Parser<'_> {
         match self.iter.peek().val() {
             Some(LeftCurly | LeftParen | LeftBrace) => self.delim_token_tree(),
             Some(_) => Ok(TokenTree::Token(self.iter.next().unwrap())),
-            None => Err(Spanned::dummy(ParseErrorTag::UnexpectedEof)),
+            None => Err((ParseErrorTag::UnexpectedEof, Span::dummy())),
         }
     }
 
@@ -72,23 +72,21 @@ impl Parser<'_> {
         assert_eq!(self.iter.next().val(), Some(Hash));
 
         match self.iter.peek() {
-            Some(Spanned(Identifier(directive), span)) => {
-                match directive.as_ref() {
-                    "include" => {
-                        self.iter.next();
+            Some((Identifier(directive), span)) => match directive.as_ref() {
+                "include" => {
+                    self.iter.next();
 
-                        Ok(DeclTag::Include {
-                            path: self.parse_path()?,
-                            span,
-                        })
-                    }
-                    _ => Err(Spanned(
-                        ParseErrorTag::Expected("macro directive".into()),
+                    Ok(DeclTag::Include {
+                        path: self.parse_path()?,
                         span,
-                    )),
+                    })
                 }
-            }
-            _ => Err(Spanned(
+                _ => Err((
+                    ParseErrorTag::Expected("macro directive".into()),
+                    span,
+                )),
+            },
+            _ => Err((
                 ParseErrorTag::Expected("macro directive".into()),
                 self.iter.next().span().unwrap(),
             )),
@@ -109,7 +107,7 @@ impl Parser<'_> {
                     .join("");
                 Ok(path)
             }
-            Some(tok) => Err(Spanned(
+            Some(tok) => Err((
                 ParseErrorTag::ExpectedGot("path".into(), Some(tok)),
                 self.iter.next().span().unwrap(),
             )),

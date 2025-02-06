@@ -47,7 +47,7 @@ impl<'a> Parser<'a> {
     }
 
     pub fn get_pos(&mut self) -> usize {
-        self.iter.peek().map(|Spanned(_, span)| span.0).unwrap_or(0)
+        self.iter.peek().map(|(_, span)| span.0).unwrap_or(0)
     }
 
     /// Bump the parser
@@ -152,10 +152,10 @@ macro_rules! require_tok {
     ($parser:expr, $pat:pat) => {
         match $parser.iter.peek().val() {
             Some($pat) => Ok($parser.iter.next().unwrap()),
-            _ => Err(Spanned(
+            _ => Err((
                 ParseErrorTag::ExpectedGot(
                     stringify!($pat).into(),
-                    $parser.iter.peek().val(),
+                    $parser.iter.peek().val().clone(),
                 ),
                 Span::from($parser.get_pos()),
             )),

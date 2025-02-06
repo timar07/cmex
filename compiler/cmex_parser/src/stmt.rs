@@ -7,7 +7,7 @@ use super::{ParseError, ParseErrorTag, Parser, PR};
 use crate::{check_tok, lookahead, match_tok, require_tok};
 use cmex_ast::token::{Token, TokenTag::*};
 use cmex_ast::*;
-use cmex_span::{MaybeSpannable, Span, Spannable, Spanned, Unspan};
+use cmex_span::{MaybeSpannable, Span, Spannable, Unspan};
 use tracing::{debug, instrument};
 
 macro_rules! curly_wrapped {
@@ -370,7 +370,7 @@ impl Parser<'_> {
             Some(Identifier(_)) if self.is_type_specifier() => {
                 Ok(TypeSpecifier::TypeName(self.iter.next().unwrap()))
             }
-            Some(_) => Err(Spanned(
+            Some(_) => Err((
                 ParseErrorTag::Expected("type specifier".into()),
                 self.iter.peek().span().unwrap(),
             )),
@@ -428,7 +428,7 @@ impl Parser<'_> {
         // Bodyless struct/union
         if !matches!(self.iter.peek().val(), Some(LeftCurly)) {
             if maybe_id.is_none() {
-                return Err(Spanned(
+                return Err((
                     ParseErrorTag::DeclarationHasNoIdentifier,
                     self.iter.peek().span().unwrap(),
                 ));
@@ -545,7 +545,7 @@ impl Parser<'_> {
 
         if !matches!(self.iter.peek().val(), Some(LeftCurly)) {
             if maybe_id.is_none() {
-                return Err(Spanned(
+                return Err((
                     ParseErrorTag::DeclarationHasNoInitializer,
                     self.iter.peek().span().unwrap(),
                 ));
@@ -757,7 +757,7 @@ impl Parser<'_> {
 
         self.declarator().and_then(|decl| {
             if !decl.inner.is_abstract() {
-                return Err(Spanned(
+                return Err((
                     ParseErrorTag::Expected("abstract declarator".into()),
                     decl.span(),
                 ));

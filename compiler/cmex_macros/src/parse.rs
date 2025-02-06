@@ -10,7 +10,7 @@ type PR<T> = Result<T, Spanned<String>>;
 macro_rules! require_tok {
     ($iter:expr, $pat:pat) => {
         if !match_tok!($iter, $pat) {
-            return Err(Spanned(
+            return Err((
                 format!(
                     "expected {}, got {:?}",
                     stringify!($pat),
@@ -24,7 +24,7 @@ macro_rules! require_tok {
 
 macro_rules! match_tok {
     ($iter:expr, $pat:pat) => {
-        if matches!($iter.peek(), Some(TokenTree::Token(Spanned($pat, _)))) {
+        if matches!($iter.peek(), Some(TokenTree::Token(($pat, _)))) {
             $iter.next();
             true
         } else {
@@ -54,7 +54,7 @@ impl MacroParser {
         match &self.tt {
             TokenTree::Delim(_, tt, _) => Ok(self.macro_rules(tt.to_vec())?),
             TokenTree::Token(tok) => {
-                Err(Spanned("expected macro rules body".into(), tok.1))
+                Err(("expected macro rules body".into(), tok.1))
             }
         }
     }
@@ -83,9 +83,7 @@ impl MacroParser {
             Some(TokenTree::Delim(_, tt, _)) => {
                 self.macro_matcher(&mut TtCursor::new(tt))
             }
-            Some(tt) => {
-                Err(Spanned("expected macro matcher".into(), tt.span()))
-            }
+            Some(tt) => Err(("expected macro matcher".into(), tt.span())),
             None => panic!(),
         }?;
 
@@ -101,10 +99,7 @@ impl MacroParser {
                 }
             }
             tt => {
-                return Err(Spanned(
-                    "expected delimited token tree".into(),
-                    tt.span(),
-                ))
+                return Err(("expected delimited token tree".into(), tt.span()))
             }
         };
 
@@ -140,7 +135,7 @@ impl<'a> MacroTtParser<'a> {
 
     fn parse_item(&mut self) -> PR<Option<MacroTokenTree>> {
         Ok(match self.iter.next_tree() {
-            Some(TokenTree::Token(Spanned(TokenTag::Dollar, _))) => {
+            Some(TokenTree::Token((TokenTag::Dollar, _))) => {
                 match self.iter.peek_tree() {
                     Some(TokenTree::Delim(DelimTag::Paren, inner, _)) => {
                         let matcher = subparse(&inner)?;
@@ -148,7 +143,7 @@ impl<'a> MacroTtParser<'a> {
                         self.iter.next_tree();
 
                         match self.iter.peek_tree() {
-                            Some(TokenTree::Token(Spanned(
+                            Some(TokenTree::Token((
                                 TokenTag::Plus
                                 | TokenTag::Asterisk
                                 | TokenTag::Quest,
@@ -168,7 +163,7 @@ impl<'a> MacroTtParser<'a> {
                                 ))
                             }
                             _ => {
-                                return Err(Spanned(
+                                return Err((
                                     "expected `+`, `*` or `?`".into(),
                                     self.iter.next().span().unwrap(),
                                 ))
@@ -198,7 +193,7 @@ impl<'a> MacroTtParser<'a> {
             Some(TokenTag::Asterisk) => RepOpTag::Asterisk,
             Some(TokenTag::Quest) => RepOpTag::Quest,
             Some(tok) => {
-                return Err(Spanned(
+                return Err((
                     format!("unknown repetition operator {:?}", tok),
                     self.iter.peek().span().unwrap(),
                 ))
@@ -210,7 +205,7 @@ impl<'a> MacroTtParser<'a> {
     fn macro_frag(&mut self) -> Option<MacroTokenTree> {
         match self.iter.next_tree() {
             Some(TokenTree::Token(tok)) if tok.0.is_keyword_or_id() => {
-                if let Some(TokenTree::Token(Spanned(Colon, _))) =
+                if let Some(TokenTree::Token((Colon, _))) =
                     self.iter.peek_tree()
                 {
                     self.iter.next_tree();
@@ -227,7 +222,7 @@ impl<'a> MacroTtParser<'a> {
     }
 
     fn macro_frag_spec(&mut self) -> PR<NtTag> {
-        if let Some(TokenTree::Token(Spanned(Identifier(spec), span))) =
+        if let Some(TokenTree::Token((Identifier(spec), span))) =
             self.iter.next_tree()
         {
             Ok(match spec.as_str() {
@@ -239,12 +234,7 @@ impl<'a> MacroTtParser<'a> {
                 "expr" => NtTag::Expr,
                 "tt" => NtTag::Tt,
                 "pat" => todo!(),
-                _ => {
-                    return Err(Spanned(
-                        "expected fragment specifier".into(),
-                        span,
-                    ))
-                }
+                _ => return Err(("expected fragment specifier".into(), span)),
             })
         } else {
             panic!("expected fragment specifier")

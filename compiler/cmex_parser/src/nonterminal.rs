@@ -2,7 +2,7 @@
 //! This functionality is mostly used during metavariables parsing in macros.
 
 use cmex_ast::{token::TokenTag::*, Nonterminal, NtTag, Stmt};
-use cmex_span::{MaybeSpannable, Span, Spanned, Unspan};
+use cmex_span::{MaybeSpannable, Span, Unspan};
 use tracing::instrument;
 
 use crate::{require_tok, ParseErrorTag, Parser, PR};
@@ -18,7 +18,7 @@ impl Parser<'_> {
                 Some(NumberLiteral { .. } | CharLiteral | StringLiteral(_)) => {
                     Ok(Nonterminal::Literal(self.iter.next().unwrap()))
                 }
-                _ => Err(Spanned(
+                _ => Err((
                     ParseErrorTag::Expected("literal".into()),
                     self.iter.peek().span().unwrap(),
                 )),
@@ -27,7 +27,7 @@ impl Parser<'_> {
                 Some(Identifier(_)) => {
                     Ok(Nonterminal::Ident(self.iter.next().unwrap()))
                 }
-                _ => Err(Spanned(
+                _ => Err((
                     ParseErrorTag::Expected("identifier".into()),
                     self.iter.peek().span().unwrap(),
                 )),
@@ -47,7 +47,7 @@ impl Parser<'_> {
 
     #[instrument(skip_all)]
     pub fn block(&mut self) -> PR<(Vec<Stmt>, Span)> {
-        let Spanned(_, open) = require_tok!(self, LeftCurly)?;
+        let (_, open) = require_tok!(self, LeftCurly)?;
 
         let mut stmts = Vec::new();
 
@@ -55,7 +55,7 @@ impl Parser<'_> {
             stmts.push(self.statement()?);
         }
 
-        let Spanned(_, close) = self.iter.next().unwrap();
+        let (_, close) = self.iter.next().unwrap();
 
         Ok((stmts, Span::join(open, close)))
     }

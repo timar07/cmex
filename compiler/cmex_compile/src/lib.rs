@@ -3,7 +3,6 @@
 use std::io::{self, BufWriter, Write};
 
 use cmex_ast::*;
-use cmex_span::Spanned;
 
 macro_rules! with_indent {
     ($self:expr, $stmt:expr) => {
@@ -247,7 +246,7 @@ where
                     self.compile_stmt(stmt)?;
                 });
             }
-            StmtTag::Label(Spanned(label, _), stmt) => {
+            StmtTag::Label((label, _), stmt) => {
                 writeln!(self.f, "{label}:")?;
                 self.compile_stmt(stmt)?;
             }
@@ -272,7 +271,7 @@ where
                         .unwrap_or_default()
                 );
             }
-            StmtTag::Goto(Spanned(label, _)) => {
+            StmtTag::Goto((label, _)) => {
                 emit!(self, "goto {label};");
                 self.emit_linebreak()?;
             }
@@ -283,7 +282,7 @@ where
 
     fn compile_expr(&self, expr: &Expr) -> String {
         match &expr {
-            Expr::Primary(Spanned(tok, _)) => {
+            Expr::Primary((tok, _)) => {
                 format!("{tok}")
             }
             Expr::Paren(expr) => {
@@ -393,7 +392,7 @@ where
 
     fn compile_direct_decl(&self, decl: &DirectDeclarator) -> String {
         match decl {
-            DirectDeclarator::Identifier(Spanned(tok, _)) => tok.to_string(),
+            DirectDeclarator::Identifier((tok, _)) => tok.to_string(),
             DirectDeclarator::Paren(decl) => {
                 format!("({})", self.compile_declarator(decl))
             }
@@ -470,14 +469,14 @@ where
             DeclSpecifier::TypeSpecifier(spec) => {
                 self.compile_type_specifier(spec)
             }
-            DeclSpecifier::TypeQualifier(Spanned(tok, _)) => tok.to_string(),
-            DeclSpecifier::StorageClass(Spanned(tok, _)) => tok.to_string(),
+            DeclSpecifier::TypeQualifier((tok, _)) => tok.to_string(),
+            DeclSpecifier::StorageClass((tok, _)) => tok.to_string(),
         }
     }
 
     fn compile_type_specifier(&self, spec: &TypeSpecifier) -> String {
         match spec {
-            TypeSpecifier::TypeName(Spanned(tok, _)) => format!("{tok}"),
+            TypeSpecifier::TypeName((tok, _)) => format!("{tok}"),
             TypeSpecifier::Record(id, vec) => {
                 format!(
                     "struct {}{}",

@@ -231,19 +231,14 @@ impl<'a> MacroExpander<'a> {
                 );
                 let decl =
                     self.decls.lookup(&id.0.to_string()).ok_or_else(|| {
-                        Spanned(
-                            ExpError::UseOfUndeclaredMacro(id.0.to_string()),
-                            id.1,
-                        )
+                        (ExpError::UseOfUndeclaredMacro(id.0.to_string()), id.1)
                     })?;
 
                 let matchers: Vec<MacroMatcher> =
                     decl.iter().map(|rule| rule.0.clone()).collect();
 
                 let (idx, captures) = match_macro(&matchers, &mut parser, id.1)
-                    .map_err(|err| {
-                        Spanned(ExpError::MatchError(err.0), err.1)
-                    })?;
+                    .map_err(|err| (ExpError::MatchError(err.0), err.1))?;
 
                 let rhs = &decl[idx].1;
                 let tokens = Tokens(
@@ -264,8 +259,8 @@ impl<'a> MacroExpander<'a> {
 
                 let mut expr = match parser.parse_nt(NtTag::Expr) {
                     Ok(Nonterminal::Expr(exp)) => exp,
-                    Err(Spanned(e, span)) => {
-                        return Err(Spanned(ExpError::NtParseError(e), span))
+                    Err((e, span)) => {
+                        return Err((ExpError::NtParseError(e), span))
                     }
                     _ => unreachable!(),
                 };
@@ -377,13 +372,13 @@ fn expand(
                             Nonterminal::Literal(tok) | Nonterminal::Ident(tok),
                         ) => TokenTree::Token(tok),
                         BoundMatch::Single(t) => {
-                            TokenTree::Token(Spanned(
+                            TokenTree::Token((
                                 TokenTag::Interpolated(Box::new(t)),
                                 id.1, // Use metavar span for it
                             ))
                         }
                         BoundMatch::Seq(..) => {
-                            return Err(Spanned(
+                            return Err((
                                 ExpError::VariableIsStillRepeating(
                                     id.0.to_string(),
                                 ),
@@ -394,7 +389,7 @@ fn expand(
 
                     result.push(tt);
                 } else {
-                    return Err(Spanned(
+                    return Err((
                         ExpError::UndeclaredMetavar(id.0.to_string()),
                         id.1,
                     ));
@@ -407,10 +402,7 @@ fn expand(
                         stack.push(Frame::rep(seq, sep.clone(), *rep))
                     }
                     None => {
-                        return Err(Spanned(
-                            ExpError::NothingToUnwind,
-                            mtt.span(),
-                        ))
+                        return Err((ExpError::NothingToUnwind, mtt.span()))
                     }
                 }
             }

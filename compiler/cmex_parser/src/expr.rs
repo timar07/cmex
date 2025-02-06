@@ -8,7 +8,7 @@ use cmex_ast::{
     token::{NumberLiteralKind, TokenTag::*},
     Expr, InvocationTag, Nonterminal,
 };
-use cmex_span::{MaybeSpannable, Span, Spannable, Spanned, Unspan};
+use cmex_span::{MaybeSpannable, Span, Spannable, Unspan};
 
 impl Parser<'_> {
     pub fn constant_expression(&mut self) -> PR<Expr> {
@@ -288,23 +288,20 @@ impl Parser<'_> {
                     require_tok!(self, RightBrace)?;
 
                     Expr::UnExpr {
-                        op: Spanned(Asterisk, span),
+                        op: (Asterisk, span),
                         rhs: Box::new(Expr::Paren(Box::new(Expr::BinExpr {
-                            op: Spanned(Plus, span),
+                            op: (Plus, span),
                             lhs: Box::new(expr),
                             rhs: Box::new(idx),
                         }))),
                     }
                 }
                 Not => match expr {
-                    Expr::Primary(id @ Spanned(Identifier(_), _)) => {
-                        Expr::Invocation(InvocationTag::Bang(
-                            id,
-                            Some(self.delim_token_tree()?),
-                        ))
-                    }
+                    Expr::Primary(id @ (Identifier(_), _)) => Expr::Invocation(
+                        InvocationTag::Bang(id, Some(self.delim_token_tree()?)),
+                    ),
                     _ => {
-                        return Err(Spanned(
+                        return Err((
                             ParseErrorTag::Expected(
                                 "identifier before macro invocation".into(),
                             ),
@@ -319,15 +316,15 @@ impl Parser<'_> {
                 },
                 ArrowRight => Expr::MemberAccess {
                     expr: Box::new(Expr::UnExpr {
-                        op: Spanned(Asterisk, span),
+                        op: (Asterisk, span),
                         rhs: Box::new(expr),
                     }),
                     member: require_tok!(self, Identifier(_))?,
                 },
                 Increment | Decrement => Expr::Paren(Box::new(Expr::BinExpr {
-                    op: Spanned(AddAssign, span),
+                    op: (AddAssign, span),
                     lhs: Box::new(expr),
-                    rhs: Box::new(Expr::Primary(Spanned(
+                    rhs: Box::new(Expr::Primary((
                         NumberLiteral {
                             literal: "1".into(),
                             prefix: None,
@@ -387,7 +384,7 @@ impl Parser<'_> {
                     // We can interpolate only expression nonterminal in this
                     // context
                     Nonterminal::Expr(expr) => Ok(expr),
-                    _ => Err(Spanned(
+                    _ => Err((
                         ParseErrorTag::InterpolationFailed(*nt),
                         self.iter.next().span().unwrap(),
                     )),
@@ -397,7 +394,7 @@ impl Parser<'_> {
                 self.iter.next();
                 self.parenthesized()
             }
-            Some(t) => Err(Spanned(
+            Some(t) => Err((
                 ParseErrorTag::UnexpectedToken(t),
                 self.iter.peek().span().unwrap(),
             )),

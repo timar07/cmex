@@ -2,7 +2,7 @@ pub mod ast_dump;
 pub mod token;
 mod tree_builder;
 
-use cmex_span::{MaybeSpannable, Span, Spannable, Spanned};
+use cmex_span::{MaybeSpannable, Span, Spannable};
 
 use token::{Token, TokenTag};
 
@@ -569,7 +569,7 @@ impl TokenTree {
                 let mut toks = vec![];
                 let (l, r) = delim_tag.get_delims();
                 let DelimSpan(lspan, rspan) = delim_span.to_owned();
-                toks.push(Spanned(l, lspan));
+                toks.push((l, lspan));
                 toks.append(
                     &mut vec
                         .to_vec()
@@ -578,7 +578,7 @@ impl TokenTree {
                         .reduce(|a, b| [a, b].concat())
                         .unwrap_or_else(Vec::new),
                 );
-                toks.push(Spanned(r, rspan));
+                toks.push((r, rspan));
                 toks
             }
         }
