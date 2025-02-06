@@ -116,21 +116,6 @@ impl Parser<'_> {
     }
 
     #[instrument(skip_all)]
-    pub fn block(&mut self) -> PR<(Vec<Stmt>, Span)> {
-        let (_, open) = require_tok!(self, LeftCurly)?;
-
-        let mut stmts = Vec::new();
-
-        while !matches!(self.iter.peek().val(), Some(RightCurly)) {
-            stmts.push(self.statement()?);
-        }
-
-        let (_, close) = self.iter.next().unwrap();
-
-        Ok((stmts, Span::join(open, close)))
-    }
-
-    #[instrument(skip_all)]
     fn expression_statement(&mut self) -> PR<Option<Expr>> {
         let expr = if !check_tok!(self, Semicolon) {
             Some(self.expression().inspect_err(|_| {

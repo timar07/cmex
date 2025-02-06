@@ -18,6 +18,8 @@ impl Parser<'_> {
     pub fn expression(&mut self) -> PR<Expr> {
         let mut expr = self.assignment()?;
 
+        // Comma operator is bizzare feature we may want to parse as a
+        // delimiter rather then as an operator in some contexts
         if self.opts.allow_comma_op {
             while let Some(op) = match_tok!(self, Comma) {
                 expr = Expr::BinExpr {
@@ -260,6 +262,11 @@ impl Parser<'_> {
         }
     }
 
+    /// To be clear, some of the C syntax sugar representation is
+    /// not implemented at all, we transform it into simpler expressions
+    /// in-place.
+    /// For example `a->b` will be transformed into `(*a).b`,
+    /// `a++` to `(a += 1)`, etc.
     fn postfix(&mut self) -> PR<Expr> {
         let mut expr = self.primary()?;
 
@@ -293,7 +300,12 @@ impl Parser<'_> {
                     Expr::Primary(id @ (Identifier(_), _)) => Expr::Invocation(
                         InvocationTag::Bang(id, Some(self.delim_token_tree()?)),
                     ),
-                    _ => panic!("expected identifier before macro invocation"),
+                    _ => return Err(Spanned(
+                        ParseErrorTag::Expected(
+                            "identifier before macro invocation".into()
+                        ),
+                        self.iter.peek().unwrap().1
+                    ))
                 },
                 LeftParen => self.parse_call(expr)?,
                 Dot => Expr::MemberAccess {
@@ -320,7 +332,7 @@ impl Parser<'_> {
                         span,
                     ))),
                 })),
-                _ => panic!(),
+                _ => unreachable!(),
             }
         }
 
@@ -367,6 +379,8 @@ impl Parser<'_> {
             Some(Interpolated(nt)) => {
                 self.iter.next();
                 match *nt {
+                    // We can interpolate only expression nonterminal in this
+                    // context
                     Nonterminal::Expr(expr) => Ok(expr),
                     _ => Err(Spanned(
                         ParseErrorTag::InterpolationFailed(*nt),
@@ -398,6 +412,10 @@ impl Parser<'_> {
         expr
     }
 
+    /// Statement expression is not a ANSI C feature, but the project kind of
+    /// depends on this functionality, so it's supported here.
+    /// For more information, see:
+    /// <https://gcc.gnu.org/onlinedocs/gcc/Statement-Exprs.html>
     fn statement_expression(&mut self) -> PR<Expr> {
         let (inner, span) = self.block()?;
         Ok(Expr::StmtExpr(inner, span))

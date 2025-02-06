@@ -91,11 +91,12 @@ impl Spannable for StmtTag {
 
 #[derive(Debug, Clone)]
 pub enum DeclTag {
-    /// `include` are represented directly in AST.
+    /// `include`s are represented directly in AST.
     Include {
         path: String,
         span: Span,
     },
+    /// Struct or union
     Record(Option<Token>, Vec<FieldDecl>),
     Enum(Option<Token>, Vec<EnumConstantDecl>),
     Func {
@@ -129,6 +130,8 @@ pub enum DeclTag {
     },
     Macro {
         id: Token,
+        /// Macro's body is represented as a token tree for now,
+        /// it'll parsed later when macro is actually invoked
         body: TokenTree,
     },
 }

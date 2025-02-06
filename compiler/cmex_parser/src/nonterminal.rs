@@ -1,10 +1,11 @@
 //! Nonterminals parsing facade for parser.
 //! This functionality is mostly used during metavariables parsing in macros.
 
-use cmex_ast::{token::TokenTag, Nonterminal, NtTag};
-use cmex_span::{MaybeSpannable, Spanned, Unspan};
+use cmex_ast::{token::TokenTag::*, Nonterminal, NtTag, Stmt};
+use cmex_span::{MaybeSpannable, Span, Spanned, Unspan};
+use tracing::instrument;
 
-use crate::{ParseErrorTag, Parser, PR};
+use crate::{require_tok, ParseErrorTag, Parser, PR};
 
 impl Parser<'_> {
     /// Parse nonterminal. There is only on usage case so far so the function
@@ -15,9 +16,9 @@ impl Parser<'_> {
             NtTag::Block => Ok(Nonterminal::Block(self.block()?.0)),
             NtTag::Literal => match self.iter.peek().val() {
                 Some(
-                    TokenTag::NumberLiteral { .. }
-                    | TokenTag::CharLiteral
-                    | TokenTag::StringLiteral(_),
+                    NumberLiteral { .. }
+                    | CharLiteral
+                    | StringLiteral(_),
                 ) => Ok(Nonterminal::Literal(self.iter.next().unwrap())),
                 _ => Err(Spanned(
                     ParseErrorTag::Expected("literal".into()),
@@ -25,7 +26,7 @@ impl Parser<'_> {
                 )),
             },
             NtTag::Ident => match self.iter.peek().val() {
-                Some(TokenTag::Identifier(_)) => {
+                Some(Identifier(_)) => {
                     Ok(Nonterminal::Ident(self.iter.next().unwrap()))
                 }
                 _ => Err(Spanned(
@@ -44,5 +45,20 @@ impl Parser<'_> {
             NtTag::Ty => Ok(Nonterminal::Ty(self.type_name()?)),
             NtTag::Expr => Ok(Nonterminal::Expr(self.expression()?)),
         }
+    }
+
+    #[instrument(skip_all)]
+    pub fn block(&mut self) -> PR<(Vec<Stmt>, Span)> {
+        let (_, open) = require_tok!(self, LeftCurly)?;
+
+        let mut stmts = Vec::new();
+
+        while !matches!(self.iter.peek().val(), Some(RightCurly)) {
+            stmts.push(self.statement()?);
+        }
+
+        let (_, close) = self.iter.next().unwrap();
+
+        Ok((stmts, Span::join(open, close)))
     }
 }
