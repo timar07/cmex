@@ -36,6 +36,7 @@ name = "cmex_compile"
 version = "0.1.0"
 dependencies = [
  "cmex_ast",
+ "cmex_span",
 ]
 
 [[package]]
