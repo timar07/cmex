@@ -64,10 +64,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "cmex_iter"
+version = "0.1.0"
+
+[[package]]
 name = "cmex_lexer"
 version = "0.1.0"
 dependencies = [
  "cmex_ast",
+ "cmex_iter",
  "cmex_span",
  "tracing",
 ]
@@ -91,6 +96,7 @@ version = "0.1.0"
 dependencies = [
  "cmex_ast",
  "cmex_errors",
+ "cmex_iter",
  "cmex_lexer",
  "cmex_span",
  "cmex_symtable",

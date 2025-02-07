@@ -1,16 +1,15 @@
 mod decl;
 mod expr;
-mod lookahead;
 mod macros;
 mod nonterminal;
 mod stmt;
 
 use cmex_ast::{token::TokenTag, Nonterminal, TranslationUnit};
 use cmex_errors::ErrorEmitter;
+use cmex_iter::Lookahead;
 use cmex_lexer::{Tokens, TokensIter};
 use cmex_span::Spanned;
 use cmex_symtable::SymTable;
-pub use lookahead::Lookahead;
 
 pub(crate) type PR<T> = Result<T, ParseError>;
 

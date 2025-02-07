@@ -1,10 +1,11 @@
 use std::str::{CharIndices, Chars};
+use cmex_iter::Lookahead;
 
 /// Iterator over the string used due the lexing phase.
 #[derive(Clone)]
 pub struct Cursor<'src> {
     src: CharIndices<'src>,
-    iter: Chars<'src>,
+    iter: Lookahead<Chars<'src>>,
     current: Option<char>,
     pub pos: usize,
 }
@@ -13,7 +14,7 @@ impl<'a> Cursor<'a> {
     pub fn new(src: &'a str) -> Self {
         Self {
             src: src.char_indices(),
-            iter: src.chars(),
+            iter: Lookahead::from(src.chars()),
             current: None,
             pos: 0,
         }
@@ -53,7 +54,7 @@ impl<'a> Cursor<'a> {
     }
 
     pub fn lookahead(&mut self, n: usize) -> Option<char> {
-        self.iter.clone().nth(n - 1) // TODO: Implement Lookahead<T> instead?
+        self.iter.lookahead(n)
     }
 
     pub fn take_while<P>(&mut self, mut predicate: P) -> String
