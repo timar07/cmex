@@ -9,6 +9,7 @@ kr_func_decl = []
 [dependencies]
 cmex_errors = { path = "../cmex_errors" }
 cmex_span = { path = "../cmex_span" }
+cmex_iter = { path = "../cmex_iter" }
 cmex_symtable = { path = "../cmex_symtable" }
 cmex_ast = { path = "../cmex_ast" }
 cmex_lexer = { path = "../cmex_lexer" }
