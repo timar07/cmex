@@ -93,6 +93,7 @@ impl Iterator for Lexer<'_> {
     fn next(&mut self) -> Option<Self::Item> {
         let token = self.lex_token();
         debug!("{:?}", token);
+        self.skip_ignored();
         token
     }
 }
