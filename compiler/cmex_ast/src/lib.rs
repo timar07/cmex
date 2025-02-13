@@ -229,6 +229,12 @@ pub enum DirectDeclarator {
     Abstract,
 }
 
+impl Default for DirectDeclarator {
+    fn default() -> Self {
+        Self::Abstract
+    }
+}
+
 impl DirectDeclarator {
     pub fn is_abstract(&self) -> bool {
         match self {
@@ -283,6 +289,12 @@ pub enum DeclaratorSuffix {
     ///         /* ^~~~~~~ function declarator suffix */
     /// ```
     Func(Option<ParamList>),
+}
+
+impl Default for DeclaratorSuffix {
+    fn default() -> Self {
+        Self::Func(None)
+    }
 }
 
 impl MaybeSpannable for DeclaratorSuffix {
@@ -504,6 +516,12 @@ pub enum Expr {
     },
     Invocation(InvocationTag),
     StmtExpr(Vec<Stmt>, Span),
+}
+
+impl Default for Expr {
+    fn default() -> Self {
+        Self::Primary((TokenTag::Error, Span::dummy()))
+    }
 }
 
 impl Spannable for Expr {

@@ -1,5 +1,5 @@
-use std::str::{CharIndices, Chars};
 use cmex_iter::Lookahead;
+use std::str::{CharIndices, Chars};
 
 /// Iterator over the string used due the lexing phase.
 #[derive(Clone)]

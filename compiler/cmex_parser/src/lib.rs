@@ -4,11 +4,11 @@ mod macros;
 mod nonterminal;
 mod stmt;
 
-use cmex_ast::{token::TokenTag, Nonterminal, TranslationUnit};
+use cmex_ast::{token::{Token, TokenTag}, Nonterminal, TranslationUnit};
 use cmex_errors::ErrorEmitter;
 use cmex_iter::Lookahead;
 use cmex_lexer::{Tokens, TokensIter};
-use cmex_span::Spanned;
+use cmex_span::{MaybeSpannable, Spanned, Unspan};
 use cmex_symtable::SymTable;
 
 pub(crate) type PR<T> = Result<T, ParseError>;
@@ -54,6 +54,57 @@ impl<'a> Parser<'a> {
     pub fn next(&mut self) {
         self.iter.next();
     }
+
+    pub(crate) fn curly_wrapped<T, F>(&mut self, f: F) -> PR<T>
+    where
+        T: Default,
+        F: Fn(&mut Self) -> PR<T>,
+    {
+        self.delim_wrapped((TokenTag::LeftCurly, TokenTag::RightCurly), f)
+    }
+
+    pub(crate) fn paren_wrapped<T, F>(&mut self, f: F) -> PR<T>
+    where
+        T: Default,
+        F: Fn(&mut Self) -> PR<T>,
+    {
+        self.delim_wrapped((TokenTag::LeftParen, TokenTag::RightParen), f)
+    }
+
+    fn delim_wrapped<T, F>(
+        &mut self,
+        delims: (TokenTag, TokenTag),
+        f: F,
+    ) -> PR<T>
+    where
+        T: Default,
+        F: Fn(&mut Self) -> PR<T>,
+    {
+        self.require_tok(delims.0)?;
+        let inner = f(self)
+            .inspect_err(|err| {
+                while self.iter.peek().val().as_ref() != Some(&delims.1) {
+                    self.iter.next();
+                }
+
+                self.errors.emit(err)
+            })
+            .unwrap_or(T::default());
+        self.require_tok(delims.1)?;
+        Ok(inner)
+    }
+
+    #[inline]
+    pub(crate) fn require_tok(&mut self, tok: TokenTag) -> PR<Token> {
+        if self.iter.peek().val() == Some(tok.clone()) {
+            Ok(self.iter.next().unwrap())
+        } else {
+            Err((
+                ParseErrorTag::Expected(format!("`{}`", tok)),
+                self.iter.peek().span().unwrap()
+            ))
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -73,6 +124,7 @@ pub enum ParseErrorTag {
     DeclarationHasNoInitializer,
     UnexpectedDeclarationSuffix,
     UnexpectedToken(TokenTag),
+    UnknownTypeName(String),
     NameAlreadyDefined(String),
     UnexpectedEof,
 }
@@ -92,6 +144,9 @@ impl std::fmt::Display for ParseErrorTag {
             }
             Self::UnexpectedToken(tok) => {
                 write!(f, "unexpected token `{:?}`", tok)
+            }
+            Self::UnknownTypeName(ty) => {
+                write!(f, "unknown type name `{ty}`")
             }
             Self::NameAlreadyDefined(name) => {
                 write!(f, "name `{}` is already defined", name)
@@ -115,6 +170,15 @@ impl std::fmt::Display for ParseErrorTag {
             Self::UnexpectedEof => write!(f, "unexpected end of file"),
         }
     }
+}
+
+#[macro_export]
+macro_rules! skip_until {
+    ($parser:expr, $pat:pat) => {
+        while !matches!($parser.iter.peek().val(), Some($pat)) {
+            $parser.iter.next();
+        }
+    };
 }
 
 /// Check if kth token ahead matches `$pat`
@@ -156,7 +220,7 @@ macro_rules! require_tok {
                     stringify!($pat).into(),
                     $parser.iter.peek().val().clone(),
                 ),
-                Span::from($parser.get_pos()),
+                cmex_span::Span::from($parser.get_pos()),
             )),
         }
     };

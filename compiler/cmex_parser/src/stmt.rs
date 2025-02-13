@@ -4,29 +4,11 @@
 //! <https://github.com/antlr/grammars-v3/blob/master/ANSI-C/C.g>
 
 use super::{ParseError, ParseErrorTag, Parser, PR};
-use crate::{check_tok, lookahead, match_tok, require_tok};
+use crate::{check_tok, lookahead, match_tok, require_tok, skip_until};
 use cmex_ast::token::{Token, TokenTag::*};
 use cmex_ast::*;
 use cmex_span::{MaybeSpannable, Span, Spannable, Unspan};
-use tracing::{debug, instrument};
-
-macro_rules! curly_wrapped {
-    ($self:expr, $expr:expr) => {{
-        match_tok!($self, LeftCurly);
-        let inner = $expr;
-        require_tok!($self, RightCurly)?;
-        inner
-    }};
-}
-
-macro_rules! paren_wrapped {
-    ($self:expr, $expr:expr) => {{
-        match_tok!($self, LeftParen);
-        let inner = $expr;
-        require_tok!($self, RightParen)?;
-        inner
-    }};
-}
+use tracing::instrument;
 
 impl Parser<'_> {
     #[instrument(skip_all)]
@@ -42,15 +24,7 @@ impl Parser<'_> {
                     decls.append(&mut decl);
                 }
                 Err(err) => {
-                    while !check_tok!(self, Comma | Semicolon | RightCurly) {
-                        if self.iter.next().is_none() {
-                            break;
-                        }
-                    }
-
-                    debug!("Synchronize parser");
-
-                    errors.push(err);
+                    self.errors.emit(&err);
                 }
             }
         }
@@ -105,7 +79,12 @@ impl Parser<'_> {
         let mut stmts = Vec::new();
 
         while !check_tok!(self, RightCurly) {
-            stmts.push(self.statement()?);
+            match self.statement() {
+                Ok(stmt) => {
+                    stmts.push(stmt);
+                }
+                Err(err) => self.errors.emit(&err),
+            }
         }
 
         self.symbols.leave();
@@ -118,16 +97,36 @@ impl Parser<'_> {
     #[instrument(skip_all)]
     fn expression_statement(&mut self) -> PR<Option<Expr>> {
         let expr = if !check_tok!(self, Semicolon) {
-            Some(self.expression().inspect_err(|_| {
-                while !check_tok!(self, Semicolon) {
-                    self.iter.next();
-                }
-            })?)
+            Some(
+                self.expression()
+                    .inspect_err(|_| skip_until!(self, Semicolon))?,
+            )
         } else {
             None
         };
 
-        require_tok!(self, Semicolon)?;
+        require_tok!(self, Semicolon)
+            .map_err(|err| {
+                match &expr {
+                    Some(Expr::Primary((Identifier(id), span)))
+                        if check_tok!(self, Identifier(_)) =>
+                    {
+                        // If we found two identifiers together, this is
+                        // probably meant to be a declaration
+                        self.external_decl_tail(None, Vec::new())
+                            .inspect_err(|err| self.errors.emit(err))
+                            .ok();
+
+                        (
+                            ParseErrorTag::UnknownTypeName(id.to_string()),
+                            span.clone(),
+                        )
+                    }
+                    _ => err,
+                }
+            })
+            .inspect_err(|err| self.errors.emit(err))
+            .ok();
         Ok(expr)
     }
 
@@ -139,7 +138,8 @@ impl Parser<'_> {
 
                 Stmt {
                     tag: StmtTag::While {
-                        cond: paren_wrapped!(self, { self.expression()? }),
+                        cond: self
+                            .paren_wrapped(|parser| parser.expression())?,
                         stmt: Box::new(self.statement()?),
                     },
                 }
@@ -148,7 +148,7 @@ impl Parser<'_> {
                 self.iter.next();
                 let stmt = Box::new(self.statement()?);
                 require_tok!(self, While)?;
-                let cond = paren_wrapped!(self, { self.expression()? });
+                let cond = self.paren_wrapped(|parser| parser.expression())?;
                 require_tok!(self, Semicolon)?;
 
                 Stmt {
@@ -157,17 +157,17 @@ impl Parser<'_> {
             }
             Some(For) => {
                 self.iter.next();
-                let header = paren_wrapped!(self, {
-                    (
-                        self.expression_statement()?,
-                        self.expression_statement()?,
-                        if !check_tok!(self, RightParen) {
-                            Some(self.expression()?)
+                let header = self.paren_wrapped(|parser| {
+                    Ok((
+                        parser.expression_statement()?,
+                        parser.expression_statement()?,
+                        if !check_tok!(parser, RightParen) {
+                            Some(parser.expression()?)
                         } else {
                             None
                         },
-                    )
-                });
+                    ))
+                })?;
 
                 Stmt {
                     tag: StmtTag::For(
@@ -187,7 +187,7 @@ impl Parser<'_> {
         match self.iter.peek().val() {
             Some(If) => {
                 self.iter.next();
-                let cond = paren_wrapped!(self, { self.expression()? });
+                let cond = self.paren_wrapped(|parser| parser.expression())?;
                 let if_stmt = Box::new(self.statement()?);
                 let else_stmt = if check_tok!(self, Else) {
                     Some(Box::new(self.statement()?))
@@ -203,7 +203,7 @@ impl Parser<'_> {
                 self.iter.next();
                 Ok(Stmt {
                     tag: StmtTag::Switch(
-                        paren_wrapped!(self, { self.expression()? }),
+                        self.paren_wrapped(|parser| parser.expression())?,
                         Box::new(self.statement()?),
                     ),
                 })
@@ -412,6 +412,13 @@ impl Parser<'_> {
         Ok(InitDeclarator(
             self.declarator()?,
             if check_tok!(self, Assign) {
+                if let Some(tok) = match_tok!(self, Semicolon) {
+                    return Err((
+                        ParseErrorTag::Expected("initializer".into()),
+                        tok.span()
+                    ))
+                }
+
                 Some(self.initializer()?)
             } else {
                 None
@@ -439,7 +446,7 @@ impl Parser<'_> {
 
         Ok(TypeSpecifier::Record(
             maybe_id,
-            curly_wrapped!(self, { self.struct_decl_list()? }),
+            self.curly_wrapped(|parser| { parser.struct_decl_list() })?,
         ))
     }
 
@@ -556,7 +563,7 @@ impl Parser<'_> {
 
         Ok(TypeSpecifier::Enum(
             maybe_id,
-            curly_wrapped!(self, { self.enumerator_list()? }),
+            self.curly_wrapped(|parser| { parser.enumerator_list() })?,
         ))
     }
 
@@ -606,9 +613,11 @@ impl Parser<'_> {
             Some(Identifier(_)) => {
                 Ok(DirectDeclarator::Identifier(self.iter.next().unwrap()))
             }
-            Some(LeftParen) => Ok(paren_wrapped!(self, {
-                DirectDeclarator::Paren(self.declarator()?)
-            })),
+            Some(LeftParen) => Ok(
+                self.paren_wrapped(|parser| {
+                    Ok(DirectDeclarator::Paren(parser.declarator()?))
+                })?
+            ),
             Some(_) => Ok(DirectDeclarator::Abstract),
             _ => panic!(),
         }
@@ -646,9 +655,9 @@ impl Parser<'_> {
                     )));
                 }
 
-                paren_wrapped!(self, {
+                self.paren_wrapped(|parser| {
                     Ok(DeclaratorSuffix::Func(Some(
-                        self.parameter_type_list()?,
+                        parser.parameter_type_list()?,
                     )))
                 })
             }

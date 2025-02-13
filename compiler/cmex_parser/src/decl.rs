@@ -5,13 +5,12 @@ use cmex_ast::{
 use cmex_span::{MaybeSpannable, Span, Spannable, Unspan};
 use tracing::instrument;
 
-use crate::{
-    check_tok, match_tok, require_tok, ParseErrorTag, Parser, SymbolTag, PR,
-};
+use crate::{check_tok, lookahead, match_tok, require_tok, skip_until};
+use crate::{ParseErrorTag, Parser, SymbolTag, PR};
 
 impl Parser<'_> {
-    /// External declaration is a top level declaration (e.g. functions)
-    /// or a regular declaration
+    /// External declaration is a top level declaration (e.g. functions,
+    /// macros, typdefs) or a regular declarations
     #[instrument(skip_all)]
     pub(crate) fn external_decl(&mut self) -> PR<Vec<DeclTag>> {
         let mut decl_list = Vec::with_capacity(1);
@@ -35,21 +34,38 @@ impl Parser<'_> {
                 decl_list.push(self.typedef()?);
                 return Ok(decl_list);
             }
-            _ => {}
-        }
+            Some(Identifier(tok)) if lookahead!(self, 1, Identifier(_)) => {
+                let span = self.iter.next().span().unwrap();
 
-        let spec = self.maybe_decl_specifiers()?;
+                self.external_decl_tail(None, decl_list)
+                    .inspect_err(|err| self.errors.emit(err))
+                    .ok();
 
-        // TODO: hotfix, refactor
-        if check_tok!(self, Semicolon) {
-            if let Some(ref spec) = spec {
-                if let Some(decl) = self.type_definition(spec)? {
-                    decl_list.push(decl);
-                    return Ok(decl_list);
+                return Err((ParseErrorTag::UnknownTypeName(tok), span));
+            }
+            _ => {
+                let spec = self.maybe_decl_specifiers()?;
+
+                // TODO: hotfix, refactor
+                if check_tok!(self, Semicolon) {
+                    if let Some(ref spec) = spec {
+                        if let Some(decl) = self.type_definition(spec)? {
+                            decl_list.push(decl);
+                            return Ok(decl_list);
+                        }
+                    }
                 }
+
+                self.external_decl_tail(spec, decl_list)
             }
         }
+    }
 
+    pub(crate) fn external_decl_tail(
+        &mut self,
+        spec: Option<Vec<DeclSpecifier>>,
+        mut decl_list: Vec<DeclTag>,
+    ) -> PR<Vec<DeclTag>> {
         while !matches!(self.iter.peek().val(), Some(Semicolon) | None) {
             let decl = self.init_declarator()?;
 
@@ -103,6 +119,8 @@ impl Parser<'_> {
     fn typedef(&mut self) -> PR<DeclTag> {
         let keyword = require_tok!(self, Typedef)?;
         let specs = self.maybe_decl_specifiers()?.ok_or_else(|| {
+            skip_until!(self, Semicolon);
+
             (
                 ParseErrorTag::Expected("declaration specifiers".into()),
                 keyword.1,
@@ -183,14 +201,29 @@ impl Parser<'_> {
                 body: Box::new(self.compound_statement()?),
             }),
             // Function has a array suffix e.g. `int foo[100]() { ... }`
-            Some(DeclaratorSuffix::Array(suffix)) => Err((
-                ParseErrorTag::UnexpectedDeclarationSuffix,
-                suffix.unwrap().span(),
-            )),
-            _ => Err((
-                ParseErrorTag::Expected("parameter list".into()),
-                self.iter.peek().span().unwrap(),
-            )),
+            Some(DeclaratorSuffix::Array(ref suffix)) => {
+                self.errors.emit(&(
+                    ParseErrorTag::UnexpectedDeclarationSuffix,
+                    suffix.clone().unwrap().span(),
+                ));
+
+                Ok(DeclTag::Func {
+                    spec,
+                    decl: Box::new(decl.0),
+                    body: Box::new(self.compound_statement()?),
+                })
+            }
+            _ => {
+                let span = self.iter.peek().span().unwrap();
+
+                if !check_tok!(self, Semicolon) {
+                    self.compound_statement()
+                        .inspect_err(|err| self.errors.emit(err))
+                        .ok();
+                }
+
+                Err((ParseErrorTag::Expected("parameter list".into()), span))
+            }
         }
     }
 }
