@@ -7,7 +7,7 @@ use super::{ParseError, ParseErrorTag, Parser, PR};
 use crate::{check_tok, lookahead, match_tok, require_tok, skip_until};
 use cmex_ast::token::{Token, TokenTag::*};
 use cmex_ast::*;
-use cmex_span::{MaybeSpannable, Span, Spannable, Unspan};
+use cmex_span::{MaybeSpannable, Spannable, Unspan};
 use tracing::instrument;
 
 impl Parser<'_> {
@@ -16,7 +16,8 @@ impl Parser<'_> {
         &mut self,
     ) -> Result<TranslationUnit, Vec<ParseError>> {
         let mut decls = Vec::new();
-        let mut errors = Vec::new();
+        // TODO: unused
+        let errors = Vec::new();
 
         while self.iter.peek().is_some() {
             match self.external_decl() {
@@ -119,7 +120,7 @@ impl Parser<'_> {
 
                         (
                             ParseErrorTag::UnknownTypeName(id.to_string()),
-                            span.clone(),
+                            span.to_owned()
                         )
                     }
                     _ => err,

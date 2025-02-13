@@ -89,7 +89,7 @@ impl<'a> Parser<'a> {
 
                 self.errors.emit(err)
             })
-            .unwrap_or(T::default());
+            .unwrap_or_default();
         self.require_tok(delims.1)?;
         Ok(inner)
     }
