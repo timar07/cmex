@@ -80,7 +80,7 @@ impl<'a> Parser<'a> {
         T: Default,
         F: Fn(&mut Self) -> PR<T>,
     {
-        self.require_tok(delims.0)?;
+        self.match_tok(delims.0);
         let inner = f(self)
             .inspect_err(|err| {
                 while self.iter.peek().val().as_ref() != Some(&delims.1) {
@@ -94,13 +94,22 @@ impl<'a> Parser<'a> {
         Ok(inner)
     }
 
+    #[inline(always)]
+    pub(crate) fn match_tok(&mut self, tok: TokenTag) -> Option<Token> {
+        if self.iter.peek().val() == Some(tok) {
+            self.iter.next()
+        } else {
+            None
+        }
+    }
+
     #[inline]
     pub(crate) fn require_tok(&mut self, tok: TokenTag) -> PR<Token> {
         if self.iter.peek().val() == Some(tok.clone()) {
             Ok(self.iter.next().unwrap())
         } else {
             Err((
-                ParseErrorTag::Expected(format!("`{}`", tok)),
+                ParseErrorTag::ExpectedGot(format!("`{}`", tok), self.iter.peek().clone().val()),
                 self.iter.peek().span().unwrap()
             ))
         }
@@ -215,13 +224,19 @@ macro_rules! require_tok {
     ($parser:expr, $pat:pat) => {
         match $parser.iter.peek().val() {
             Some($pat) => Ok($parser.iter.next().unwrap()),
-            _ => Err((
-                ParseErrorTag::ExpectedGot(
-                    stringify!($pat).into(),
-                    $parser.iter.peek().val().clone(),
-                ),
-                cmex_span::Span::from($parser.get_pos()),
-            )),
+            _ => {
+                tracing::debug!(
+                    "raised error while expecting pattern '{}'",
+                    stringify!($pat)
+                );
+                Err((
+                    ParseErrorTag::ExpectedGot(
+                        stringify!($pat).into(),
+                        $parser.iter.peek().val().clone(),
+                    ),
+                    cmex_span::Span::from($parser.get_pos()),
+                ))
+            },
         }
     };
 }
