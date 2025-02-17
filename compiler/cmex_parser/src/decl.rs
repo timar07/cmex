@@ -112,8 +112,9 @@ impl Parser<'_> {
             }
         }
 
-        require_tok!(self, Semicolon)
-            .inspect_err(|_| { self.iter.next(); })?;
+        require_tok!(self, Semicolon).inspect_err(|_| {
+            self.iter.next();
+        })?;
         Ok(decl_list)
     }
 

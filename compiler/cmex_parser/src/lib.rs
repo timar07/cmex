@@ -4,7 +4,10 @@ mod macros;
 mod nonterminal;
 mod stmt;
 
-use cmex_ast::{token::{Token, TokenTag}, Nonterminal, TranslationUnit};
+use cmex_ast::{
+    token::{Token, TokenTag},
+    Nonterminal, TranslationUnit,
+};
 use cmex_errors::ErrorEmitter;
 use cmex_iter::Lookahead;
 use cmex_lexer::{Tokens, TokensIter};
@@ -109,8 +112,11 @@ impl<'a> Parser<'a> {
             Ok(self.iter.next().unwrap())
         } else {
             Err((
-                ParseErrorTag::ExpectedGot(format!("`{}`", tok), self.iter.peek().clone().val()),
-                self.iter.peek().span().unwrap()
+                ParseErrorTag::ExpectedGot(
+                    format!("`{}`", tok),
+                    self.iter.peek().clone().val(),
+                ),
+                self.iter.peek().span().unwrap(),
             ))
         }
     }
@@ -236,7 +242,7 @@ macro_rules! require_tok {
                     ),
                     cmex_span::Span::from($parser.get_pos()),
                 ))
-            },
+            }
         }
     };
 }
