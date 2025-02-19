@@ -16,7 +16,7 @@ macro_rules! require_tok {
                     stringify!($pat),
                     $iter.peek()
                 ),
-                $iter.peek().unwrap().span(),
+                $iter.next().unwrap().span(),
             ));
         }
     };
