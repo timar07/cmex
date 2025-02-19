@@ -1,6 +1,6 @@
-use std::fs::File;
+use clap::Parser as CliParser;
+use std::fs::{self, File};
 use std::io::BufWriter;
-use std::{env, fs};
 use tracing_subscriber::EnvFilter;
 
 use cmex_ast::{ast_dump::AstDumper, token::TokenTag, TranslationUnit};
@@ -10,17 +10,24 @@ use cmex_lexer::{Lexer, Tokens};
 use cmex_macros::MacroExpander;
 use cmex_parser::{ParseOptions, Parser};
 
-/// TODO: maybe it worth using clap?
-fn print_help() {
-    println!("Usage: cmex [options] input");
-    println!("Options:");
-    println!(
-        "
-    -h, --help     Print help
-    -ast-dump      Dump parsed AST
-    -E             Expand macros in dumped tree
-    "
-    );
+#[derive(CliParser)]
+#[command(name = "cmex")]
+#[command(version, about = "The C programming language macro extension")]
+struct Cli {
+    /// Input file
+    src: Option<String>,
+
+    /// Sets an output file, defaults to `out.c`
+    #[arg(short, long, value_name = "OUTPUT")]
+    output: Option<String>,
+
+    /// Dump parsed AST
+    #[arg(long)]
+    ast_dump: bool,
+
+    /// Expand macros in dumped AST
+    #[arg(short, long)]
+    expand: bool,
 }
 
 fn compile_file(path: &String, ast: &TranslationUnit) -> std::io::Result<()> {
@@ -34,19 +41,15 @@ pub fn main() {
         .with_env_filter(EnvFilter::from_default_env())
         .init();
 
-    let args: Vec<String> = env::args().collect();
+    let cli = Cli::parse();
 
-    if args.contains(&"-h".into()) {
-        print_help();
-        return;
-    }
-
-    let file = fs::read_to_string(&args[1])
-        .unwrap_or_else(|_| panic!("unable to read file `{}`", args[0]));
+    let src = cli.src.expect("file name must be specified");
+    let file = fs::read_to_string(&src)
+        .unwrap_or_else(|_| panic!("unable to read file `{}`", src));
     let lexer = Lexer::from(file.as_str());
     let emitter = ErrorEmitter::new(
         file.as_str(),
-        ErrorBuilder::new().filename(args[1].clone()),
+        ErrorBuilder::new().filename(src.clone()),
     );
     let tokens = Tokens(
         lexer
@@ -71,28 +74,20 @@ pub fn main() {
 
     match &mut parser.parse() {
         Ok(ast) => {
-            if args.contains(&"-E".into()) || args.contains(&"-o".into()) {
+            if cli.expand || cli.output.is_some() {
                 if let Err(err) = expander.expand_ast(ast) {
                     emitter.emit(&err);
                     return;
                 }
             }
 
-            if args.contains(&"-ast-dump".into()) {
+            if cli.ast_dump {
                 println!("{}", AstDumper::new(ast));
                 return;
             }
 
-            let mut iter = args.iter();
-            if iter.any(|flag| *flag == "-o") {
-                match iter.next() {
-                    Some(path) => {
-                        compile_file(path, ast).unwrap();
-                    }
-                    None => {
-                        panic!("missing filename after `-o` option");
-                    }
-                }
+            if let Some(path) = cli.output {
+                compile_file(&path, ast).unwrap();
             }
         }
         Err(errors) => {
