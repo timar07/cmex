@@ -4,7 +4,7 @@
 //! <https://github.com/antlr/grammars-v3/blob/master/ANSI-C/C.g>
 
 use super::{ParseError, ParseErrorTag, Parser, PR};
-use crate::{check_tok, lookahead, match_tok, require_tok, skip_until};
+use crate::{check_tok, lookahead, match_tok, require_tok, skip_until, SymbolTag};
 use cmex_ast::token::{Token, TokenTag::*};
 use cmex_ast::*;
 use cmex_span::{MaybeSpannable, Spannable, Unspan};
@@ -120,7 +120,7 @@ impl Parser<'_> {
 
                         (
                             ParseErrorTag::UnknownTypeName(id.to_string()),
-                            span.to_owned(),
+                            span.to_owned()
                         )
                     }
                     _ => err,
@@ -388,7 +388,9 @@ impl Parser<'_> {
             Some(Struct | Union | Enum) => {
                 lookahead!(self, 1, Identifier(_) | LeftCurly)
             }
-            Some(Identifier(_)) => false, // TODO: check
+            Some(Identifier(id)) => {
+                matches!(self.symbols.lookup(&id), Some((SymbolTag::Type, _)))
+            },
             _ => false,
         }
     }
@@ -416,8 +418,8 @@ impl Parser<'_> {
                 if let Some(tok) = match_tok!(self, Semicolon) {
                     return Err((
                         ParseErrorTag::Expected("initializer".into()),
-                        tok.span(),
-                    ));
+                        tok.span()
+                    ))
                 }
 
                 Some(self.initializer()?)
@@ -447,7 +449,7 @@ impl Parser<'_> {
 
         Ok(TypeSpecifier::Record(
             maybe_id,
-            self.curly_wrapped(|parser| parser.struct_decl_list())?,
+            self.curly_wrapped(|parser| { parser.struct_decl_list() })?,
         ))
     }
 
@@ -564,7 +566,7 @@ impl Parser<'_> {
 
         Ok(TypeSpecifier::Enum(
             maybe_id,
-            self.curly_wrapped(|parser| parser.enumerator_list())?,
+            self.curly_wrapped(|parser| { parser.enumerator_list() })?,
         ))
     }
 
@@ -614,9 +616,11 @@ impl Parser<'_> {
             Some(Identifier(_)) => {
                 Ok(DirectDeclarator::Identifier(self.iter.next().unwrap()))
             }
-            Some(LeftParen) => Ok(self.paren_wrapped(|parser| {
-                Ok(DirectDeclarator::Paren(parser.declarator()?))
-            })?),
+            Some(LeftParen) => Ok(
+                self.paren_wrapped(|parser| {
+                    Ok(DirectDeclarator::Paren(parser.declarator()?))
+                })?
+            ),
             Some(_) => Ok(DirectDeclarator::Abstract),
             _ => panic!(),
         }
