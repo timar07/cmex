@@ -1,3 +1,6 @@
+use std::ops::Deref;
+
+use cmex_ast::{Declarator, DirectDeclarator};
 use cmex_ast::{
     token::TokenTag::*, DeclSpecifier, DeclTag, DeclaratorSuffix,
     InitDeclarator, Nonterminal, TypeSpecifier,
@@ -30,10 +33,6 @@ impl Parser<'_> {
                 return Ok(decl_list);
             }
             Some(Hash) => return Ok(vec![self.deprecated_macro()?]),
-            Some(Typedef) => {
-                decl_list.push(self.typedef()?);
-                return Ok(decl_list);
-            }
             Some(Identifier(tok)) if lookahead!(self, 1, Identifier(_)) => {
                 let span = self.iter.next().span().unwrap();
 
@@ -46,6 +45,7 @@ impl Parser<'_> {
             _ => {
                 let spec = self.maybe_decl_specifiers()?;
 
+
                 // TODO: hotfix, refactor
                 if check_tok!(self, Semicolon) {
                     if let Some(ref spec) = spec {
@@ -53,6 +53,52 @@ impl Parser<'_> {
                             decl_list.push(decl);
                             return Ok(decl_list);
                         }
+                    }
+                }
+
+                // FIXME: this needs refactoring...
+                if let Some(spec) = spec.clone() {
+                    let is_typedef = spec
+                        .iter()
+                        .find(|spec| {
+                            matches!(spec, DeclSpecifier::StorageClass((
+                                Typedef,
+                                _
+                            )))
+                        })
+                        .is_some();
+
+                    if is_typedef {
+                        let decls = self.declarator_list()?
+                            .iter()
+                            .inspect(|decl| {
+                                match decl.inner.deref() {
+                                    DirectDeclarator::Identifier(tok) => {
+                                        self.symbols
+                                            .define(tok.0.to_string(), (
+                                                SymbolTag::Type,
+                                                tok.span()
+                                            ));
+                                    }
+                                    _ => {
+                                        self.errors.emit(&(
+                                            ParseErrorTag::Expected("identifier".into()),
+                                            decl.inner.span().unwrap_or_default()
+                                        ))
+                                    }
+                                }
+                            })
+                            .cloned()
+                            .collect();
+
+                        decl_list.push(dbg!(DeclTag::Typedef {
+                            spec,
+                            decl_list: decls
+                        }));
+
+                        require_tok!(self, Semicolon);
+
+                        return Ok(decl_list)
                     }
                 }
 
@@ -114,40 +160,6 @@ impl Parser<'_> {
 
         require_tok!(self, Semicolon)?;
         Ok(decl_list)
-    }
-
-    fn typedef(&mut self) -> PR<DeclTag> {
-        let keyword = require_tok!(self, Typedef)?;
-        let specs = self.maybe_decl_specifiers()?.ok_or_else(|| {
-            skip_until!(self, Semicolon);
-
-            (
-                ParseErrorTag::Expected("declaration specifiers".into()),
-                keyword.1,
-            )
-        })?;
-
-        if let Some(decl) = self.type_definition(specs.as_ref())? {
-            let name = require_tok!(self, Identifier(_))?;
-            self.symbols
-                .define(
-                    name.0.to_string(),
-                    (SymbolTag::Type, Span::join(keyword.1, name.1)),
-                )
-                .map_err(|_| {
-                    (
-                        ParseErrorTag::NameAlreadyDefined(name.0.to_string()),
-                        name.1,
-                    )
-                })?;
-            require_tok!(self, Semicolon)?;
-            Ok(decl)
-        } else {
-            Err((
-                ParseErrorTag::Expected("type definition".into()),
-                specs.span().unwrap_or(keyword.1),
-            ))
-        }
     }
 
     #[instrument(skip_all)]

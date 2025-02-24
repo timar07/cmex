@@ -180,6 +180,9 @@ impl AstNodeDump for DeclTag {
             DeclTag::Macro { id, .. } => {
                 tb.append_leaf(format!("Macro `{}`", id.0));
             }
+            DeclTag::Typedef { .. } => {
+                tb.append_leaf(format!("Typedef"));
+            }
         }
     }
 }

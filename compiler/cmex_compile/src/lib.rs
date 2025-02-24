@@ -161,6 +161,18 @@ where
                 );
             }
             DeclTag::Macro { .. } => { /* Macros are not compiled */ }
+            DeclTag::Typedef { spec, decl_list } => {
+                emit!(
+                    self,
+                    "{} {};",
+                    self.compile_specs(spec),
+                    decl_list
+                        .iter()
+                        .map(|decl| self.compile_declarator(decl))
+                        .collect::<Vec<String>>()
+                        .join(", ")
+                );
+            }
         }
 
         Ok(())

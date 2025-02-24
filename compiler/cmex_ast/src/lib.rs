@@ -91,7 +91,8 @@ impl Spannable for StmtTag {
 
 #[derive(Debug, Clone)]
 pub enum DeclTag {
-    /// `include`s are represented directly in AST.
+    /// `include`s are represented directly in AST, but to be honest this is an
+    /// ugly hotfix so I put TODO here.
     Include {
         path: String,
         span: Span,
@@ -134,6 +135,10 @@ pub enum DeclTag {
         /// it'll parsed later when macro is actually invoked
         body: TokenTree,
     },
+    Typedef {
+        spec: Vec<DeclSpecifier>,
+        decl_list: Vec<Declarator>
+    },
 }
 
 impl Spannable for DeclTag {
@@ -150,6 +155,11 @@ impl Spannable for DeclTag {
             ),
             DeclTag::Var { spec: _, decl_list } => decl_list.span().unwrap(),
             DeclTag::Macro { id, .. } => id.1,
+            // FIXME
+            DeclTag::Typedef { spec, decl_list } => Span::join(
+                spec.span().unwrap_or_default(),
+                decl_list.span().unwrap_or_default()
+            ),
         }
     }
 }
