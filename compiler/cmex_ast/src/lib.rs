@@ -137,7 +137,7 @@ pub enum DeclTag {
     },
     Typedef {
         spec: Vec<DeclSpecifier>,
-        decl_list: Vec<Declarator>
+        decl_list: Vec<Declarator>,
     },
 }
 
@@ -158,7 +158,7 @@ impl Spannable for DeclTag {
             // FIXME
             DeclTag::Typedef { spec, decl_list } => Span::join(
                 spec.span().unwrap_or_default(),
-                decl_list.span().unwrap_or_default()
+                decl_list.span().unwrap_or_default(),
             ),
         }
     }
@@ -220,10 +220,16 @@ pub struct Declarator {
 
 impl Spannable for Declarator {
     fn span(&self) -> Span {
-        let inner_span = self.inner.span().unwrap_or_default();
+        // FIXME: still doesn't work
+        let inner_span =  self.inner.span().unwrap_or_default();
+        let prefix_span = self.prefix
+            .iter()
+            .map(|prefix| prefix.span().unwrap_or(inner_span))
+            .reduce(|a, b| a + b)
+            .unwrap_or(inner_span);
 
         Span::join(
-            inner_span,
+            prefix_span,
             self.suffix
                 .as_ref()
                 .map(|suffix| suffix.span().unwrap_or(inner_span))
@@ -268,6 +274,16 @@ impl MaybeSpannable for DirectDeclarator {
 #[derive(Debug, Clone)]
 pub enum DeclaratorPrefix {
     Pointer(Vec<Token>),
+}
+
+impl MaybeSpannable for DeclaratorPrefix {
+    fn span(&self) -> Option<Span> {
+        match self {
+            Self::Pointer(items) => {
+                items.span()
+            },
+        }
+    }
 }
 
 impl std::fmt::Display for DeclaratorPrefix {

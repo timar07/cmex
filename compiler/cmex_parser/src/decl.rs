@@ -1,14 +1,14 @@
 use std::ops::Deref;
 
-use cmex_ast::{Declarator, DirectDeclarator};
 use cmex_ast::{
     token::TokenTag::*, DeclSpecifier, DeclTag, DeclaratorSuffix,
     InitDeclarator, Nonterminal, TypeSpecifier,
 };
-use cmex_span::{MaybeSpannable, Span, Spannable, Unspan};
+use cmex_ast::DirectDeclarator;
+use cmex_span::{MaybeSpannable, Spannable, Unspan};
 use tracing::instrument;
 
-use crate::{check_tok, lookahead, match_tok, require_tok, skip_until};
+use crate::{check_tok, lookahead, match_tok, require_tok};
 use crate::{ParseErrorTag, Parser, SymbolTag, PR};
 
 impl Parser<'_> {
@@ -45,7 +45,6 @@ impl Parser<'_> {
             _ => {
                 let spec = self.maybe_decl_specifiers()?;
 
-
                 // TODO: hotfix, refactor
                 if check_tok!(self, Semicolon) {
                     if let Some(ref spec) = spec {
@@ -56,55 +55,62 @@ impl Parser<'_> {
                     }
                 }
 
-                // FIXME: this needs refactoring...
+                // FIXME: this needs refactoring too...
                 if let Some(spec) = spec.clone() {
                     let is_typedef = spec
                         .iter()
-                        .find(|spec| {
-                            matches!(spec, DeclSpecifier::StorageClass((
-                                Typedef,
-                                _
-                            )))
-                        })
-                        .is_some();
+                        .any(|spec| {
+                            matches!(
+                                spec,
+                                DeclSpecifier::StorageClass((Typedef, _))
+                            )
+                        });
 
                     if is_typedef {
-                        let decls = self.declarator_list()?
-                            .iter()
-                            .inspect(|decl| {
-                                match decl.inner.deref() {
-                                    DirectDeclarator::Identifier(tok) => {
-                                        self.symbols
-                                            .define(tok.0.to_string(), (
-                                                SymbolTag::Type,
-                                                tok.span()
-                                            ));
-                                    }
-                                    _ => {
-                                        self.errors.emit(&(
-                                            ParseErrorTag::Expected("identifier".into()),
-                                            decl.inner.span().unwrap_or_default()
-                                        ))
-                                    }
-                                }
-                            })
-                            .cloned()
-                            .collect();
+                        decl_list.push(self.typedef(spec)?);
 
-                        decl_list.push(dbg!(DeclTag::Typedef {
-                            spec,
-                            decl_list: decls
-                        }));
+                        require_tok!(self, Semicolon)?;
 
-                        require_tok!(self, Semicolon);
-
-                        return Ok(decl_list)
+                        return Ok(decl_list);
                     }
                 }
 
                 self.external_decl_tail(spec, decl_list)
             }
         }
+    }
+
+    fn typedef(&mut self, spec: Vec<DeclSpecifier>) -> PR<DeclTag> {
+        let decls = self
+            .declarator_list()?
+            .iter()
+            .inspect(|decl| match decl.inner.deref() {
+                DirectDeclarator::Identifier(tok) => {
+                    let id = tok.0.to_string();
+                    self.symbols
+                        .define(
+                            id.clone(),
+                            (SymbolTag::Type, tok.span()),
+                        )
+                        .map_err(|_| self.errors.emit(&(
+                            ParseErrorTag::NameAlreadyDefined(id),
+                            tok.span()
+                        )));
+                }
+                _ => self.errors.emit(&(
+                    ParseErrorTag::Expected(
+                        "identifier".into(),
+                    ),
+                    decl.span(),
+                )),
+            })
+            .cloned()
+            .collect();
+
+        Ok(DeclTag::Typedef {
+            spec,
+            decl_list: decls
+        })
     }
 
     pub(crate) fn external_decl_tail(
@@ -158,7 +164,9 @@ impl Parser<'_> {
             }
         }
 
-        require_tok!(self, Semicolon)?;
+        require_tok!(self, Semicolon)
+            .inspect_err(|_| { self.recover_for_next(); })?;
+
         Ok(decl_list)
     }
 

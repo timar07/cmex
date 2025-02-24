@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use std::{fmt::Debug, ops::Add};
 
 pub type Spanned<T> = (T, Span);
 
@@ -10,6 +10,14 @@ impl<T> Spannable for Spanned<T> {
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct Span(pub usize, pub usize);
+
+impl Add for Span {
+    type Output = Span;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Span::join(self, rhs)
+    }
+}
 
 impl Span {
     pub fn dummy() -> Self {

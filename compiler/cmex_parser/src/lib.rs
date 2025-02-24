@@ -58,6 +58,30 @@ impl<'a> Parser<'a> {
         self.iter.next();
     }
 
+    /// Recover for the next statement start
+    pub(crate) fn recover_for_next(&mut self) {
+        loop {
+            match self.iter.peek().val() {
+                Some(TokenTag::Semicolon) => {
+                    self.iter.next();
+                    break;
+                },
+                Some(
+                    TokenTag::While
+                    | TokenTag::Do
+                    | TokenTag::For
+                    | TokenTag::Goto
+                    | TokenTag::If
+                    | TokenTag::MacroRules
+                    | TokenTag::Return
+                    | TokenTag::Switch
+                ) => break,
+                Some(_) => { self.iter.next(); }
+                None => break
+            }
+        }
+    }
+
     pub(crate) fn curly_wrapped<T, F>(&mut self, f: F) -> PR<T>
     where
         T: Default,
