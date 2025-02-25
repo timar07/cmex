@@ -398,7 +398,10 @@ impl Parser<'_> {
                 ParseErrorTag::UnexpectedToken(t),
                 self.iter.peek().span().unwrap(),
             )),
-            _ => panic!(),
+            _ => Err((
+                ParseErrorTag::UnexpectedEof,
+                Span::dummy()
+            )),
         }
     }
 
