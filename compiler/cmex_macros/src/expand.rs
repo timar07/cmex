@@ -362,7 +362,7 @@ fn expand(
 
         match tree {
             MacroTokenTree::Frag(id, _) => {
-                // TODO: `tag` option is unnecessary, fix it
+                // FIXME: `tag` option is unnecessary
 
                 if let Some(matched) =
                     lookup_current_match(id, &captures, &repeats)
@@ -398,8 +398,12 @@ fn expand(
             mtt @ MacroTokenTree::Rep(seq, sep, rep) => {
                 match get_repetition_len(mtt, &captures, &repeats) {
                     Some(len) => {
-                        repeats.push((0, len));
-                        stack.push(Frame::rep(seq, sep.clone(), *rep))
+                        if len == 0 {
+                            // TODO
+                        } else {
+                            repeats.push((0, len));
+                            stack.push(Frame::rep(seq, sep.clone(), *rep))
+                        }
                     }
                     None => {
                         return Err((ExpError::NothingToUnwind, mtt.span()))
