@@ -29,6 +29,7 @@ pub enum ExpError {
     VariableIsStillRepeating(String),
     UndeclaredMetavar(String),
     NothingToUnwind,
+    MustRepeatAtLeastOnce,
 }
 
 impl std::fmt::Display for ExpError {
@@ -51,6 +52,12 @@ impl std::fmt::Display for ExpError {
             }
             Self::NothingToUnwind => {
                 write!(f, "nothing to unwind here")
+            }
+            Self::MustRepeatAtLeastOnce => {
+                write!(
+                    f,
+                    "`+` operator requires metavar to repeat at least once"
+                )
             }
         }
     }
@@ -399,7 +406,12 @@ fn expand(
                 match get_repetition_len(mtt, &captures, &repeats) {
                     Some(len) => {
                         if len == 0 {
-                            // TODO
+                            if rep == &RepOpTag::Plus {
+                                return Err((
+                                    ExpError::MustRepeatAtLeastOnce,
+                                    mtt.span(),
+                                ));
+                            }
                         } else {
                             repeats.push((0, len));
                             stack.push(Frame::rep(seq, sep.clone(), *rep))
