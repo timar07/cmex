@@ -151,7 +151,7 @@ where
             DeclTag::Var { spec, decl_list } => {
                 emit!(
                     self,
-                    "{} {};",
+                    "{} {}",
                     self.compile_specs(spec),
                     decl_list
                         .iter()
@@ -162,7 +162,7 @@ where
             }
             DeclTag::Macro { .. } => { /* Macros are not compiled */ }
             DeclTag::Typedef { spec, decl_list } => {
-                emit!(
+                emitln!(
                     self,
                     "{} {};",
                     self.compile_specs(spec),
@@ -172,6 +172,7 @@ where
                         .collect::<Vec<String>>()
                         .join(", ")
                 );
+                emitln!(self, "");
             }
         }
 
@@ -414,13 +415,20 @@ where
 
     fn compile_init_decl(&self, init_decl: &InitDeclarator) -> String {
         format!(
-            "{} {}",
+            "{}{}",
             self.compile_declarator(&init_decl.0),
-            init_decl
-                .1
-                .as_ref()
-                .map(|init| self.compile_initializer(init))
-                .unwrap_or_default()
+            if init_decl.1.is_some() {
+                format!(
+                    " {}",
+                    init_decl
+                        .1
+                        .as_ref()
+                        .map(|init| self.compile_initializer(init))
+                        .unwrap_or_default()
+                )
+            } else {
+                "".into()
+            }
         )
     }
 

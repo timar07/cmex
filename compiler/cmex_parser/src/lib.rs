@@ -65,7 +65,7 @@ impl<'a> Parser<'a> {
                 Some(TokenTag::Semicolon) => {
                     self.iter.next();
                     break;
-                },
+                }
                 Some(
                     TokenTag::While
                     | TokenTag::Do
@@ -74,10 +74,12 @@ impl<'a> Parser<'a> {
                     | TokenTag::If
                     | TokenTag::MacroRules
                     | TokenTag::Return
-                    | TokenTag::Switch
+                    | TokenTag::Switch,
                 ) => break,
-                Some(_) => { self.iter.next(); }
-                None => break
+                Some(_) => {
+                    self.iter.next();
+                }
+                None => break,
             }
         }
     }

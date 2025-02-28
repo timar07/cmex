@@ -398,10 +398,7 @@ impl Parser<'_> {
                 ParseErrorTag::UnexpectedToken(t),
                 self.iter.peek().span().unwrap(),
             )),
-            _ => Err((
-                ParseErrorTag::UnexpectedEof,
-                Span::dummy()
-            )),
+            _ => Err((ParseErrorTag::UnexpectedEof, Span::dummy())),
         }
     }
 
@@ -417,7 +414,7 @@ impl Parser<'_> {
         expr
     }
 
-    /// Statement expression is not a ANSI C feature, but the project kind of
+    /// Statement expression is not an ANSI C feature, but the project kind of
     /// depends on this functionality, so it's supported here.
     /// For more information, see:
     /// <https://gcc.gnu.org/onlinedocs/gcc/Statement-Exprs.html>

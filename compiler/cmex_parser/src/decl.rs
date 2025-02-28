@@ -1,10 +1,10 @@
 use std::ops::Deref;
 
+use cmex_ast::DirectDeclarator;
 use cmex_ast::{
     token::TokenTag::*, DeclSpecifier, DeclTag, DeclaratorSuffix,
     InitDeclarator, Nonterminal, TypeSpecifier,
 };
-use cmex_ast::DirectDeclarator;
 use cmex_span::{MaybeSpannable, Spannable, Unspan};
 use tracing::instrument;
 
@@ -57,14 +57,12 @@ impl Parser<'_> {
 
                 // FIXME: this needs refactoring too...
                 if let Some(spec) = spec.clone() {
-                    let is_typedef = spec
-                        .iter()
-                        .any(|spec| {
-                            matches!(
-                                spec,
-                                DeclSpecifier::StorageClass((Typedef, _))
-                            )
-                        });
+                    let is_typedef = spec.iter().any(|spec| {
+                        matches!(
+                            spec,
+                            DeclSpecifier::StorageClass((Typedef, _))
+                        )
+                    });
 
                     if is_typedef {
                         decl_list.push(self.typedef(spec)?);
@@ -88,19 +86,16 @@ impl Parser<'_> {
                 DirectDeclarator::Identifier(tok) => {
                     let id = tok.0.to_string();
                     self.symbols
-                        .define(
-                            id.clone(),
-                            (SymbolTag::Type, tok.span()),
-                        )
-                        .map_err(|_| self.errors.emit(&(
-                            ParseErrorTag::NameAlreadyDefined(id),
-                            tok.span()
-                        )));
+                        .define(id.clone(), (SymbolTag::Type, tok.span()))
+                        .inspect_err(|_| {
+                            self.errors.emit(&(
+                                ParseErrorTag::NameAlreadyDefined(id),
+                                tok.span(),
+                            ))
+                        });
                 }
                 _ => self.errors.emit(&(
-                    ParseErrorTag::Expected(
-                        "identifier".into(),
-                    ),
+                    ParseErrorTag::Expected("identifier".into()),
                     decl.span(),
                 )),
             })
@@ -109,7 +104,7 @@ impl Parser<'_> {
 
         Ok(DeclTag::Typedef {
             spec,
-            decl_list: decls
+            decl_list: decls,
         })
     }
 
@@ -164,8 +159,9 @@ impl Parser<'_> {
             }
         }
 
-        require_tok!(self, Semicolon)
-            .inspect_err(|_| { self.recover_for_next(); })?;
+        require_tok!(self, Semicolon).inspect_err(|_| {
+            self.recover_for_next();
+        })?;
 
         Ok(decl_list)
     }
