@@ -1,0 +1,85 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+typedef struct {
+    char* key;
+    char* value;
+} dict_entry_t;
+
+typedef struct {
+    dict_entry_t* table[10];
+} dict_t;
+
+unsigned int hash(const char* key) {
+    unsigned int hashValue = 0;
+    while (*key) {
+        hashValue = (hashValue * 31) + (*key++);
+    }
+    return hashValue % 10;
+}
+
+dict_t* dict_init() {
+    dict_t* dict = (dict_t*)malloc(sizeof(dict_t));
+    int i;
+    for (i = 0; i < 10; i++) {
+        dict->table[i] = NULL;
+    }
+    return dict;
+}
+
+void dict_set(dict_t* dict, const char* key, const char* value) {
+    unsigned int index = hash(key);
+
+    dict_entry_t* entry = (dict_entry_t*)malloc(sizeof(dict_entry_t));
+    entry->key = strdup(key);
+    entry->value = strdup(value);
+
+    dict->table[index] = entry;
+}
+
+char* dict_get(dict_t* dict, const char* key) {
+    unsigned int index = hash(key);
+
+    if (dict->table[index] != NULL && strcmp(dict->table[index]->key, key) == 0) {
+        return dict->table[index]->value;
+    }
+    return NULL;
+}
+
+void dict_free(dict_t* dict) {
+    int i;
+    for (i = 0; i < 10; i++) {
+        if (dict->table[i] != NULL) {
+            free(dict->table[i]->key);
+            free(dict->table[i]->value);
+            free(dict->table[i]);
+        }
+    }
+    free(dict);
+}
+
+macro_rules! dict {
+    ($($key:expr => $val:expr),*) => {
+        ({
+            dict_t *d = dict_init();
+            $(dict_set(d, $key, $val);)*
+            d;
+        })
+    };
+}
+
+int main() {
+    dict_t* dict = dict!{
+        "apple" => "A fruit that is red or green.",
+        "banana" => "A long, yellow fruit."
+    };
+
+    printf("apple: %s\n", dict_get(dict, "apple"));
+    printf("banana: %s\n", dict_get(dict, "banana"));
+    printf("pomelo: %s\n", dict_get(dict, "pomelo"));
+
+    dict_free(dict);
+
+    return 0;
+}
