@@ -85,7 +85,7 @@ impl Parser<'_> {
             .inspect(|decl| match decl.inner.deref() {
                 DirectDeclarator::Identifier(tok) => {
                     let id = tok.0.to_string();
-                    self.symbols
+                    let _ = self.symbols
                         .define(id.clone(), (SymbolTag::Type, tok.span()))
                         .inspect_err(|_| {
                             self.errors.emit(&(
@@ -214,7 +214,7 @@ impl Parser<'_> {
             Some(DeclaratorSuffix::Func(_)) => Ok(DeclTag::Func {
                 spec,
                 decl: Box::new(decl.0),
-                body: Box::new(self.compound_statement()?),
+                body: self.compound_statement()?,
             }),
             // Function has a array suffix e.g. `int foo[100]() { ... }`
             Some(DeclaratorSuffix::Array(ref suffix)) => {
@@ -226,7 +226,7 @@ impl Parser<'_> {
                 Ok(DeclTag::Func {
                     spec,
                     decl: Box::new(decl.0),
-                    body: Box::new(self.compound_statement()?),
+                    body: self.compound_statement()?,
                 })
             }
             _ => {

@@ -14,9 +14,7 @@ use tracing::instrument;
 
 impl Parser<'_> {
     #[instrument(skip_all)]
-    pub(crate) fn translation_unit(
-        &mut self,
-    ) -> TranslationUnit {
+    pub(crate) fn translation_unit(&mut self) -> TranslationUnit {
         let mut decls = Vec::new();
 
         while self.iter.peek().is_some() {
@@ -34,7 +32,7 @@ impl Parser<'_> {
     }
 
     #[instrument(skip_all)]
-    pub fn statement(&mut self) -> PR<Stmt> {
+    pub fn statement(&mut self) -> PR<Box<Stmt>> {
         // Declarations after statements is a C99 feature, but anyway it's
         // supported here.
         if let Some(spec) = self.maybe_decl_specifiers()? {
@@ -42,9 +40,9 @@ impl Parser<'_> {
             let decl = self.decl(spec, init_decl)?;
             require_tok!(self, Semicolon)?;
 
-            return Ok(Stmt {
+            return Ok(Box::new(Stmt {
                 tag: StmtTag::Decl(decl),
-            });
+            }));
         }
 
         match self.iter.peek().val() {
@@ -56,20 +54,20 @@ impl Parser<'_> {
                 if lookahead!(self, 1, Colon) {
                     self.labeled_statement()
                 } else {
-                    Ok(Stmt {
+                    Ok(Box::new(Stmt {
                         tag: StmtTag::Expr(self.expression_statement()?),
-                    })
+                    }))
                 }
             }
             Some(Goto | Continue | Break | Return) => self.jump_statement(),
-            _ => Ok(Stmt {
+            _ => Ok(Box::new(Stmt {
                 tag: StmtTag::Expr(self.expression_statement()?),
-            }),
+            })),
         }
     }
 
     #[instrument(skip_all)]
-    pub(crate) fn compound_statement(&mut self) -> PR<Stmt> {
+    pub(crate) fn compound_statement(&mut self) -> PR<Box<Stmt>> {
         assert_eq!(self.iter.next().val(), Some(LeftCurly));
         self.symbols.enter();
 
@@ -78,7 +76,7 @@ impl Parser<'_> {
         while !check_tok!(self, RightCurly) {
             match self.statement() {
                 Ok(stmt) => {
-                    stmts.push(stmt);
+                    stmts.push(*stmt); // FIXME: not good
                 }
                 Err(err) => self.errors.emit(&err),
             }
@@ -86,9 +84,9 @@ impl Parser<'_> {
 
         self.symbols.leave();
 
-        Ok(Stmt {
+        Ok(Box::new(Stmt {
             tag: StmtTag::Compound(stmts),
-        })
+        }))
     }
 
     #[instrument(skip_all)]
@@ -128,29 +126,29 @@ impl Parser<'_> {
     }
 
     #[instrument(skip_all)]
-    fn iteration_statement(&mut self) -> PR<Stmt> {
+    fn iteration_statement(&mut self) -> PR<Box<Stmt>> {
         Ok(match self.iter.peek().val() {
             Some(While) => {
                 self.iter.next();
 
-                Stmt {
+                Box::new(Stmt {
                     tag: StmtTag::While {
                         cond: self
                             .paren_wrapped(|parser| parser.expression())?,
-                        stmt: Box::new(self.statement()?),
+                        stmt: self.statement()?,
                     },
-                }
+                })
             }
             Some(Do) => {
                 self.iter.next();
-                let stmt = Box::new(self.statement()?);
+                let stmt = self.statement()?;
                 require_tok!(self, While)?;
                 let cond = self.paren_wrapped(|parser| parser.expression())?;
                 require_tok!(self, Semicolon)?;
 
-                Stmt {
+                Box::new(Stmt {
                     tag: StmtTag::Do { cond, stmt },
-                }
+                })
             }
             Some(For) => {
                 self.iter.next();
@@ -166,102 +164,102 @@ impl Parser<'_> {
                     ))
                 })?;
 
-                Stmt {
+                Box::new(Stmt {
                     tag: StmtTag::For(
                         header.0,
                         header.1,
                         header.2,
-                        Box::new(self.statement()?),
+                        self.statement()?,
                     ),
-                }
+                })
             }
             _ => unreachable!(),
         })
     }
 
     #[instrument(skip_all)]
-    fn selection_statement(&mut self) -> PR<Stmt> {
+    fn selection_statement(&mut self) -> PR<Box<Stmt>> {
         match self.iter.peek().val() {
             Some(If) => {
                 self.iter.next();
                 let cond = self.paren_wrapped(|parser| parser.expression())?;
-                let if_stmt = Box::new(self.statement()?);
+                let if_stmt = self.statement()?;
                 let else_stmt = if check_tok!(self, Else) {
-                    Some(Box::new(self.statement()?))
+                    Some(self.statement()?)
                 } else {
                     None
                 };
 
-                Ok(Stmt {
+                Ok(Box::new(Stmt {
                     tag: StmtTag::If(cond, if_stmt, else_stmt),
-                })
+                }))
             }
             Some(Switch) => {
                 self.iter.next();
-                Ok(Stmt {
+                Ok(Box::new(Stmt {
                     tag: StmtTag::Switch(
                         self.paren_wrapped(|parser| parser.expression())?,
-                        Box::new(self.statement()?),
+                        self.statement()?,
                     ),
-                })
+                }))
             }
             _ => unreachable!(),
         }
     }
 
     #[instrument(skip_all)]
-    fn labeled_statement(&mut self) -> PR<Stmt> {
+    fn labeled_statement(&mut self) -> PR<Box<Stmt>> {
         Ok(match self.iter.peek().val() {
             Some(Identifier(_)) => {
                 let id = self.iter.next().unwrap();
                 require_tok!(self, Colon)?;
-                Stmt {
-                    tag: StmtTag::Label(id, Box::new(self.statement()?)),
-                }
+                Box::new(Stmt {
+                    tag: StmtTag::Label(id, self.statement()?),
+                })
             }
             Some(Case) => {
                 self.iter.next();
                 let expr = self.constant_expression()?;
                 require_tok!(self, Colon)?;
-                Stmt {
-                    tag: StmtTag::Case(expr, Box::new(self.statement()?)),
-                }
+                Box::new(Stmt {
+                    tag: StmtTag::Case(expr, self.statement()?),
+                })
             }
             Some(Default) => {
                 self.iter.next();
                 require_tok!(self, Colon)?;
-                Stmt {
-                    tag: StmtTag::Default(Box::new(self.statement()?)),
-                }
+                Box::new(Stmt {
+                    tag: StmtTag::Default(self.statement()?),
+                })
             }
             _ => unreachable!(),
         })
     }
 
     #[instrument(skip_all)]
-    fn jump_statement(&mut self) -> PR<Stmt> {
+    fn jump_statement(&mut self) -> PR<Box<Stmt>> {
         match self.iter.peek().val() {
             Some(Goto) => {
                 self.iter.next();
                 let id = require_tok!(self, Identifier(_))?;
                 require_tok!(self, Semicolon)?;
-                Ok(Stmt {
+                Ok(Box::new(Stmt {
                     tag: StmtTag::Goto(id),
-                })
+                }))
             }
             Some(Continue) => {
                 let span = self.iter.next().span().unwrap();
                 require_tok!(self, Semicolon)?;
-                Ok(Stmt {
+                Ok(Box::new(Stmt {
                     tag: StmtTag::Continue(span),
-                })
+                }))
             }
             Some(Break) => {
                 let span = self.iter.next().span().unwrap();
                 require_tok!(self, Semicolon)?;
-                Ok(Stmt {
+                Ok(Box::new(Stmt {
                     tag: StmtTag::Break(span),
-                })
+                }))
             }
             Some(Return) => {
                 let token = self.iter.next().unwrap();
@@ -273,9 +271,9 @@ impl Parser<'_> {
                 };
 
                 require_tok!(self, Semicolon)?;
-                Ok(Stmt {
+                Ok(Box::new(Stmt {
                     tag: StmtTag::Return(token, expr),
-                })
+                }))
             }
             _ => unreachable!(),
         }

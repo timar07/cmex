@@ -1,3 +1,5 @@
+#![allow(clippy::result_large_err)]
+
 use std::collections::HashMap;
 
 use cmex_ast::token::{Token, TokenTag};

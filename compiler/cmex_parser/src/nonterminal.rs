@@ -52,7 +52,7 @@ impl Parser<'_> {
         let mut stmts = Vec::new();
 
         while !matches!(self.iter.peek().val(), Some(RightCurly)) {
-            stmts.push(self.statement()?);
+            stmts.push(*self.statement()?); // TODO: not good
         }
 
         let (_, close) = self.iter.next().unwrap();

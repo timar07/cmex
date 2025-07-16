@@ -221,8 +221,9 @@ pub struct Declarator {
 impl Spannable for Declarator {
     fn span(&self) -> Span {
         // FIXME: still doesn't work
-        let inner_span =  self.inner.span().unwrap_or_default();
-        let prefix_span = self.prefix
+        let inner_span = self.inner.span().unwrap_or_default();
+        let prefix_span = self
+            .prefix
             .iter()
             .map(|prefix| prefix.span().unwrap_or(inner_span))
             .reduce(|a, b| a + b)
@@ -279,9 +280,7 @@ pub enum DeclaratorPrefix {
 impl MaybeSpannable for DeclaratorPrefix {
     fn span(&self) -> Option<Span> {
         match self {
-            Self::Pointer(items) => {
-                items.span()
-            },
+            Self::Pointer(items) => items.span(),
         }
     }
 }

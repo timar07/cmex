@@ -1,3 +1,5 @@
+#![allow(clippy::result_large_err)]
+
 mod decl;
 mod expr;
 mod macros;
