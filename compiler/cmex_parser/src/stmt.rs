@@ -3,7 +3,7 @@
 //! <https://www.lysator.liu.se/c/ANSI-C-grammar-y.html>
 //! <https://github.com/antlr/grammars-v3/blob/master/ANSI-C/C.g>
 
-use super::{ParseError, ParseErrorTag, Parser, PR};
+use super::{ParseErrorTag, Parser, PR};
 use crate::{
     check_tok, lookahead, match_tok, require_tok, skip_until, SymbolTag,
 };
@@ -16,10 +16,8 @@ impl Parser<'_> {
     #[instrument(skip_all)]
     pub(crate) fn translation_unit(
         &mut self,
-    ) -> Result<TranslationUnit, Vec<ParseError>> {
+    ) -> TranslationUnit {
         let mut decls = Vec::new();
-        // TODO: unused
-        let errors = Vec::new();
 
         while self.iter.peek().is_some() {
             match self.external_decl() {
@@ -32,11 +30,7 @@ impl Parser<'_> {
             }
         }
 
-        if errors.is_empty() {
-            Ok(TranslationUnit(decls))
-        } else {
-            Err(errors)
-        }
+        TranslationUnit(decls)
     }
 
     #[instrument(skip_all)]

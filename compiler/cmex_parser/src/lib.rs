@@ -44,7 +44,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub fn parse(&mut self) -> Result<TranslationUnit, Vec<ParseError>> {
+    pub fn parse(&mut self) -> TranslationUnit {
         self.translation_unit()
     }
 

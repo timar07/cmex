@@ -71,29 +71,21 @@ pub fn main() {
         },
     );
     let mut expander = MacroExpander::new(&emitter);
+    let ast = &mut parser.parse();
 
-    match &mut parser.parse() {
-        Ok(ast) => {
-            if cli.expand || cli.output.is_some() {
-                if let Err(err) = expander.expand_ast(ast) {
-                    emitter.emit(&err);
-                    return;
-                }
-            }
-
-            if cli.ast_dump {
-                println!("{}", AstDumper::new(ast));
-                return;
-            }
-
-            if let Some(path) = cli.output {
-                compile_file(&path, ast).unwrap();
-            }
+    if cli.expand || cli.output.is_some() {
+        if let Err(err) = expander.expand_ast(ast) {
+            emitter.emit(&err);
+            return;
         }
-        Err(errors) => {
-            errors.iter().for_each(|err| {
-                emitter.emit(err);
-            });
-        }
+    }
+
+    if cli.ast_dump {
+        println!("{}", AstDumper::new(ast));
+        return;
+    }
+
+    if let Some(path) = cli.output {
+        compile_file(&path, ast).unwrap();
     }
 }
