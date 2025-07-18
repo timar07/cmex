@@ -57,7 +57,7 @@ impl Default for CompilerOptions {
     }
 }
 
-pub struct Compiler<'a, T: std::io::Write> {
+pub struct Compiler<'a, T: Write> {
     ast: &'a TranslationUnit,
     f: &'a mut BufWriter<T>,
     options: CompilerOptions,
@@ -219,14 +219,14 @@ where
             }
             StmtTag::Do { cond, stmt } => {
                 emit!(self, "do");
-                self.compile_stmt(stmt)?;
+                self.compile_stmt_body(stmt)?;
                 emit!(self, "while ({});", self.compile_expr(cond));
                 self.emit_linebreak()?;
             }
             StmtTag::For(expr, expr1, expr2, stmt) => {
                 emit!(
                     self,
-                    "for ({})\n",
+                    "for ({})",
                     [expr, expr1, expr2]
                         .iter()
                         .map(|expr| {
@@ -239,18 +239,18 @@ where
                         .join("; ")
                 );
 
-                self.compile_stmt(stmt)?;
+                self.compile_stmt_body(stmt)?;
             }
             StmtTag::If(cond, then, otherwise) => {
                 emit!(self, "if ({})", self.compile_expr(cond));
-                self.compile_stmt(then)?;
+                self.compile_stmt_body(then)?;
                 if let Some(stmt) = otherwise {
-                    self.compile_stmt(stmt)?;
+                    self.compile_stmt_body(stmt)?;
                 }
             }
             StmtTag::Switch(expr, stmt) => {
                 emit!(self, "switch ({})", self.compile_expr(expr));
-                self.compile_stmt(stmt)?;
+                self.compile_stmt_body(stmt)?;
             }
             StmtTag::Case(expr, stmt) => {
                 emit!(self, "case {}:", self.compile_expr(expr));
@@ -288,6 +288,23 @@ where
                 emit!(self, "goto {label};");
                 self.emit_linebreak()?;
             }
+        }
+
+        Ok(())
+    }
+
+    fn compile_stmt_body(&mut self, stmt: &Stmt) -> std::io::Result<()> {
+        match &stmt.tag {
+            StmtTag::Compound(vec) => {
+                writeln!(self.f, " {{")?;
+                with_indent!(self, {
+                    for stmt in vec {
+                        self.compile_stmt(stmt)?;
+                    }
+                });
+                emitln!(self, "}}");
+            }
+            _ => self.compile_stmt(stmt)?,
         }
 
         Ok(())
@@ -561,7 +578,7 @@ where
 
     fn compile_field(&self, field: &FieldDecl) -> String {
         format!(
-            "{} {} {};",
+            "{} {}{};",
             field
                 .specs
                 .iter()

@@ -289,14 +289,20 @@ impl std::fmt::Display for DeclaratorPrefix {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             DeclaratorPrefix::Pointer(vec) => {
-                write!(
-                    f,
-                    "* {}",
-                    vec.iter()
-                        .map(|tok| tok.0.to_string())
-                        .collect::<Vec<String>>()
-                        .join(" ")
-                )
+                write!(f, "*",)?;
+
+                if !vec.is_empty() {
+                    write!(
+                        f,
+                        " {}",
+                        vec.iter()
+                            .map(|tok| tok.0.to_string())
+                            .collect::<Vec<String>>()
+                            .join(" ")
+                    )
+                } else {
+                    std::fmt::Result::Ok(())
+                }
             }
         }
     }
