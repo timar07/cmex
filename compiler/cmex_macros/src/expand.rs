@@ -103,7 +103,7 @@ impl<'a> MacroExpander<'a> {
                     self.decls
                         .define(
                             name.clone(),
-                            MacroParser::new(body.clone()).parse().unwrap(),
+                            MacroParser::new(body).parse().unwrap(),
                         )
                         .unwrap();
                 }

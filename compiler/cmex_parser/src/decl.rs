@@ -81,7 +81,7 @@ impl Parser<'_> {
     fn typedef(&mut self, spec: Vec<DeclSpecifier>) -> PR<DeclTag> {
         let decls = self
             .declarator_list()?
-            .iter()
+            .into_iter()
             .inspect(|decl| match decl.inner.deref() {
                 DirectDeclarator::Identifier(tok) => {
                     let id = tok.0.to_string();
@@ -99,7 +99,6 @@ impl Parser<'_> {
                     decl.span(),
                 )),
             })
-            .cloned()
             .collect();
 
         Ok(DeclTag::Typedef {

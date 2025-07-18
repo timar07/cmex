@@ -85,10 +85,10 @@ impl AstNodeDump for StmtTag {
                 stmt.tag.dump(tb);
                 tb.close();
             }
-            StmtTag::For(expr, expr1, expr2, stmt) => {
+            StmtTag::For(expr0, expr1, expr2, stmt) => {
                 tb.open("ForStmt".into());
 
-                for expr in [expr, expr1, expr2].iter().copied().flatten() {
+                for expr in [expr0, expr1, expr2].into_iter().flatten() {
                     expr.dump(tb);
                 }
 

@@ -9,19 +9,19 @@ use display::LineFormat;
 pub use emitter::ErrorEmitter;
 
 #[derive(Clone, Default)]
-pub struct ErrorBuilder {
-    fname: Option<String>,
+pub struct ErrorBuilder<'a> {
+    fname: Option<&'a str>,
     tag: Option<&'static str>,
     info: Option<String>,
     context: Option<String>,
 }
 
-impl ErrorBuilder {
+impl<'a> ErrorBuilder<'a> {
     pub fn new() -> Self {
         Self::default()
     }
 
-    pub fn filename(mut self, fname: String) -> Self {
+    pub fn filename(mut self, fname: &'a str) -> Self {
         self.fname = Some(fname);
         self
     }

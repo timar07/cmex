@@ -6,12 +6,12 @@ use cmex_span::{Spannable, Spanned};
 use crate::ErrorBuilder;
 
 pub struct ErrorEmitter<'a> {
-    builder: ErrorBuilder,
+    builder: ErrorBuilder<'a>,
     src: Source<'a>,
 }
 
 impl<'a> ErrorEmitter<'a> {
-    pub fn new(src: &'a str, builder: ErrorBuilder) -> Self {
+    pub fn new(src: &'a str, builder: ErrorBuilder<'a>) -> Self {
         Self {
             builder,
             src: Source::from(src),

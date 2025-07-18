@@ -486,10 +486,10 @@ impl Parser<'_> {
         require_tok!(self, Semicolon)?;
 
         Ok(decl_list
-            .iter()
+            .into_iter()
             .map(|decl| FieldDecl {
-                specs: specs.clone(),
-                decl: decl.clone(),
+                specs: specs.clone(), // TODO: this is bad
+                decl
             })
             .collect())
     }

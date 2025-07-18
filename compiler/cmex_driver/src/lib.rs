@@ -49,7 +49,7 @@ pub fn main() {
     let lexer = Lexer::from(file.as_str());
     let emitter = ErrorEmitter::new(
         file.as_str(),
-        ErrorBuilder::new().filename(src.clone()),
+        ErrorBuilder::new().filename(&src),
     );
     let tokens = Tokens(
         lexer

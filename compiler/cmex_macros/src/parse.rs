@@ -36,12 +36,12 @@ macro_rules! match_tok {
 /// Parse macros as a TokenTree -> internal macro representation.
 /// Macros have their own separate parser because it's basically a
 /// seperate part of the language with its own syntax.
-pub struct MacroParser {
-    tt: TokenTree,
+pub struct MacroParser<'a> {
+    tt: &'a TokenTree,
 }
 
-impl MacroParser {
-    pub fn new(tt: TokenTree) -> Self {
+impl<'a> MacroParser<'a> {
+    pub fn new(tt: &'a TokenTree) -> Self {
         Self { tt }
     }
 
@@ -51,7 +51,7 @@ impl MacroParser {
     }
 
     fn macro_rules_def(&mut self) -> PR<Vec<MacroRule>> {
-        match &self.tt {
+        match self.tt {
             TokenTree::Delim(_, tt, _) => Ok(self.macro_rules(tt.to_vec())?),
             TokenTree::Token(tok) => {
                 Err(("expected macro rules body".into(), tok.1))
@@ -106,9 +106,9 @@ impl MacroParser {
         Ok(MacroRule(matcher, rhs))
     }
 
-    fn macro_matcher<'a>(
+    fn macro_matcher<'b>(
         &mut self,
-        iter: &'a mut TtCursor<'a>,
+        iter: &'b mut TtCursor<'b>,
     ) -> PR<MacroMatcher> {
         Ok(MacroMatcher(MacroTtParser::new(iter).parse_mtt()?))
     }
@@ -210,7 +210,7 @@ impl<'a> MacroTtParser<'a> {
                 {
                     self.iter.next_tree();
                     Some(MacroTokenTree::Frag(
-                        tok.clone(),
+                        tok,
                         self.macro_frag_spec().ok(),
                     ))
                 } else {
