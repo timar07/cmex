@@ -3,6 +3,8 @@
 //! <https://www.lysator.liu.se/c/ANSI-C-grammar-y.html>
 //! <https://github.com/antlr/grammars-v3/blob/master/ANSI-C/C.g>
 
+use std::rc::Rc;
+
 use super::{ParseErrorTag, Parser, PR};
 use crate::{
     check_tok, lookahead, match_tok, require_tok, skip_until, SymbolTag,
@@ -481,15 +483,15 @@ impl Parser<'_> {
 
     #[instrument(skip_all)]
     fn struct_decl(&mut self) -> PR<Vec<FieldDecl>> {
-        let specs = self.specifier_qualifier_list()?;
+        let specs = Rc::new(self.specifier_qualifier_list()?);
         let decl_list = self.struct_declarator_list()?;
         require_tok!(self, Semicolon)?;
 
         Ok(decl_list
             .into_iter()
             .map(|decl| FieldDecl {
-                specs: specs.clone(), // TODO: this is bad
-                decl
+                specs: specs.clone(), // Cheap clone
+                decl,
             })
             .collect())
     }

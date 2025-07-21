@@ -2,6 +2,8 @@ pub mod ast_dump;
 pub mod token;
 mod tree_builder;
 
+use std::rc::Rc;
+
 use cmex_span::{MaybeSpannable, Span, Spannable};
 
 use token::{Token, TokenTag};
@@ -349,7 +351,7 @@ impl MaybeSpannable for DeclaratorSuffix {
 /// ```
 #[derive(Debug, Clone)]
 pub struct FieldDecl {
-    pub specs: Vec<TypeSpecifier>,
+    pub specs: Rc<Vec<TypeSpecifier>>,
     pub decl: FieldDeclarator,
 }
 
