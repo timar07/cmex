@@ -548,7 +548,7 @@ pub enum Expr {
         otherwise: Box<Expr>,
     },
     Invocation(InvocationTag),
-    StmtExpr(Vec<Stmt>, Span),
+    StmtExpr(Vec<Box<Stmt>>, Span),
 }
 
 impl Default for Expr {
@@ -613,6 +613,7 @@ pub enum TokenTree {
 }
 
 impl TokenTree {
+    /// Decompose [TokenTree] to a flat vector of [Token]s.
     pub fn flatten(&self) -> Vec<Token> {
         match self {
             TokenTree::Token(tok) => vec![tok.clone()],
@@ -676,7 +677,7 @@ impl Spannable for DelimSpan {
 
 #[derive(Debug, Clone)]
 pub enum Nonterminal {
-    Block(Vec<Stmt>),
+    Block(Vec<Box<Stmt>>),
     Literal(Token),
     Ident(Token),
     Item(Vec<DeclTag>),

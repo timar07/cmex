@@ -209,10 +209,7 @@ impl<'a> MacroTtParser<'a> {
                     self.iter.peek_tree()
                 {
                     self.iter.next_tree();
-                    Some(MacroTokenTree::Frag(
-                        tok,
-                        self.macro_frag_spec().ok(),
-                    ))
+                    Some(MacroTokenTree::Frag(tok, self.macro_frag_spec().ok()))
                 } else {
                     Some(MacroTokenTree::Frag(tok.clone(), None))
                 }

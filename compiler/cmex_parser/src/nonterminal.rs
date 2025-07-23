@@ -8,8 +8,8 @@ use tracing::instrument;
 use crate::{require_tok, ParseErrorTag, Parser, PR};
 
 impl Parser<'_> {
-    /// Parse nonterminal. There is only on usage case so far so the function
-    /// is inlined.
+    /// Parse nonterminal.
+    /// There is only on usage case so far so the function is inlined.
     #[inline]
     pub fn parse_nt(&mut self, tag: NtTag) -> PR<Nonterminal> {
         match tag {
@@ -46,13 +46,13 @@ impl Parser<'_> {
     }
 
     #[instrument(skip_all)]
-    pub fn block(&mut self) -> PR<(Vec<Stmt>, Span)> {
+    pub fn block(&mut self) -> PR<(Vec<Box<Stmt>>, Span)> {
         let (_, open) = require_tok!(self, LeftCurly)?;
 
         let mut stmts = Vec::new();
 
         while !matches!(self.iter.peek().val(), Some(RightCurly)) {
-            stmts.push(*self.statement()?); // TODO: not good
+            stmts.push(self.statement()?);
         }
 
         let (_, close) = self.iter.next().unwrap();

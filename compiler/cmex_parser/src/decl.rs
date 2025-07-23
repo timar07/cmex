@@ -56,7 +56,7 @@ impl Parser<'_> {
                 }
 
                 // FIXME: this needs refactoring too...
-                if let Some(spec) = spec.clone() {
+                if let Some(ref spec) = spec {
                     let is_typedef = spec.iter().any(|spec| {
                         matches!(
                             spec,
@@ -65,7 +65,7 @@ impl Parser<'_> {
                     });
 
                     if is_typedef {
-                        decl_list.push(self.typedef(spec)?);
+                        decl_list.push(self.typedef(spec.clone())?);
 
                         require_tok!(self, Semicolon)?;
 
@@ -85,7 +85,8 @@ impl Parser<'_> {
             .inspect(|decl| match decl.inner.deref() {
                 DirectDeclarator::Identifier(tok) => {
                     let id = tok.0.to_string();
-                    let _ = self.symbols
+                    let _ = self
+                        .symbols
                         .define(id.clone(), (SymbolTag::Type, tok.span()))
                         .inspect_err(|_| {
                             self.errors.emit(&(
@@ -215,7 +216,7 @@ impl Parser<'_> {
                 decl: Box::new(decl.0),
                 body: self.compound_statement()?,
             }),
-            // Function has a array suffix e.g. `int foo[100]() { ... }`
+            // Function has an array suffix e.g. `int foo[100]() { ... }`
             Some(DeclaratorSuffix::Array(ref suffix)) => {
                 self.errors.emit(&(
                     ParseErrorTag::UnexpectedDeclarationSuffix,
