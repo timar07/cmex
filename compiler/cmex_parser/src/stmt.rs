@@ -78,7 +78,7 @@ impl Parser<'_> {
         while !check_tok!(self, RightCurly) {
             match self.statement() {
                 Ok(stmt) => {
-                    stmts.push(*stmt); // FIXME: not good
+                    stmts.push(stmt);
                 }
                 Err(err) => self.errors.emit(&err),
             }

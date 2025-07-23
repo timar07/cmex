@@ -31,7 +31,7 @@ impl Spannable for Stmt {
 #[derive(Debug, Clone)]
 pub enum StmtTag {
     Expr(Option<Expr>),
-    Compound(Vec<Stmt>),
+    Compound(Vec<Box<Stmt>>),
     Decl(DeclTag),
     /// while (cond) stmt
     While {

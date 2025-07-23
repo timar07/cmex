@@ -64,6 +64,12 @@ pub trait Spannable {
     fn span(&self) -> Span;
 }
 
+impl<T: Spannable> Spannable for Box<T> {
+    fn span(&self) -> Span {
+        self.as_ref().span()
+    }
+}
+
 pub trait MaybeSpannable {
     fn span(&self) -> Option<Span>;
 }
